@@ -326,3 +326,414 @@
   (key-ken size-t)
   (offset :int64)
   (private :pointer))
+
+(defcfun "rd_kafka_message_destroy" :void
+  (rkmessage :pointer))
+
+(defcfun "rd_kafka_message_timestamp" :int64
+  (rkmessage :pointer)
+  (tstype :pointer))
+
+(defcfun "rd_kafka_message_latency" :int64
+  (rkmessage :pointer))
+
+(defcfun "rd_kafka_message_headers" rd-kafka-resp-err
+  (rkmessage :pointer)
+  (hdrsp :pointer))
+
+(defcfun "rd_kafka_message_detach_headers" rd-kafka-resp-err
+  (rkmessage :pointer)
+  (hdrsp :pointer))
+
+(defcfun "rd_kafka_message_set_headers" :void
+  (rkmessage :pointer)
+  (hdrs :pointer))
+
+(defcfun "rd_kafka_header_cnt" size-t
+  (hdrs :pointer))
+
+(defcenum rd-kafka-msg-status
+  (:rd-kafka-msg-status-not-persisted 0)
+  (:rd-kafka-msg-status-possibly-persisted 1)
+  (:rd-kafka-msg-status-persisted 2))
+
+(defcfun "rd_kafka_message_status" rd-kafka-msg-status
+  (rkmessage :pointer))
+
+(defcenum rd-kafka-conf-res
+  (:rd-kafka-conf-unknown -2)
+  (:rd-kafka-conf-invalid -1)
+  (:rd-kafka-conf-ok 0))
+
+(defcfun "rd_kafka_conf_new" :pointer)
+
+(defcfun "rd_kafka_conf_destroy" :void
+  (conf :pointer))
+
+(defcfun "rd_kafka_conf_dup" :pointer
+  (conf :pointer))
+
+(defcfun "rd_kafka_conf_dup_filter" :pointer
+  (conf :pointer)
+  (filter-cnt size-t)
+  (filter :pointer))
+
+(defcfun "rd_kafka_conf_set" rd-kafka-conf-res
+  (conf :pointer)
+  (name :string)
+  (value :string)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_conf_set_events" :void
+  (conf :pointer)
+  (events :int))
+
+(defcfun "rd_kafka_conf_set_background_event_cb" :void
+  (conf :pointer)
+  (event-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_dr_cb" :void
+  (conf :pointer)
+  (dr-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_dr_msg_cb" :void
+  (conf :pointer)
+  (dr-msg-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_consume_cb" :void
+  (conf :pointer)
+  (consume-db :pointer))
+
+(defcfun "rd_kafka_conf_set_rebalance_cb" :void
+  (conf :pointer)
+  (rebalance-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_offset_commit_cb" :void
+  (conf :pointer)
+  (offset-commit-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_error_cb" :void
+  (conf :pointer)
+  (error-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_throttle_cb" :void
+  (conf :pointer)
+  (throttle-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_log_cb" :void
+  (conf :pointer)
+  (log-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_stats_cb" :void
+  (conf :pointer)
+  (stats-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_socket_cb" :void
+  (conf :pointer)
+  (socket-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_connect_cb" :void
+  (conf :pointer)
+  (connect-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_closesocket_cb" :void
+  (conf :pointer)
+  (closesocker-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_open_cb" :void
+  (conf :pointer)
+  (open-cb :pointer))
+
+(defcfun "rd_kafka_conf_set_opaque" :void
+  (conf :pointer)
+  (opaque :pointer))
+
+(defcfun "rd_kafka_opaque" :pointer
+  (rk :pointer))
+
+(defcfun "rd_kafka_conf_set_default_topic_conf" :void
+  (conf :pointer)
+  (tconf :pointer))
+
+(defcfun "rd_kafka_conf_get" rd-kafka-conf-res
+  (conf :pointer)
+  (name :string)
+  (dest :string)
+  (dest-size :pointer))
+
+(defcfun "rd_kafka_topic_conf_get" rd-kafka-conf-res
+  (conf :pointer)
+  (name :string)
+  (dest :string)
+  (dest-size :pointer))
+
+(defcfun "rd_kafka_conf_dump" :pointer
+  (conf :pointer)
+  (cntp :pointer))
+
+(defcfun "rd_kafka_topic_conf_dump" :pointer
+  (conf :pointer)
+  (cntp :pointer))
+
+(defcfun "rd_kafka_conf_dump_free" :void
+  (arr :pointer)
+  (cnt size-t))
+
+(defcfun "rd_kafka_conf_properties_show" :void
+  (fp :pointer))
+
+(defcfun "rd_kafka_topic_conf_new" :pointer)
+
+(defcfun "rd_kafka_topic_conf_dup" :pointer
+  (conf :pointer))
+
+(defcfun "rd_kafka_default_topic_conf_dup" :pointer
+  (rk :pointer))
+
+(defcfun "rd_kafka_topic_conf_destroy" :void
+  (topic-conf :pointer))
+
+(defcfun "rd_kafka_topic_conf_set" rd-kafka-conf-res
+  (conf :pointer)
+  (name :string)
+  (value :string)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_topic_conf_set_opaque" :void
+  (conf :pointer)
+  (opaque :pointer))
+
+(defcfun "rd_kafka_topic_conf_set_partitioner_cb" :void
+  (topic-conf :pointer)
+  (partitioner :pointer))
+
+(defcfun "rd_kafka_topic_conf_set_msg_order_cmp" :void
+  (topic-conf :pointer)
+  (msg-order-cmp :pointer))
+
+(defcfun "rd_kafka_topic_partition_available" :void
+  (rkt :pointer)
+  (partition :int32))
+
+(defcfun "rd_kafka_msg_partitioner_random" :int32
+  (rkt :pointer)
+  (key :pointer)
+  (keylen size-t)
+  (partition-cnt :int32)
+  (opaque :pointer)
+  (msg-options :pointer))
+
+(defcfun "rd_kafka_msg_partitioner_consistent" :int32
+  (rkt :pointer)
+  (key :pointer)
+  (keylen size-t)
+  (partition-cnt :int32)
+  (opaque :pointer)
+  (msg-options :pointer))
+
+(defcfun "rd_kafka_msg_partitioner_consistent_random" :int32
+  (rkt :pointer)
+  (key :pointer)
+  (keylen size-t)
+  (partition-cnt :int32)
+  (opaque :pointer)
+  (msg-opaque :pointer))
+
+(defcfun "rd_kafka_msg_partitioner_murmur2" :int32
+  (rkt :pointer)
+  (key :pointer)
+  (keylen size-t)
+  (partition-cnt :int32)
+  (rkt-opaque :pointer)
+  (msg-opaque :pointer))
+
+(defcfun "rd_kafka_msg_partitioner_murmur2_random" :int32
+  (rkt :pointer)
+  (key :pointer)
+  (keylen size-t)
+  (partition-cnt :int32)
+  (rkt-opaque :pointer)
+  (msg-options :pointer))
+
+(defcfun "rd_kafka_new" :pointer
+  (type rd-kafka-type)
+  (conf :pointer)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_destroy" :void
+  (rk :pointer))
+
+(defcfun "rd_kafka_destroy_flags" :void
+  (rk :pointer)
+  (flags :int))
+
+(defcfun "rd_kafka_name" :string
+  (rk :pointer))
+
+(defcfun "rd_kafka_type" rd-kafka-type
+  (rk :pointer))
+
+(defcfun "rd_kafka_memberid" :string
+  (rk :pointer))
+
+(defcfun "rd_kafka_clusterid" :string
+  (rk :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_controllerid" :int32
+  (rk :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_topic_new" :pointer
+  (rk :pointer)
+  (topic :string)
+  (conf :pointer))
+
+(defcfun "rd_kafka_topic_destroy" :void
+  (rkt :pointer))
+
+(defcfun "rd_kafka_topic_name" :string
+  (rkt :pointer))
+
+(defcfun "rd_kafka_topic_opaque" :pointer
+  (rtk :pointer))
+
+(defcfun "rd_kafka_poll" :int
+  (rk :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_yield" :void
+  (rk :pointer))
+
+(defcfun "rd_kafka_pause_partitions" rd-kafka-resp-err
+  (rk :pointer)
+  (partitions :pointer))
+
+(defcfun "rd_kafka_resume_partitions" rd-kafka-resp-err
+  (rk :pointer)
+  (partitions :pointer))
+
+(defcfun "rd_kafka_query_watermark_offsets" rd-kafka-resp-err
+  (rk :pointer)
+  (topic :string)
+  (partitoin :int32)
+  (low :pointer)
+  (high :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_get_watermark_offsets" rd-kafka-resp-err
+  (rk :pointer)
+  (topic :string)
+  (partition :int32)
+  (low :pointer)
+  (high :pointer))
+
+(defcfun "rd_kafka_offsets_for_times" rd-kafka-resp-err
+  (rk :pointer)
+  (offsets :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_mem_free" :void
+  (rk :pointer)
+  (ptr :pointer))
+
+(defcfun "rd_kafka_queue_new" :pointer
+  (rk :pointer))
+
+(defcfun "rd_kafka_queue_destroy" :void
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_queue_get_main" :pointer
+  (rk :pointer))
+
+(defcfun "rd_kafka_queue_get_consumer" :pointer
+  (rk :pointer))
+
+(defcfun "rd_kafka_queue_get_partition" :pointer
+  (rk :pointer)
+  (topic :string)
+  (partition :int32))
+
+(defcfun "rd_kafka_queue_get_background" :pointer
+  (rk :pointer))
+
+(defcfun "rd_kafka_queue_forward" :void
+  (src :pointer)
+  (dst :pointer))
+
+(defcfun "rd_kafka_set_log_queue" rd-kafka-resp-err
+  (rk :pointer)
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_queue_length" size-t
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_queue_io_event_enable" :void
+  (rkqu :pointer)
+  (fd :int)
+  (payload :pointer)
+  (size size-t))
+
+(defcfun "rd_kafka_queue_cb_event_enable" :void
+  (rkqu :pointer)
+  (event-cb :pointer)
+  (opaque :pointer))
+
+(defcfun "rd_kafka_consume_start" :int
+  (rkt :pointer)
+  (partition :int32)
+  (offset :int64))
+
+(defcfun "rd_kafka_consume_start_queue" :int
+  (rkt :pointer)
+  (partition :int32)
+  (offset :int64)
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_consume_stop" :int
+  (rkt :pointer)
+  (partition :int32))
+
+(defcfun "rd_kafka_seek" rd-kafka-resp-err
+  (rkt :pointer)
+  (partition :int32)
+  (offset :int64)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_consume" :pointer
+  (rkt :pointer)
+  (partition :int32)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_consume_batch" ssize-t
+  (rkt :pointer)
+  (partition :int32)
+  (timeout-ms :int)
+  (rkmessages :pointer)
+  (rkmessages-size size-t))
+
+(defcfun "rd_kafka_consume_callback" :int
+  (rkt :pointer)
+  (partition :int32)
+  (timeout-ms :int)
+  (consume-cb :pointer)
+  (opaque :pointer))
+
+(defcfun "rd_kafka_consume_queue" :pointer
+  (rkqu :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_consume_batch_queue" ssize-t
+  (rkqu :pointer)
+  (timeout-ms :int)
+  (rkmessages :pointer)
+  (rkmessages-size size-t))
+
+(defcfun "rd_kafka_consume_callback_queue" :int
+  (rkqu :pointer)
+  (timeout-ms :int)
+  (consume-cb :pointer)
+  (opaque :pointer))

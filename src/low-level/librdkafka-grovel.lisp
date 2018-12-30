@@ -24,3 +24,13 @@
 (ctype size-t "size_t")
 
 (ctype ssize-t "ssize_t")
+
+(constant (rd-kafka-offset-beginning "RD_KAFKA_OFFSET_BEGINNING"))
+
+(constant (rd-kafka-offset-end "RD_KAFKA_OFFSET_END"))
+
+(constant (rd-kafka-offset-stored "RD_KAFKA_OFFSET_STORED"))
+
+(constant (rd-kafka-offset-invalid "RD_KAFKA_OFFSET_INVALID"))
+
+(constant (rd-kafka-offset-tail "RD_KAFKA_OFFSET_TAIL_BASE"))
