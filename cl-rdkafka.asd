@@ -24,6 +24,7 @@
   :licence "GPLv3"
   :depends-on (#:cffi)
   :defsystem-depends-on (#:cffi-grovel)
+  :in-order-to ((test-op (test-op :cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
   :components
   ((:module
@@ -36,6 +37,25 @@
       ((:file "package")
        (:cffi-grovel-file "librdkafka-grovel")
        (:file "librdkafka-bindings")))))))
+
+(asdf:defsystem :cl-rdkafka/test
+  :description "Tests for cl-rdkafka."
+  :version "0.0.1"
+  :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
+  :licence "GPLv3"
+  :depends-on (#:cl-rdkafka #:fiveam)
+  :perform (test-op (op sys) (uiop:symbol-call :fiveam :run-all-tests))
+  :components
+  ((:module
+    "test"
+    :serial t
+    :components
+    ((:file "package")
+     (:module
+      "low-level"
+      :serial t
+      :components
+      ((:file "unit-test")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))
