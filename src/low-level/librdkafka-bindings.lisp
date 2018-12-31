@@ -737,3 +737,612 @@
   (timeout-ms :int)
   (consume-cb :pointer)
   (opaque :pointer))
+
+(defcfun "rd_kafka_offset_store" rd-kafka-resp-err
+  (rkt :pointer)
+  (partition :int32)
+  (offset :int64))
+
+(defcfun "rd_kafka_offsets_store" rd-kafka-resp-err
+  (rk :pointer)
+  (offsets :pointer))
+
+(defcfun "rd_kafka_subscribe" rd-kafka-resp-err
+  (rk :pointer)
+  (topics :pointer))
+
+(defcfun "rd_kafka_unsubscribe" rd-kafka-resp-err
+  (rk :pointer))
+
+(defcfun "rd_kafka_subscription" rd-kafka-resp-err
+  (rk :pointer)
+  (topics :pointer))
+
+(defcfun "rd_kafka_consumer_poll" :pointer
+  (rk :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_consumer_close" rd-kafka-resp-err
+  (rk :pointer))
+
+(defcfun "rd_kafka_assign" rd-kafka-resp-err
+  (rk :pointer)
+  (partitions :pointer))
+
+(defcfun "rd_kafka_assignment" rd-kafka-resp-err
+  (rk :pointer)
+  (partitions :pointer))
+
+(defcfun "rd_kafka_commit" rd-kafka-resp-err
+  (rk :pointer)
+  (offsets :pointer)
+  (async :int))
+
+(defcfun "rd_kafka_commit_message" rd-kafka-resp-err
+  (rk :pointer)
+  (rkmessage :pointer)
+  (async :int))
+
+(defcfun "rd_kafka_commit_queue" rd-kafka-resp-err
+  (rk :pointer)
+  (offsets :pointer)
+  (rkqu :pointer)
+  (cb :pointer)
+  (opaque :pointer))
+
+(defcfun "rd_kafka_committed" rd-kafka-resp-err
+  (rk :pointer)
+  (partitions :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_position" rd-kafka-resp-err
+  (rk :pointer)
+  (partitions :pointer))
+
+(defcfun "rd_kafka_produce" :int
+  (rkt :pointer)
+  (partition :int32)
+  (msgflags :int)
+  (payload :pointer)
+  (len size-t)
+  (key :pointer)
+  (keylen size-t)
+  (msg-opaque :pointer))
+
+;; read defcfun docs about variadic funcs returning structs by value.
+;; I think I just need to load cffi-libffi along with libffi-dev
+(defcfun "rd_kafka_producev" rd-kafka-resp-err
+  (rk :pointer)
+  &rest)
+
+(defcfun "rd_kafka_produce_batch" :int
+  (rkt :pointer)
+  (partition :int32)
+  (msgflags :int)
+  (rkmessages :pointer)
+  (message-cnt :int))
+
+(defcfun "rd_kafka_flush" rd-kafka-resp-err
+  (rk :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_purge" rd-kafka-resp-err
+  (rk :pointer)
+  (purge-flags :int))
+
+(defcstruct rd-kafka-metadata-broker
+  (id :int32)
+  (host :string)
+  (port :int))
+
+(defcstruct rd-kafka-metadata-partition
+  (id :int32)
+  (err rd-kafka-resp-err)
+  (leader :int32)
+  (replica-cnt :int)
+  (replicas :pointer)
+  (isr-cnt :int)
+  (isrs :pointer))
+
+(defcstruct rd-kafka-metadata-topic
+  (topic :string)
+  (partition-cnt :int)
+  (partitions :pointer)
+  (err rd-kafka-resp-err))
+
+(defcstruct rd-kafka-metadata
+  (broker-cnt :int)
+  (brokers :pointer)
+  (topic-cnt :int)
+  (topics :pointer)
+  (orig-broker-id :int32)
+  (orig-broker-name :string))
+
+(defcfun "rd_kafka_metadata" rd-kafka-resp-err
+  (rk :pointer)
+  (all-topics :int)
+  (only-rkt :pointer)
+  (metadatap :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_metadata_destroy" :void
+  (metadata :pointer))
+
+(defcstruct rd-kafka-group-member-info
+  (member-id :string)
+  (client-id :string)
+  (client-host :string)
+  (member-metadata :pointer)
+  (member-metadata-size :int)
+  (member-assignment :pointer)
+  (member-assignment-size :int))
+
+(defcstruct rd-kafka-group-info
+  (broker (:struct rd-kafka-metadata-broker))
+  (group :string)
+  (err rd-kafka-resp-err)
+  (state :string)
+  (protocol-type :string)
+  (protocol :string)
+  (members :pointer)
+  (member-cnt :int))
+
+(defcstruct rd-kafka-group-list
+  (groups :pointer)
+  (group-cnt :int))
+
+(defcfun "rd_kafka_list_groups" rd-kafka-resp-err
+  (rk :pointer)
+  (group :string)
+  (grplistp :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_group_list_destroy" :void
+  (grplist :pointer))
+
+(defcfun "rd_kafka_brokers_add" :int
+  (rk :pointer)
+  (brokerlist :string))
+
+(defcfun "rd_kafka_set_logger" :void
+  (rk :pointer)
+  (func :pointer))
+
+(defcfun "rd_kafka_set_log_level" :void
+  (rk :pointer)
+  (level :int))
+
+(defcfun "rd_kafka_log_print" :void
+  (rk :pointer)
+  (level :int)
+  (fac :string)
+  (buf :string))
+
+(defcfun "rd_kafka_log_syslog" :void
+  (rk :pointer)
+  (level :int)
+  (fac :string)
+  (buf :string))
+
+(defcfun "rd_kafka_outq_len" :int
+  (rk :pointer))
+
+(defcfun "rd_kafka_dump" :void
+  (rp :pointer)
+  (rk :pointer))
+
+(defcfun "rd_kafka_thread_cnt" :int)
+
+(defcfun "rd_kafka_wait_destroyed" :int
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_unittest" :int)
+
+(defcfun "rd_kafka_poll_set_consumer" rd-kafka-resp-err
+  (rk :pointer))
+
+(defctype rd-kafka-event-type :int)
+
+(defcfun "rd_kafka_event_type" rd-kafka-event-type
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_name" :string
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_destroy" :void
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_message_next" rd-kafka-message
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_message_array" size-t
+  (rkev :pointer)
+  (rkmessages :pointer)
+  (size size-t))
+
+(defcfun "rd_kafka_event_message_count" size-t
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_error" rd-kafka-resp-err
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_error_string" :string
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_error_is_fatal" :int
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_opaque" :pointer
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_log" :int
+  (rkev :pointer)
+  (fac :pointer)
+  (str :pointer)
+  (level :int))
+
+(defcfun "rd_kafka_event_stats" :string
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_topic_partition_list" :pointer
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_topic_partition" :pointer
+  (rkev :pointer))
+
+(defctype rd-kafka-create-topics-result rd-kafka-event-type)
+(defctype rd-kafka-delelte-topics-result rd-kafka-event-type)
+(defctype rd-kafka-create-partitions-result rd-kafka-event-type)
+(defctype rd-kafka-alter-configs-result rd-kafka-event-type)
+(defctype rd-kafka-describe-configs-result rd-kafka-event-type)
+
+(defcfun "rd_kafka_event_CreateTopics_result" :pointer
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_DeleteTopics_result" :pointer
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_CreatePartitions_result" :pointer
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_AlterConfigs_result" :pointer
+  (rkev :pointer))
+
+(defcfun "rd_kafka_event_DescribeConfigs_result" :pointer
+  (rkev :pointer))
+
+(defcfun "rd_kafka_queue_poll" :pointer
+  (rkqu :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_queue_poll_callback" :int
+  (rkqu :pointer)
+  (timeout-ms :int))
+
+(defctype rd-kafka-plugin-f-conf-init rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-conf-set rd-kafka-conf-res)
+
+(defctype rd-kafka-interceptor-f-on-conf-dup rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-conf-destroy rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-new rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-destroy rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-send rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-acknowledgement rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-consume rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-commit rd-kafka-resp-err)
+
+(defctype rd-kafka-interceptor-f-on-request-sent rd-kafka-resp-err)
+
+(defcfun "rd_kafka_conf_interceptor_add_on_conf_set" rd-kafka-resp-err
+  (conf :pointer)
+  (ic-name :string)
+  (on-conf-set :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_conf_interceptor_add_on_conf_dup" rd-kafka-resp-err
+  (conf :pointer)
+  (ic-name :string)
+  (on-conf-dup :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_conf_interceptor_add_on_conf_destroy" rd-kafka-resp-err
+  (conf :pointer)
+  (ic-name :string)
+  (on-conf-destroy :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_conf_interceptor_add_on_new" rd-kafka-resp-err
+  (conf :pointer)
+  (ic-name :string)
+  (on-new :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_interceptor_add_on_destroy" rd-kafka-resp-err
+  (rk :pointer)
+  (ic-name :string)
+  (on-destroy :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_interceptor_add_on_send" rd-kafka-resp-err
+  (rk :pointer)
+  (ic-name :string)
+  (on-send :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_interceptor_add_on_acknowledgement" rd-kafka-resp-err
+  (rk :pointer)
+  (ic-name :string)
+  (on-acknowledgement :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_interceptor_add_on_consume" rd-kafka-resp-err
+  (rk :pointer)
+  (ic-name :string)
+  (on-consume :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_interceptor_add_on_commit" rd-kafka-resp-err
+  (rk :pointer)
+  (ic-name :string)
+  (on-commit :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_interceptor_add_on_request_sent" rd-kafka-resp-err
+  (rk :pointer)
+  (ic-name :string)
+  (on-request-sent :pointer)
+  (ic-opaque :pointer))
+
+(defcfun "rd_kafka_topic_result_error" rd-kafka-resp-err
+  (topicres :pointer))
+
+(defcfun "rd_kafka_topic_result_error_string" :string
+  (topicres :pointer))
+
+(defcfun "rd_kafka_topic_result_name" :string
+  (topicres :pointer))
+
+(defcenum rd-kafka-admin-op
+  (:rd-kafka-admin-op-any 0)
+  :rd-kafka-admin-op-createtopics
+  :rd-kafka-admin-op-deletetopics
+  :rd-kafka-admin-op-createpartitions
+  :rd-kafka-admin-op-alterconfigs
+  :rd-kafka-admin-op-describeconfigs
+  :rd-kafka-admin-op--cnt)
+
+(defcfun "rd_kafka_AdminOptions_new" :pointer
+  (rk :pointer)
+  (for-api rd-kafka-admin-op))
+
+(defcfun "rd_kafka_AdminOptions_destroy" :void
+  (options :pointer))
+
+(defcfun "rd_kafka_AdminOptions_set_request_timeout" rd-kafka-resp-err
+  (options :pointer)
+  (timeout-ms :int)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_AdminOptions_set_operation_timeout" rd-kafka-resp-err
+  (options :pointer)
+  (timeout-ms :int)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_AdminOptions_set_validate_only" rd-kafka-resp-err
+  (options :pointer)
+  (true-or-false :int)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_AdminOptions_set_broker" rd-kafka-resp-err
+  (options :pointer)
+  (broker-id :int32)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_AdminOptions_set_opaque" :void
+  (options :pointer)
+  (opaque :pointer))
+
+(defcfun "rd_kafka_NewTopic_new" :pointer
+  (topic :string)
+  (num-partitions :int)
+  (replication-factor :int)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_NewTopic_destroy" :void
+  (new-topic :pointer))
+
+(defcfun "rd_kafka_NewTopic_destroy_array" :void
+  (new-topics :pointer)
+  (new-topic-cnt size-t))
+
+(defcfun "rd_kafka_NewTopic_set_replica_assignment" rd-kafka-resp-err
+  (new-topic :pointer)
+  (partition :int32)
+  (broker-ids :pointer)
+  (broker-id-cnt size-t)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_NewTopic_set_config" rd-kafka-resp-err
+  (new-topic :pointer)
+  (name :string)
+  (value :string))
+
+(defcfun "rd_kafka_CreateTopics" :void
+  (rk :pointer)
+  (new-topics :pointer)
+  (new-topic-cnt size-t)
+  (options :pointer)
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_CreateTopics_result_topics" :pointer
+  (result :pointer)
+  (cntp :pointer))
+
+(defcfun "rd_kafka_DeleteTopic_new" :pointer
+  (topic :string))
+
+(defcfun "rd_kafka_DeleteTopic_destroy" :void
+  (del-topic :pointer))
+
+(defcfun "rd_kafka_DeleteTopic_destroy_array" :void
+  (del-topics :pointer)
+  (del-topic-cnt size-t))
+
+(defcfun "rd_kafka_DeleteTopics" :void
+  (rk :pointer)
+  (del-topics :pointer)
+  (del-topic-cnt size-t)
+  (options :pointer)
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_DeleteTopics_result_topics" :pointer
+  (result :pointer)
+  (cntp :pointer))
+
+(defcfun "rd_kafka_NewPartitions_new" :pointer
+  (topic :string)
+  (new-total-cnt size-t)
+  (errstr :pointer)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_NewPartitions_destroy" :void
+  (new-parts :pointer))
+
+(defcfun "rd_kafka_NewPartitions_destroy_array" :void
+  (new-parts :pointer)
+  (new-parts-cnt size-t))
+
+(defcfun "rd_kafka_NewPartitions_set_replica_assignment" rd-kafka-resp-err
+  (new-parts :pointer)
+  (new-partition-idx :int32)
+  (broker-ids :pointer)
+  (broker-id-cnt size-t)
+  (errstr :string)
+  (errstr-size size-t))
+
+(defcfun "rd_kafka_CreatePartitions" :void
+  (rk :pointer)
+  (new-parts :pointer)
+  (new-parts-cnt size-t)
+  (options :pointer)
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_CreatePartitions_result_topics" :pointer
+  (result :pointer)
+  (cntp :pointer))
+
+(defcenum rd-kafka-config-source
+  (:rd-kafka-config-source-unknown-config 0)
+  (:rd-kafka-config-source-dynamic-topic-config 1)
+  (:rd-kafka-config-source-dynamic-broker-config 2)
+  (:rd-kafka-config-source-dynamic-default-broker-config 3)
+  (:rd-kafka-config-source-static-broker-config 4)
+  (:rd-kafka-config-source-default-config 5)
+  :rd-kafka-config-source--cnt)
+
+(defcfun "rd_kafka_ConfigSource_name" :string
+  (conf-source rd-kafka-config-source))
+
+(defcfun "rd_kafka_ConfigEntry_name" :string
+  (entry :pointer))
+
+(defcfun "rd_kafka_ConfigEntry_value" :string
+  (entry :pointer))
+
+(defcfun "rd_kafka_ConfigEntry_source" rd-kafka-config-source
+  (entry :pointer))
+
+(defcfun "rd_kafka_ConfigEntry_is_read_only" :int
+  (entry :pointer))
+
+(defcfun "rd_kafka_ConfigEntry_is_default" :int
+  (entry :pointer))
+
+(defcfun "rd_kafka_ConfigEntry_is_sensitive" :int
+  (entry :pointer))
+
+(defcfun "rd_kafka_ConfigEntry_is_synonym" :int
+  (entry :pointer))
+
+(defcfun "rd_kafka_ConfigEntry_synonyms" :pointer
+  (entry :pointer)
+  (cntp :pointer))
+
+(defcenum rd-kafka-resource-type
+  (:rd-kafka-resource-unknown 0)
+  (:rd-kafka-resource-any 1)
+  (:rd-kafka-resource-topic 2)
+  (:rd-kafka-resource-group 3)
+  (:rd-kafka-resource-broker 4)
+  :rd-kafka-resource--cnt)
+
+(defcfun "rd_kafka_ResourceType_name" :string
+  (resttype rd-kafka-resource-type))
+
+(defcfun "rd_kafka_ConfigResource_new" :pointer
+  (restype rd-kafka-resource-type)
+  (resname :string))
+
+(defcfun "rd_kafka_ConfigResource_destroy" :void
+  (config :pointer))
+
+(defcfun "rd_kafka_ConfigResource_destroy_array" :void
+  (config :pointer)
+  (config-cnt size-t))
+
+(defcfun "rd_kafka_ConfigResource_set_config" rd-kafka-resp-err
+  (config :pointer)
+  (name :string)
+  (value :string))
+
+(defcfun "rd_kafka_ConfigResource_configs" :pointer
+  (config :pointer)
+  (cntp :pointer))
+
+(defcfun "rd_kafka_ConfigResource_type" rd-kafka-resource-type
+  (config :pointer))
+
+(defcfun "rd_kafka_ConfigResource_name" :string
+  (config :pointer))
+
+(defcfun "rd_kafka_ConfigResource_error" rd-kafka-resp-err
+  (config :pointer))
+
+(defcfun "rd_kafka_ConfigResource_error_string" :string
+  (config :pointer))
+
+(defcfun "rd_kafka_AlterConfigs" :void
+  (rk :pointer)
+  (configs :pointer)
+  (config-cnt size-t)
+  (options :pointer)
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_AlterConfigs_result_resources" :pointer
+  (result :pointer)
+  (cntp :pointer))
+
+(defcfun "rd_kafka_DescribeConfigs" :void
+  (rk :pointer)
+  (configs :pointer)
+  (config-cnt size-t)
+  (options :pointer)
+  (rkqu :pointer))
+
+(defcfun "rd_kafka_DescribeConfigs_result_resources" :pointer
+  (result :pointer)
+  (cntp :pointer))
