@@ -55,7 +55,8 @@
       "low-level"
       :serial t
       :components
-      ((:file "unit-test")))))))
+      ((:file "unit-test")
+       (:file "producer")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))

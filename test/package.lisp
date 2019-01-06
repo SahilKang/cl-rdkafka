@@ -24,7 +24,7 @@
   (:export #:run-tests-for-shell))
 
 (defpackage #:test/low-level
-  (:use #:cl #:cl-rdkafka/low-level #:fiveam))
+  (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
 
 (in-package #:cl-rdkafka/test)
 
