@@ -323,7 +323,7 @@
   (payload :pointer)
   (len size-t)
   (key :pointer)
-  (key-ken size-t)
+  (key-len size-t)
   (offset :int64)
   (private :pointer))
 
