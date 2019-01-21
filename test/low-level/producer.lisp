@@ -17,7 +17,7 @@
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 ;;; ===========================================================================
 
-(in-package #:test/low-level)
+(in-package #:test/low-level-producer)
 
 (defparameter *messages* (make-array 0
                                      :element-type 'string
@@ -109,15 +109,15 @@
   (rd-kafka-poll producer 0))
 
 (def-test producer ()
-  (let ((topic-name "producer-test-topic"))
-    (destructuring-bind (producer topic) (init "127.0.0.1:9092" topic-name)
+  (let ((topic-name "producer-test-topic")
+	(expected '("Hello" "World" "!")))
+    (destructuring-bind (producer topic) (init "kafka:9092" topic-name)
       (produce producer topic "Hello")
       (produce producer topic "World")
       (produce producer topic "!")
 
       (rd-kafka-flush producer (* 10 1000))
       (rd-kafka-topic-destroy topic)
-      (rd-kafka-destroy producer)))
-  (is (and (string= (elt *messages* 0) "Hello")
-           (string= (elt *messages* 1) "World")
-           (string= (elt *messages* 2) "!"))))
+      (rd-kafka-destroy producer))
+    (is (and (= (length expected) (length *messages*))
+	     (every #'string= expected *messages*)))))

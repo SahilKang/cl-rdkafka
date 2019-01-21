@@ -17,7 +17,7 @@
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 ;;; ===========================================================================
 
-(in-package #:test/low-level)
+(in-package #:cl-rdkafka/test)
 
 (defun version->string (version-num)
   "Parse rdkafka.h version number to string.
@@ -47,6 +47,6 @@ librdkafka/rdkafka.h says that the version int should be interpreted as:
 	      (format-pre-release pre-release)))))
 
 (def-test check-version-funcs ()
-  (let ((num (rd-kafka-version))
-	(str (rd-kafka-version-str)))
+  (let ((num (cl-rdkafka/ll:rd-kafka-version))
+	(str (cl-rdkafka/ll:rd-kafka-version-str)))
     (is (string= (version->string num) str))))

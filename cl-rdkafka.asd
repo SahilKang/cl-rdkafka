@@ -53,10 +53,10 @@
     ((:file "package")
      (:module
       "low-level"
-      :serial t
       :components
       ((:file "unit-test")
-       (:file "producer")))))))
+       (:file "producer")
+       (:file "consumer")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))
