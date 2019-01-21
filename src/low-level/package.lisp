@@ -31,14 +31,10 @@
 	   ((eq (first ,s) 'constant)
 	    (list (make-non-interned-keyword (caadr ,s))))
 
-	   ((find (first ,s)
-		  '(defctype ctype)
-		  :test #'eq)
+	   ((find (first ,s) '(defctype ctype) :test #'eq)
 	    (list (make-non-interned-keyword (second ,s))))
 
-	   ((find (first ,s)
-		  '(defcenum defcstruct)
-		  :test #'eq)
+	   ((find (first ,s) '(defcenum defcstruct) :test #'eq)
 	    (loop
 	       for x in (rest ,s)
 	       for y = (if (listp x) (first x) x)
@@ -56,18 +52,22 @@
 	when (parse-to-export sexp)
 	nconc it)))
 
+(defmacro get-exports ()
+  `(let ((exports
+	  (loop
+	     with project-root = (asdf:system-source-directory :cl-rdkafka)
+	     with glob-pattern = "src/low-level/librdkafka*.lisp"
+	     with files = (directory
+			   (merge-pathnames glob-pattern project-root))
+
+	     for file in files
+	     append (exports-from-file file))))
+     (append '(:export) exports)))
+
 (macrolet
     ((create-package ()
        `(defpackage #:cl-rdkafka/low-level
 	  (:nicknames #:cl-rdkafka/ll)
 	  (:use #:cl #:cffi)
-	  (:export
-	   ,@(loop
-		with project-root = (asdf:system-source-directory :cl-rdkafka)
-		with glob-pattern = "src/low-level/librdkafka*.lisp"
-		with files = (directory
-			      (merge-pathnames glob-pattern project-root))
-
-		for file in files
-		append (exports-from-file file))))))
+	  ,(get-exports))))
   (create-package))
