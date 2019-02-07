@@ -10,15 +10,8 @@ services:
     ports:
       - "9092:9092"
     environment:
-      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_PORT: 9092
     links:
       - zookeeper
-
-  test:
-    build:
-      context: ..
-      dockerfile: ./test/Dockerfile.test
-    links:
-      - kafka

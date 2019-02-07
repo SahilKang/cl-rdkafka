@@ -7,7 +7,7 @@ COPY src src
 COPY test test
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    sbcl cl-quicklisp gcc libc6-dev librdkafka-dev libffi-dev \
+    sbcl cl-quicklisp gcc libc6-dev librdkafka-dev libffi-dev kafkacat \
     && sbcl --noinform --end-runtime-options \
             --no-sysinit --no-userinit \
     	    --load $(find / -name 'quicklisp.lisp' -type f) \
@@ -23,4 +23,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && mkdir /app \
     && mv ./test-image /app/test-image
 
-CMD ["sbcl", "--noinform", "--core", "/app/test-image"]
+CMD ["./test/run-tests.bash"]
