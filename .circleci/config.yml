@@ -1,0 +1,21 @@
+version: 2
+
+jobs:
+  test:
+    working_directory: ~/cl-rdkafka
+
+    docker:
+      - image: docker/compose:1.23.2
+
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: |
+          docker-compose -f ./test/docker-compose.test.yml \
+          up --build --abort-on-container-exit test
+
+workflows:
+  version: 2
+  test_workflow:
+    jobs:
+      - test
