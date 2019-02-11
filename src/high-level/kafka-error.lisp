@@ -15,12 +15,21 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-user)
+(in-package #:cl-rdkafka)
 
-(defpackage #:cl-rdkafka
-  (:nicknames #:kf)
-  (:use #:cl)
-  (:export
-   #:bytes->object #:object->bytes
+(defclass kafka-error ()
+  ((rd-kafka-resp-err
+    :initarg :rd-kafka-resp-err
+    :initform (error "Must supply rd-kafka-resp-err pointer.")
+    :documentation "rd_kafka_resp_err_t enum.")
+   (code
+    :reader error-code
+    :documentation "Error code.")
+   (description
+    :reader error-description
+    :documentation "Error description.")))
 
-   #:kafka-error #:error-code #:error-description))
+(defmethod initialize-instance :after ((kafka-error kafka-error) &key)
+  (with-slots (rd-kafka-resp-err code description) kafka-error
+    (setf code (cl-rdkafka/ll:num rd-kafka-resp-err)
+	  description (cl-rdkafka/ll:rd-kafka-err2str rd-kafka-resp-err))))

@@ -40,7 +40,8 @@
       :depends-on ("low-level")
       :components
       ((:file "package")
-       (:file "serde" :depends-on ("package"))))))))
+       (:file "serde" :depends-on ("package"))
+       (:file "kafka-error" :depends-on ("package"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
@@ -64,7 +65,8 @@
      (:module
       "high-level"
       :components
-      ((:file "serde")))))))
+      ((:file "serde")
+       (:file "kafka-error")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))
