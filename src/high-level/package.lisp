@@ -23,4 +23,6 @@
   (:export
    #:bytes->object #:object->bytes
 
-   #:kafka-error #:error-code #:error-description))
+   #:kafka-error #:error-code #:error-description
+
+   #:topic #:make-topic #:topic-name))

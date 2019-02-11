@@ -20,7 +20,7 @@
   :version "0.0.1"
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :licence "GPLv3"
-  :depends-on (#:cffi #:babel)
+  :depends-on (#:cffi #:babel #:trivial-garbage)
   :defsystem-depends-on (#:cffi-grovel)
   :in-order-to ((test-op (test-op :cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
@@ -41,7 +41,8 @@
       :components
       ((:file "package")
        (:file "serde" :depends-on ("package"))
-       (:file "kafka-error" :depends-on ("package"))))))))
+       (:file "kafka-error" :depends-on ("package"))
+       (:file "topic" :depends-on ("package"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
