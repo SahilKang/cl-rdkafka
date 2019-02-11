@@ -20,7 +20,7 @@
   :version "0.0.1"
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :licence "GPLv3"
-  :depends-on (#:cffi)
+  :depends-on (#:cffi #:babel)
   :defsystem-depends-on (#:cffi-grovel)
   :in-order-to ((test-op (test-op :cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
@@ -39,7 +39,8 @@
       "high-level"
       :depends-on ("low-level")
       :components
-      ((:file "package")))))))
+      ((:file "package")
+       (:file "serde" :depends-on ("package"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
@@ -59,7 +60,11 @@
       :components
       ((:file "unit-test")
        (:file "producer")
-       (:file "consumer")))))))
+       (:file "consumer")))
+     (:module
+      "high-level"
+      :components
+      ((:file "serde")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))

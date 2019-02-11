@@ -15,10 +15,20 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-user)
+(in-package #:cl-rdkafka)
 
-(defpackage #:cl-rdkafka
-  (:nicknames #:kf)
-  (:use #:cl)
-  (:export
-   #:bytes->object #:object->bytes))
+(defgeneric object->bytes (object &key &allow-other-keys))
+(defgeneric bytes->object (bytes object-type &key &allow-other-keys))
+
+(defmethod object->bytes
+    ((object string)
+     &key (encoding :utf-8)
+       &allow-other-keys)
+  (babel:string-to-octets object :encoding encoding))
+
+(defmethod bytes->object
+    ((bytes vector)
+     (object-type (eql 'string))
+     &key (encoding :utf-8)
+       &allow-other-keys)
+  (babel:octets-to-string bytes :encoding encoding))

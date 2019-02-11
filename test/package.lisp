@@ -27,6 +27,9 @@
 (defpackage #:test/low-level/consumer
   (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
 
+(defpackage #:test/high-level/serde
+  (:use #:cl #:fiveam))
+
 (in-package #:cl-rdkafka/test)
 
 (defun run-tests-for-shell ()
