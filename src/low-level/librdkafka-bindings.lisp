@@ -176,7 +176,7 @@
 (defcstruct rd-kafka-err-desc
   (code rd-kafka-resp-err)
   (name :string)
-  (char :string))
+  (desc :string))
 
 (defcfun "rd_kafka_get_err_descs" :void
   (rd-kafka-err-desc :pointer)
