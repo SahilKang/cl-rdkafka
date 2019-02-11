@@ -15,29 +15,19 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-user)
+(in-package #:test/high-level/serde)
 
-(defpackage #:cl-rdkafka/test
-  (:use #:cl #:fiveam)
-  (:export #:run-tests-for-shell))
+(def-test string-utf8 ()
+  (let* ((expected "Hello World!")
+	 (actual (kf:bytes->object
+		  (kf:object->bytes expected)
+		  'string)))
+    (is (string= expected actual))))
 
-(defpackage #:test/low-level/producer
-  (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
-
-(defpackage #:test/low-level/consumer
-  (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
-
-(defpackage #:test/high-level/serde
-  (:use #:cl #:fiveam))
-
-(defpackage #:test/high-level/kafka-error
-  (:use #:cl #:fiveam))
-
-(in-package #:cl-rdkafka/test)
-
-(defun run-tests-for-shell ()
-  (let ((*on-error* nil)
-	(*on-failure* nil))
-    (if (run-all-tests)
-	(uiop:quit 0)
-	(uiop:quit 1))))
+(def-test string-utf16 ()
+  (let* ((expected "Hello World!")
+	 (actual (kf:bytes->object
+		  (kf:object->bytes expected :encoding :utf-16)
+		  'string
+		  :encoding :utf-16)))
+    (is (string= expected actual))))

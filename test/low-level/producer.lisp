@@ -1,5 +1,4 @@
-;;; ===========================================================================
-;;; Copyright (C) 2018 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright (C) 2018-2019 Sahil Kang <sahil.kang@asilaycomputing.com>
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -15,9 +14,8 @@
 ;;;
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
-;;; ===========================================================================
 
-(in-package #:test/low-level-producer)
+(in-package #:test/low-level/producer)
 
 (defparameter *messages* (make-array 0
                                      :element-type 'string

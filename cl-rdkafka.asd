@@ -1,5 +1,4 @@
-;;; ===========================================================================
-;;; Copyright (C) 2018 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright (C) 2018-2019 Sahil Kang <sahil.kang@asilaycomputing.com>
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -15,14 +14,13 @@
 ;;;
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
-;;; ===========================================================================
 
 (asdf:defsystem #:cl-rdkafka
   :description "CFFI bindings for librdkafka."
   :version "0.0.1"
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :licence "GPLv3"
-  :depends-on (#:cffi)
+  :depends-on (#:cffi #:babel #:trivial-garbage)
   :defsystem-depends-on (#:cffi-grovel)
   :in-order-to ((test-op (test-op :cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
@@ -36,7 +34,16 @@
       :components
       ((:file "package")
        (:cffi-grovel-file "librdkafka-grovel")
-       (:file "librdkafka-bindings")))))))
+       (:file "librdkafka-bindings")))
+     (:module
+      "high-level"
+      :depends-on ("low-level")
+      :components
+      ((:file "package")
+       (:file "serde" :depends-on ("package"))
+       (:file "kafka-error" :depends-on ("package"))
+       (:file "topic" :depends-on ("package"))
+       (:file "message" :depends-on ("package" "topic" "kafka-error"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
@@ -56,7 +63,12 @@
       :components
       ((:file "unit-test")
        (:file "producer")
-       (:file "consumer")))))))
+       (:file "consumer")))
+     (:module
+      "high-level"
+      :components
+      ((:file "serde")
+       (:file "kafka-error")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))

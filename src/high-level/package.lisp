@@ -17,27 +17,15 @@
 
 (in-package #:cl-user)
 
-(defpackage #:cl-rdkafka/test
-  (:use #:cl #:fiveam)
-  (:export #:run-tests-for-shell))
+(defpackage #:cl-rdkafka
+  (:nicknames #:kf)
+  (:use #:cl)
+  (:export
+   #:bytes->object #:object->bytes
 
-(defpackage #:test/low-level/producer
-  (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
+   #:kafka-error #:error-code #:error-description
 
-(defpackage #:test/low-level/consumer
-  (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
+   #:topic #:make-topic #:topic-name
 
-(defpackage #:test/high-level/serde
-  (:use #:cl #:fiveam))
-
-(defpackage #:test/high-level/kafka-error
-  (:use #:cl #:fiveam))
-
-(in-package #:cl-rdkafka/test)
-
-(defun run-tests-for-shell ()
-  (let ((*on-error* nil)
-	(*on-failure* nil))
-    (if (run-all-tests)
-	(uiop:quit 0)
-	(uiop:quit 1))))
+   #:message #:message-key #:message-value #:message-topic
+   #:message-partition #:message-offset #:message-error))

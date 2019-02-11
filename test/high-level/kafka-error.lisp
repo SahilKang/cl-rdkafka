@@ -15,29 +15,18 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-user)
+(in-package #:test/high-level/kafka-error)
 
-(defpackage #:cl-rdkafka/test
-  (:use #:cl #:fiveam)
-  (:export #:run-tests-for-shell))
+(def-test error-code ()
+  (let* ((err cl-rdkafka/ll:rd-kafka-resp-err-invalid-group-id)
+	 (kafka-error (make-instance 'kf:kafka-error :rd-kafka-resp-err err))
+	 (expected (cl-rdkafka/ll:num err))
+	 (actual (kf:error-code kafka-error)))
+    (is (= expected actual))))
 
-(defpackage #:test/low-level/producer
-  (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
-
-(defpackage #:test/low-level/consumer
-  (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
-
-(defpackage #:test/high-level/serde
-  (:use #:cl #:fiveam))
-
-(defpackage #:test/high-level/kafka-error
-  (:use #:cl #:fiveam))
-
-(in-package #:cl-rdkafka/test)
-
-(defun run-tests-for-shell ()
-  (let ((*on-error* nil)
-	(*on-failure* nil))
-    (if (run-all-tests)
-	(uiop:quit 0)
-	(uiop:quit 1))))
+(def-test error-description ()
+  (let* ((err cl-rdkafka/ll:rd-kafka-resp-err-invalid-group-id)
+	 (kafka-error (make-instance 'kf:kafka-error :rd-kafka-resp-err err))
+	 (expected (cl-rdkafka/ll:rd-kafka-err2str err))
+	 (actual (kf:error-description kafka-error)))
+    (is (string= expected actual))))
