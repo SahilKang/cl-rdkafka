@@ -34,7 +34,12 @@
       :components
       ((:file "package")
        (:cffi-grovel-file "librdkafka-grovel")
-       (:file "librdkafka-bindings")))))))
+       (:file "librdkafka-bindings")))
+     (:module
+      "high-level"
+      :depends-on ("low-level")
+      :components
+      ((:file "package")))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
