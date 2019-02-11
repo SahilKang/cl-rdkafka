@@ -29,7 +29,7 @@
 	 (err (getf *rk-message 'cl-rdkafka/ll:err))
 	 (len (getf *rk-message 'cl-rdkafka/ll:len))
 	 (payload (getf *rk-message 'cl-rdkafka/ll:payload)))
-    (when (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+    (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (let ((message (foreign-string-to-lisp payload :max-chars len)))
 	(vector-push-extend message *messages*)))))
 
@@ -39,10 +39,10 @@
      (partitions :pointer)
      (opaque :pointer))
   (cond
-    ((eq err 'cl-rdkafka/ll:rd-kafka-resp-err--assign-partitions)
+    ((eq err cl-rdkafka/ll:rd-kafka-resp-err--assign-partitions)
      (rd-kafka-assign rk partitions))
 
-    ((eq err 'cl-rdkafka/ll:rd-kafka-resp-err--revoke-partitions)
+    ((eq err cl-rdkafka/ll:rd-kafka-resp-err--revoke-partitions)
      (rd-kafka-assign rk (null-pointer)))
 
     (t
