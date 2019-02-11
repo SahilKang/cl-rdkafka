@@ -30,7 +30,7 @@
      (opaque :pointer))
   (let* ((*rk-message (mem-ref rk-message '(:struct rd-kafka-message)))
 	 (err (getf *rk-message 'cl-rdkafka/ll:err)))
-    (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+    (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (let* ((payload (getf *rk-message 'cl-rdkafka/ll:payload))
                (len (getf *rk-message 'cl-rdkafka/ll:len))
                (message (foreign-string-to-lisp payload :max-chars (- len 1))))
