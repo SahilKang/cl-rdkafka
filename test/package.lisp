@@ -21,10 +21,10 @@
   (:use #:cl #:fiveam)
   (:export #:run-tests-for-shell))
 
-(defpackage #:test/low-level-producer
+(defpackage #:test/low-level/producer
   (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
 
-(defpackage #:test/low-level-consumer
+(defpackage #:test/low-level/consumer
   (:use #:cl #:cffi #:cl-rdkafka/low-level #:fiveam))
 
 (in-package #:cl-rdkafka/test)

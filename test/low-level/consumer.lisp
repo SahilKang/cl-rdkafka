@@ -15,7 +15,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:test/low-level-consumer)
+(in-package #:test/low-level/consumer)
 
 (defparameter *messages* (make-array 0
 				     :element-type 'string
