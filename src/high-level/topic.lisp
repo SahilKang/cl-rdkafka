@@ -17,8 +17,6 @@
 
 (in-package #:cl-rdkafka)
 
-(defvar +errstr-len+ 512)
-
 (defclass topic ()
   ((rd-kafka-topic
     :initarg :rd-kafka-topic
@@ -35,57 +33,11 @@
      (lambda ()
        (cl-rdkafka/ll:rd-kafka-topic-destroy rd-kafka-topic)))))
 
-(defun ->topic-conf (topic-props)
-  (if topic-props
-      (let ((topic-conf (make-instance 'topic-conf)))
-	(maphash (lambda (k v) (set-prop topic-conf k v)) topic-props)
-	topic-conf)
-      (cffi:null-pointer)))
-
-(defun make-topic (producer-or-consumer topic-name topic-props)
+(defun make-topic (producer-or-consumer topic-name)
   (let ((rd-kafka-topic (cl-rdkafka/ll:rd-kafka-topic-new
 			 producer-or-consumer
 			 topic-name
-			 (->topic-conf topic-props))))
+			 (cffi:null-pointer))))
     (if (cffi:null-pointer-p rd-kafka-topic)
 	(error "~&Failed to allocate new topic: ~A" topic-name)
 	(make-instance 'topic :rd-kafka-topic rd-kafka-topic))))
-
-;;; topic-conf
-
-(defclass topic-conf ()
-  ((rd-kafka-topic-conf
-    :initarg :rd-kafka-topic-conf
-    :documentation "Pointer to rd_kafka_topic_conf_t struct.")))
-
-(defgeneric set-prop (topic-conf key value))
-
-(defun new-handle ()
-  (let ((handle (cl-rdkafka/ll:rd-kafka-topic-conf-new)))
-    (if (cffi:null-pointer-p handle)
-	(error "~&Function ~A failed to allocate new rd-kafka-topic-conf"
-	       'cl-rdkafka/ll:rd-kafka-topic-conf-new)
-	handle)))
-
-(defmethod initialize-instance :after ((topic-conf topic-conf) &key)
-  (with-slots (rd-kafka-topic-conf) topic-conf
-    (setf rd-kafka-topic-conf (new-handle))
-    (tg:finalize
-     topic-conf
-     (lambda ()
-       (cl-rdkafka/ll:rd-kafka-topic-conf-destroy rd-kafka-topic-conf)))))
-
-(defmethod set-prop ((topic-conf topic-conf) (key string) (value string))
-  (with-slots (rd-kafka-topic-conf) topic-conf
-    (cffi:with-foreign-object (errstr :char +errstr-len+)
-      (let ((result (cl-rdkafka/ll:rd-kafka-topic-conf-set
-		     rd-kafka-topic-conf
-		     key
-		     value
-		     errstr
-		     +errstr-len+)))
-	(unless (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-	  (error "~&Failed to set topic-conf property ~A=~A with error: ~A"
-		 key
-		 value
-		 result))))))
