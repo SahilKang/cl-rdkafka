@@ -52,15 +52,6 @@
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (make-instance 'kafka-error :rd-kafka-resp-err err))))
 
-(defun pointer->bytes (pointer length)
-  (let ((vector (make-array length :element-type '(unsigned-byte 8))))
-    (loop
-       for i below length
-
-       for byte = (cffi:mem-aref pointer :uint8 i)
-       do (setf (elt vector i) byte))
-    vector))
-
 (defun get-payload (*rd-kafka-message)
   (let ((payload (getf *rd-kafka-message 'cl-rdkafka/ll:payload))
 	(len (getf *rd-kafka-message 'cl-rdkafka/ll:len)))

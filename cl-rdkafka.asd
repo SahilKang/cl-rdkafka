@@ -40,9 +40,10 @@
       :depends-on ("low-level")
       :components
       ((:file "package")
+       (:file "common" :depends-on ("package"))
        (:file "serde" :depends-on ("package"))
        (:file "kafka-error" :depends-on ("package"))
-       (:file "message" :depends-on ("kafka-error"))))))))
+       (:file "message" :depends-on ("kafka-error" "common"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
