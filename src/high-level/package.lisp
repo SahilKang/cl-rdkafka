@@ -25,7 +25,5 @@
 
    #:kafka-error #:error-code #:error-description
 
-   #:topic #:make-topic #:topic-name
-
    #:message #:message-key #:message-value #:message-topic
    #:message-partition #:message-offset #:message-error))

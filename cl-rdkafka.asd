@@ -42,8 +42,7 @@
       ((:file "package")
        (:file "serde" :depends-on ("package"))
        (:file "kafka-error" :depends-on ("package"))
-       (:file "topic" :depends-on ("package"))
-       (:file "message" :depends-on ("package" "topic" "kafka-error"))))))))
+       (:file "message" :depends-on ("kafka-error"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
