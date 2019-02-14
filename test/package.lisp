@@ -39,6 +39,9 @@
 (defpackage #:test/high-level/topic+partition
   (:use #:cl #:fiveam))
 
+(defpackage #:test/high-level/consumer
+  (:use #:cl #:fiveam))
+
 (in-package #:cl-rdkafka/test)
 
 (defun run-tests-for-shell ()

@@ -29,4 +29,6 @@
    #:partition #:offset #:message-error
    #:raw-key #:raw-value #:timestamp #:latency
 
-   #:topic+partition #:topic #:partition #:offset #:metadata))
+   #:topic+partition #:topic #:partition #:offset #:metadata
+
+   #:consumer #:subscribe #:unsubscribe #:subscription))
