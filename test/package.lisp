@@ -36,8 +36,8 @@
 (in-package #:cl-rdkafka/test)
 
 (defun run-tests-for-shell ()
-  (let ((*on-error* nil)
-	(*on-failure* nil))
+  (let ((*on-error* :backtrace)
+	(*on-failure* :backtrace))
     (if (run-all-tests)
 	(uiop:quit 0)
 	(uiop:quit 1))))
