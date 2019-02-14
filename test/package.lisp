@@ -33,6 +33,9 @@
 (defpackage #:test/high-level/kafka-error
   (:use #:cl #:fiveam))
 
+(defpackage #:test/high-level/conf
+  (:use #:cl #:fiveam))
+
 (in-package #:cl-rdkafka/test)
 
 (defun run-tests-for-shell ()

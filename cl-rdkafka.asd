@@ -43,7 +43,8 @@
        (:file "common" :depends-on ("package"))
        (:file "serde" :depends-on ("package"))
        (:file "kafka-error" :depends-on ("package"))
-       (:file "message" :depends-on ("kafka-error" "common"))))))))
+       (:file "message" :depends-on ("kafka-error" "common"))
+       (:file "conf" :depends-on ("common"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
@@ -68,7 +69,8 @@
       "high-level"
       :components
       ((:file "serde")
-       (:file "kafka-error")))))))
+       (:file "kafka-error")
+       (:file "conf")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))

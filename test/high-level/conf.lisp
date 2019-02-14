@@ -15,20 +15,14 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-rdkafka)
+(in-package #:test/high-level/conf)
 
-(defconstant +errstr-len+ 512
-  "A lot of the cl-rdkafka/low-level functions accept a char pointer and len
-which is filled with an error message if anything goes wrong. This constant
-determines the length of the char buffer which we'll malloc/free for such
-functions.")
-
-(defun pointer->bytes (pointer length)
-  "Copies cffi :pointer bytes into a byte vector."
-  (let ((vector (make-array length :element-type '(unsigned-byte 8))))
-    (loop
-       for i below length
-
-       for byte = (cffi:mem-aref pointer :uint8 i)
-       do (setf (elt vector i) byte))
-    vector))
+(def-test conf ()
+  (let ((conf (make-instance 'kf::conf)))
+    (setf (kf::prop conf "client.id") "foo"
+	  (kf::prop conf "message.max.bytes") "1024"
+	  (kf::prop conf "bootstrap.servers") "foobar:9092")
+    (is (and
+	 (string= "foo" (kf::prop conf "client.id"))
+	 (string= "1024" (kf::prop conf "message.max.bytes"))
+	 (string= "foobar:9092" (kf::prop conf "bootstrap.servers"))))))
