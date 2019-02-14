@@ -25,7 +25,8 @@
 
    #:kafka-error #:error-code #:error-description
 
-   #:message #:message-key #:message-value #:message-topic
-   #:message-partition #:message-offset #:message-error
+   #:message #:key #:value #:topic
+   #:partition #:offset #:message-error
+   #:raw-key #:raw-value #:timestamp #:latency
 
    #:topic+partition #:topic #:partition #:offset #:metadata))
