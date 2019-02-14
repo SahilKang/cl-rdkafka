@@ -63,7 +63,7 @@
     (pointer->bytes key len)))
 
 (defun get-topic (*rd-kafka-message)
-  (let ((rd-kafka-topic (getf *rd-kafka-message 'cl-rdkafka/ll:topic)))
+  (let ((rd-kafka-topic (getf *rd-kafka-message 'cl-rdkafka/ll:rkt)))
     (cl-rdkafka/ll:rd-kafka-topic-name rd-kafka-topic)))
 
 (defmethod initialize-instance :after ((message message) &key)
