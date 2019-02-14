@@ -38,3 +38,23 @@
 	 (= (length expected) (length actual))
 	 (every #'string= expected actual)
 	 (= 0 (length (kf:subscription consumer)))))))
+
+(def-test poll ()
+  (setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))
+  (let ((consumer (make-instance 'kf:consumer
+				 :conf *conf*
+				 :value-serde (lambda (x)
+						(kf:bytes->object x 'string))))
+	(expected '("Hello" "World" "!"))
+	(actual (make-array 3 :element-type 'string :initial-element "")))
+    (kf:subscribe consumer '("consumer-test-topic"))
+
+    (loop
+       for i below 3
+       for message = (kf:poll consumer 5000)
+       for value = (kf:value message)
+       do (setf (elt actual i) value))
+
+    (is (and
+	 (= (length expected) (length actual))
+	 (every #'string= expected actual)))))

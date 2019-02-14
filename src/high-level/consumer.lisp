@@ -20,12 +20,22 @@
 (defclass consumer ()
   ((rd-kafka-consumer
     :documentation "Pointer to rd_kafka_t struct.")
+   (key-serde
+    :initarg :key-serde
+    :initform nil
+    :documentation "Function to map byte vector to object, or nil for bytes.")
+   (value-serde
+    :initarg :value-serde
+    :initform nil
+    :documentation "Function to map byte vector to object, or nil for bytes.")))
 
 (defgeneric subscribe (consumer topics))
 
 (defgeneric unsubscribe (consumer))
 
 (defgeneric subscription (consumer))
+
+(defgeneric poll (consumer timeout-ms))
 
 (defun make-conf (hash-table)
   (if hash-table
@@ -99,3 +109,16 @@
 	 for name = (topic topic+partition)
 	 do (setf (elt topics i) name))
       topics)))
+
+(defmethod poll ((consumer consumer) (timeout-ms integer))
+  (with-slots (rd-kafka-consumer key-serde value-serde) consumer
+    (let ((rd-kafka-message (cl-rdkafka/ll:rd-kafka-consumer-poll
+			     rd-kafka-consumer
+			     timeout-ms)))
+      (unless (cffi:null-pointer-p rd-kafka-message)
+	(let ((message (make-instance 'message
+				      :rd-kafka-message rd-kafka-message
+				      :key-serde key-serde
+				      :value-serde value-serde)))
+	  (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message)
+	  message)))))
