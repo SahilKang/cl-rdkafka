@@ -15,21 +15,14 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-user)
+(in-package #:test/high-level/conf)
 
-(defpackage #:cl-rdkafka
-  (:nicknames #:kf)
-  (:use #:cl)
-  (:export
-   #:bytes->object #:object->bytes
-
-   #:kafka-error #:error-code #:error-description
-
-   #:message #:key #:value #:topic
-   #:partition #:offset #:message-error
-   #:raw-key #:raw-value #:timestamp #:latency
-
-   #:topic+partition #:topic #:partition #:offset #:metadata
-
-   #:consumer #:subscribe #:unsubscribe #:subscription
-   #:poll))
+(def-test conf ()
+  (let ((conf (make-instance 'kf::conf)))
+    (setf (kf::prop conf "client.id") "foo"
+	  (kf::prop conf "message.max.bytes") "1024"
+	  (kf::prop conf "bootstrap.servers") "foobar:9092")
+    (is (and
+	 (string= "foo" (kf::prop conf "client.id"))
+	 (string= "1024" (kf::prop conf "message.max.bytes"))
+	 (string= "foobar:9092" (kf::prop conf "bootstrap.servers"))))))

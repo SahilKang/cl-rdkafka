@@ -15,21 +15,20 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-user)
+(in-package #:cl-rdkafka)
 
-(defpackage #:cl-rdkafka
-  (:nicknames #:kf)
-  (:use #:cl)
-  (:export
-   #:bytes->object #:object->bytes
+(defconstant +errstr-len+ 512
+  "A lot of the cl-rdkafka/low-level functions accept a char pointer and len
+which is filled with an error message if anything goes wrong. This constant
+determines the length of the char buffer which we'll malloc/free for such
+functions.")
 
-   #:kafka-error #:error-code #:error-description
+(defun pointer->bytes (pointer length)
+  "Copies cffi :pointer bytes into a byte vector."
+  (let ((vector (make-array length :element-type '(unsigned-byte 8))))
+    (loop
+       for i below length
 
-   #:message #:key #:value #:topic
-   #:partition #:offset #:message-error
-   #:raw-key #:raw-value #:timestamp #:latency
-
-   #:topic+partition #:topic #:partition #:offset #:metadata
-
-   #:consumer #:subscribe #:unsubscribe #:subscription
-   #:poll))
+       for byte = (cffi:mem-aref pointer :uint8 i)
+       do (setf (elt vector i) byte))
+    vector))

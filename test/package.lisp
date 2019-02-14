@@ -33,11 +33,20 @@
 (defpackage #:test/high-level/kafka-error
   (:use #:cl #:fiveam))
 
+(defpackage #:test/high-level/conf
+  (:use #:cl #:fiveam))
+
+(defpackage #:test/high-level/topic+partition
+  (:use #:cl #:fiveam))
+
+(defpackage #:test/high-level/consumer
+  (:use #:cl #:fiveam))
+
 (in-package #:cl-rdkafka/test)
 
 (defun run-tests-for-shell ()
-  (let ((*on-error* nil)
-	(*on-failure* nil))
+  (let ((*on-error* :backtrace)
+	(*on-failure* :backtrace))
     (if (run-all-tests)
 	(uiop:quit 0)
 	(uiop:quit 1))))
