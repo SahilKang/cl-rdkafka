@@ -90,11 +90,7 @@
 	    topic (get-topic *rd-kafka-message))
       (unless kafka-error
 	(setf raw-key (get-key *rd-kafka-message)
-	      raw-value (get-payload *rd-kafka-message))))
-    (tg:finalize
-     message
-     (lambda ()
-       (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message)))))
+	      raw-value (get-payload *rd-kafka-message))))))
 
 (defmethod message-key ((message message))
   (with-slots (raw-key key-serde) message
