@@ -15,23 +15,28 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-user)
+(in-package #:cl-rdkafka)
 
-(defpackage #:cl-rdkafka
-  (:nicknames #:kf)
-  (:use #:cl)
-  (:export
-   #:bytes->object #:object->bytes
+(defclass future ()
+  ((thread
+    :initform nil)
+   (value
+    :initform nil)))
 
-   #:kafka-error #:error-code #:error-description
+(defgeneric value (future)
+  (:documentation
+   "Block until computation is complete and return the value."))
 
-   #:message #:key #:value #:topic
-   #:partition #:offset #:message-error
-   #:raw-key #:raw-value #:timestamp #:latency
+(defmethod initialize-instance :after
+    ((future future)
+     &key (thunk (error "Must supply thunk.")))
+  (with-slots (thread value) future
+    (setf thread (bt:make-thread
+		  (lambda ()
+		    (declare (special value))
+		    (setf value (funcall thunk)))))))
 
-   #:topic+partition #:topic #:partition #:offset #:metadata
-
-   #:consumer #:subscribe #:unsubscribe #:subscription
-   #:poll
-
-   #:future #:value))
+(defmethod value ((future future))
+  (with-slots (thread value) future
+    (bt:join-thread thread)
+    value))
