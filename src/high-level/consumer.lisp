@@ -79,13 +79,15 @@
 	    (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer rd-kafka-list)))
       (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-	(error "~&Failed to subscribe to topics with error: ~A" err)))))
+	(error "~&Failed to subscribe to topics with error: ~A"
+	       (error-description err))))))
 
 (defmethod unsubscribe ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-unsubscribe rd-kafka-consumer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-	(error "~&Failed to unsubscribe consumer with error: ~A" err)))))
+	(error "~&Failed to unsubscribe consumer with error: ~A"
+	       (error-description err))))))
 
 (defun get-topic+partitions (rd-kafka-consumer)
   (cffi:with-foreign-object (list-pointer :pointer)
@@ -93,7 +95,8 @@
 		rd-kafka-consumer
 		list-pointer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-	(error "~&Failed to get subscription with error: ~A" err))
+	(error "~&Failed to get subscription with error: ~A"
+	       (error-description err)))
       (let* ((*list-pointer (cffi:mem-ref list-pointer :pointer))
 	     (topic+partitions (rd-kafka-list->topic+partitions
 				*list-pointer)))
