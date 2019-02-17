@@ -24,7 +24,6 @@
 (setf (gethash "enable.auto.commit" *conf*) "true")
 (setf (gethash "auto.offset.reset" *conf*) "earliest")
 (setf (gethash "offset.store.method" *conf*) "broker")
-(setf (gethash "enable.partition.eof" *conf*) "true")
 
 (def-test consumer-subscribe ()
   (setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))
@@ -58,3 +57,28 @@
     (is (and
 	 (= (length expected) (length actual))
 	 (every #'string= expected actual)))))
+
+(def-test commit ()
+  (setf (gethash "enable.auto.commit" *conf*) "false"
+	(gethash "group.id" *conf*) "commit-test-group")
+
+  (let ((consumer (make-instance 'kf:consumer :conf *conf*))
+	(expected '(1 2 3))
+	actual
+	(commits (make-array 3)))
+    (kf:subscribe consumer '("consumer-test-topic"))
+
+    (loop
+       for i below 3
+       do (kf:poll consumer 5000)
+       do (kf:value (kf:commit consumer))
+       do (setf (elt commits i) (kf:committed consumer)))
+
+    ;; each element of commits is a vector of one element
+    (let ((flattened (map 'list (lambda (v) (elt v 0)) commits)))
+      (setf actual (mapcar (lambda (t+p) (kf:offset t+p)) flattened)))
+
+    (is (and
+	 (= (length expected) (length actual) (length commits))
+	 (every #'= expected actual)
+	 (apply #'= (map 'list #'length commits))))))
