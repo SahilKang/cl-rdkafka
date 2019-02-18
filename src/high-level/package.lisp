@@ -32,6 +32,6 @@
    #:topic+partition #:topic #:partition #:offset #:metadata
 
    #:consumer #:subscribe #:unsubscribe #:subscription
-   #:poll #:commit #:committed #:assignment
+   #:poll #:commit #:committed #:assignment #:assign
 
    #:future #:value))

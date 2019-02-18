@@ -43,6 +43,8 @@
 
 (defgeneric assignment (consumer))
 
+(defgeneric assign (consumer topic+partitions))
+
 (defun make-conf (hash-table)
   (if hash-table
       (let ((conf (make-instance 'conf)))
@@ -207,3 +209,14 @@ assignment is returned."
 	      (%committed rd-kafka-consumer rd-list)
 	      (error "~&Failed to get committed offsets with error: ~A"
 		     (error-description rd-list)))))))
+
+(defmethod assign ((consumer consumer) topic+partitions)
+  "Assign partitions to consumer.
+
+Returns nil on success or a kafka-error on failure."
+  (with-slots (rd-kafka-consumer) consumer
+    (let* ((rd-list (topic+partitions->rd-kafka-list topic+partitions))
+	   (err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
+      (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)
+      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+	(make-instance 'kafka-error :rd-kafka-resp-err err)))))

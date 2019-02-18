@@ -82,3 +82,20 @@
 	 (= (length expected) (length actual) (length commits))
 	 (every #'= expected actual)
 	 (apply #'= (map 'list #'length commits))))))
+
+(def-test assign ()
+  (let ((consumer (make-instance 'kf:consumer :conf *conf*))
+	assignment)
+    (kf:assign consumer (list (make-instance 'kf:topic+partition
+					     :topic "foobar"
+					     :offset 7
+					     :partition 35
+					     :metadata "foobarbaz")))
+
+    (setf assignment (elt (kf:assignment consumer) 0))
+
+    (is (and
+	 (string= "foobar" (kf:topic assignment))
+	 (= 7 (kf:offset assignment))
+	 (= 35 (kf:partition assignment))
+	 (string= "foobarbaz" (kf:metadata assignment))))))
