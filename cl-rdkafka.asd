@@ -79,7 +79,8 @@
        (:file "kafka-error")
        (:file "conf")
        (:file "topic+partition")
-       (:file "consumer")))))))
+       (:file "consumer")
+       (:file "producer")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))

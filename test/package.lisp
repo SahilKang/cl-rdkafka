@@ -42,6 +42,9 @@
 (defpackage #:test/high-level/consumer
   (:use #:cl #:fiveam))
 
+(defpackage #:test/high-level/producer
+  (:use #:cl #:fiveam))
+
 (in-package #:cl-rdkafka/test)
 
 (defun run-tests-for-shell ()
