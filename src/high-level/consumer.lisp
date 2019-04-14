@@ -45,13 +45,6 @@
 
 (defgeneric assign (consumer topic+partitions))
 
-(defun make-conf (hash-table)
-  (if hash-table
-      (let ((conf (make-instance 'conf)))
-	(maphash (lambda (k v) (setf (prop conf k) v)) hash-table)
-	(rd-kafka-conf conf))
-      (cffi:null-pointer)))
-
 (defmethod initialize-instance :after ((consumer consumer)
 				       &key conf)
   (with-slots (rd-kafka-consumer) consumer

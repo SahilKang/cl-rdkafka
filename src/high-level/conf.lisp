@@ -48,6 +48,13 @@
 
 (defgeneric rd-kafka-conf (conf))
 
+(defun make-conf (hash-table)
+  (if hash-table
+      (let ((conf (make-instance 'conf)))
+        (maphash (lambda (k v) (setf (prop conf k) v)) hash-table)
+        (rd-kafka-conf conf))
+      (cffi:null-pointer)))
+
 ;; newer versions of librdkafka allow topic configs to be set through
 ;; the same rd_kafka_conf_set function, but older versions do not. So
 ;; we'll implement this config fall-through ourselves.

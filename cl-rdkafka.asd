@@ -50,7 +50,8 @@
        (:file "consumer" :depends-on ("topic+partition"
 				      "message"
 				      "conf"
-				      "future"))))))))
+				      "future"))
+       (:file "producer" :depends-on ("conf"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
@@ -78,7 +79,8 @@
        (:file "kafka-error")
        (:file "conf")
        (:file "topic+partition")
-       (:file "consumer")))))))
+       (:file "consumer")
+       (:file "producer")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))
