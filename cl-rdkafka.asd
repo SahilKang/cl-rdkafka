@@ -50,7 +50,8 @@
        (:file "consumer" :depends-on ("topic+partition"
 				      "message"
 				      "conf"
-				      "future"))))))))
+				      "future"))
+       (:file "producer" :depends-on ("conf"))))))))
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
