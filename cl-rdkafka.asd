@@ -80,7 +80,8 @@
        (:file "conf")
        (:file "topic+partition")
        (:file "consumer")
-       (:file "producer")))))))
+       (:file "producer")
+       (:file "produce->consume")))))))
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))
