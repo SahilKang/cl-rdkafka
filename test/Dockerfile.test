@@ -2,7 +2,7 @@ FROM debian:stable
 
 WORKDIR /root/quicklisp/local-projects/cl-rdkafka/
 
-COPY cl-rdkafka.asd .
+COPY cl-rdkafka.asd version.lisp ./
 COPY src src
 COPY test test
 
