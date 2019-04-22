@@ -17,7 +17,7 @@
 
 (asdf:defsystem #:cl-rdkafka
   :description "CFFI bindings for librdkafka."
-  :version "0.0.1"
+  :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :licence "GPLv3"
   :depends-on (#:cffi #:babel #:trivial-garbage #:bordeaux-threads)
@@ -55,7 +55,7 @@
 
 (asdf:defsystem :cl-rdkafka/test
   :description "Tests for cl-rdkafka."
-  :version "0.0.1"
+  :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :licence "GPLv3"
   :depends-on (#:cl-rdkafka #:fiveam)
