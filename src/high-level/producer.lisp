@@ -30,11 +30,37 @@
    (value-serde
     :initarg :value-serde
     :initform nil
-    :documentation "Function to map object to byte vector, or nil for identity.")))
+    :documentation "Function to map object to byte vector, or nil for identity."))
+  (:documentation
+   "A client that produces messages to kafka topics.
 
-(defgeneric produce (producer topic value &key key partition))
+Example:
 
-(defgeneric flush (producer timeout-ms))
+(ql:quickload :cl-rdkafka)
+
+(let ((messages '((\"key-1\" \"value-1\") (\"key-2\" \"value-2\")))
+      (producer (make-instance 'kf:producer
+                               :conf (kf:conf
+				      \"bootstrap.servers\" \"127.0.0.1:9092\")
+                               :key-serde #'kf:object->bytes
+                               :value-serde #'kf:object->bytes)))
+  (loop
+     for (k v) in messages
+     do (kf:produce producer \"topic-name\" v :key k))
+
+  (kf:flush producer (* 2 1000)))"))
+
+(defgeneric produce (producer topic value &key key partition)
+  (:documentation
+   "Asynchronously produce a message to a kafka topic.
+
+If partition is not specified, one is chosen using the topic's partitioner
+function."))
+
+(defgeneric flush (producer timeout-ms)
+  (:documentation
+   "Block for up to timeout-ms milliseconds while in-flight messages are
+sent to kafka cluster."))
 
 (defmethod initialize-instance :after ((producer producer) &key conf)
   (with-slots (rd-kafka-producer topic-name->handle) producer
