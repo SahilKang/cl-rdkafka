@@ -26,3 +26,18 @@
 	 (string= "foo" (kf::prop conf "client.id"))
 	 (string= "1024" (kf::prop conf "message.max.bytes"))
 	 (string= "foobar:9092" (kf::prop conf "bootstrap.servers"))))))
+
+(def-test conf-function ()
+  (let* ((expected '(("a" "A")
+		     ("b" "B")
+		     ("c" "C")
+		     ("d" "D")))
+	 (flattened (loop for (k v) in expected collect k collect v))
+	 (actual (eval `(kf:conf ,@flattened))))
+    (is (and
+	 (= (length expected) (hash-table-count actual))
+	 (every
+	  (lambda (key-val)
+	    (string= (cadr key-val)
+		     (gethash (car key-val) actual)))
+	  expected)))))

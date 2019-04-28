@@ -17,13 +17,12 @@
 
 (in-package #:test/high-level/consumer)
 
-(defvar *conf* (make-hash-table :test #'equal))
-
-(setf (gethash "bootstrap.servers" *conf*) "kafka:9092")
-(setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))
-(setf (gethash "enable.auto.commit" *conf*) "true")
-(setf (gethash "auto.offset.reset" *conf*) "earliest")
-(setf (gethash "offset.store.method" *conf*) "broker")
+(defvar *conf* (kf:conf
+		"bootstrap.servers" "kafka:9092"
+		"group.id" (write-to-string (get-universal-time))
+		"enable.auto.commit" "true"
+		"auto.offset.reset" "earliest"
+		"offset.store.method" "broker"))
 
 (def-test consumer-subscribe ()
   (setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))

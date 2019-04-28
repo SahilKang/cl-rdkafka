@@ -34,6 +34,18 @@
 	       'cl-rdkafka/ll:rd-kafka-topic-conf-new)
 	handle)))
 
+;; TODO add use-value condition handler
+(defun conf (&rest key-vals)
+  "Construct a hash-table from the strings in key-vals."
+  (let ((h (make-hash-table :test #'equal)))
+    (loop
+       for (k v) on key-vals
+       by #'cddr
+       unless v
+       do (error "~&Odd number of key-val pairs: missing value for key `~A`" k)
+       else do (setf (gethash k h) v))
+    h))
+
 (defclass conf ()
   ((rd-kafka-conf
     :initform (new-conf)

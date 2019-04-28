@@ -20,45 +20,44 @@
 (defvar +topic+ "test-produce-to-consume")
 
 (defun produce-messages ()
-  (let ((conf (make-hash-table :test #'equal))
-	(messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
-    (setf (gethash "bootstrap.servers" conf) "kafka:9092")
-    (let ((producer (make-instance 'kf:producer
-				   :conf conf
-				   :key-serde #'kf:object->bytes
-				   :value-serde #'kf:object->bytes)))
-      (loop
-	 for (k v) in messages
-	 do (kf:produce producer +topic+ v :key k))
+  (let ((messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
+	(producer (make-instance 'kf:producer
+				 :conf (kf:conf
+					"bootstrap.servers" "kafka:9092")
+				 :key-serde #'kf:object->bytes
+				 :value-serde #'kf:object->bytes)))
+    (loop
+       for (k v) in messages
+       do (kf:produce producer +topic+ v :key k))
 
-      (kf:flush producer (* 2 1000)))
+    (kf:flush producer (* 2 1000))
     messages))
 
 (defun consume-messages ()
-  (let ((conf (make-hash-table :test #'equal))
-	(serde (lambda (x) (kf:bytes->object x 'string))))
-    (setf (gethash "bootstrap.servers" conf) "kafka:9092"
-	  (gethash "group.id" conf) (write-to-string (get-universal-time))
-	  (gethash "enable.auto.commit" conf) "false"
-	  (gethash "auto.offset.reset" conf) "earliest"
-	  (gethash "offset.store.method" conf) "broker"
-	  (gethash "enable.partition.eof" conf) "false")
-    (let ((consumer (make-instance 'kf:consumer
-				   :conf conf
-				   :key-serde serde
-				   :value-serde serde)))
-      (kf:subscribe consumer (list +topic+))
+  (let* ((serde (lambda (x) (kf:bytes->object x 'string)))
+	 (conf (kf:conf
+		"bootstrap.servers" "kafka:9092"
+		"group.id" (write-to-string (get-universal-time))
+		"enable.auto.commit" "false"
+		"auto.offset.reset" "earliest"
+		"offset.store.method" "broker"
+		"enable.partition.eof" "false"))
+	 (consumer (make-instance 'kf:consumer
+				  :conf conf
+				  :key-serde serde
+				  :value-serde serde)))
+    (kf:subscribe consumer (list +topic+))
 
-      (loop
-	 for message = (kf:poll consumer (* 2 1000))
-	 while message
+    (loop
+       for message = (kf:poll consumer (* 2 1000))
+       while message
 
-	 for key = (kf:key message)
-	 for value = (kf:value message)
+       for key = (kf:key message)
+       for value = (kf:value message)
 
-	 collect (list key value)
+       collect (list key value)
 
-	 do (kf:value (kf:commit consumer))))))
+       do (kf:value (kf:commit consumer)))))
 
 (def-test produce->consume ()
   (let ((expected (produce-messages))

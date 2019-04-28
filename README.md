@@ -29,13 +29,10 @@ Here are a few examples for the `kf` package:
 ;; will add to quicklisp soon, after docstrings are updated
 (ql:quickload :cl-rdkafka)
 
-(defparameter *conf* (make-hash-table :test #'equal))
-
-(setf (gethash "bootstrap.servers" *conf*) "127.0.0.1:9092")
-
 (let ((messages '(("key-1" "value-1") ("key-2" "value-2")))
       (producer (make-instance 'kf:producer
-                               :conf *conf*
+                               :conf (kf:conf
+				      "bootstrap.servers" "127.0.0.1:9092")
                                :key-serde #'kf:object->bytes
                                :value-serde #'kf:object->bytes)))
   (loop
@@ -50,20 +47,19 @@ Here are a few examples for the `kf` package:
 ```lisp
 (ql:quickload :cl-rdkafka)
 
-(defparameter *conf* (make-hash-table :test #'equal))
-
 ;; see librdkafka and kafka docs for config info
-(setf (gethash "bootstrap.servers" *conf*) "127.0.0.1:9092"
-      (gethash "group.id" *conf*) "consumer-group-id"
-      (gethash "enable.auto.commit" *conf*) "false"
-      (gethash "auto.offset.reset" *conf*) "earliest"
-      (gethash "offset.store.method" *conf*) "broker"
-      (gethash "enable.partition.eof" *conf*) "false")
 
 (let* ((string-serde (lambda (x)
                        (kf:bytes->object x 'string)))
+       (conf (kf:conf
+	      "bootstrap.servers" "127.0.0.1:9092"
+	      "group.id" "consumer-group-id"
+	      "enable.auto.commit" "false"
+	      "auto.offset.reset" "earliest"
+	      "offset.store.method" "broker"
+	      "enable.partition.eof"  "false"))
        (consumer (make-instance 'kf:consumer
-                                :conf *conf*
+                                :conf conf
                                 :key-serde string-serde
                                 :value-serde string-serde)))
   (kf:subscribe consumer '("topic-name"))
