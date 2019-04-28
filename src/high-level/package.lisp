@@ -36,4 +36,6 @@
 
    #:future #:value
 
-   #:producer #:produce #:flush))
+   #:producer #:produce #:flush
+
+   #:conf))

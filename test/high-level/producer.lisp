@@ -17,9 +17,8 @@
 
 (in-package #:test/high-level/producer)
 
-(defvar *conf* (make-hash-table :test #'equal))
-
-(setf (gethash "bootstrap.servers" *conf*) "kafka:9092")
+(defvar *conf* (kf:conf
+		"bootstrap.servers" "kafka:9092"))
 
 (defun parse-kafkacat (output-lines)
   (flet ((parse (partition-key-value)
