@@ -17,8 +17,22 @@
 
 (in-package #:cl-rdkafka)
 
-(defgeneric object->bytes (object &key &allow-other-keys))
-(defgeneric bytes->object (bytes object-type &key &allow-other-keys))
+(defgeneric object->bytes (object &key &allow-other-keys)
+  (:documentation
+   "Transform object to a vector of bytes.
+
+Example:
+
+(kf:object->bytes \"Hello World!\" :encoding :utf-8)"))
+
+(defgeneric bytes->object (bytes object-type &key &allow-other-keys)
+  (:documentation
+   "Transform vector of bytes into an object of type object-type.
+
+Example:
+
+(let ((bytes (kf:object->bytes \"Hello World!\" :encoding :utf-8)))
+  (kf:bytes->object bytes 'string :encoding :utf-8))"))
 
 (defmethod object->bytes
     ((object string)
