@@ -27,23 +27,79 @@
    (value-serde
     :initarg :value-serde
     :initform nil
-    :documentation "Function to map byte vector to object, or nil for bytes.")))
+    :documentation "Function to map byte vector to object, or nil for bytes."))
+  (:documentation
+   "A client that consumes messages from kafka topics.
 
-(defgeneric subscribe (consumer topics))
+Example:
 
-(defgeneric unsubscribe (consumer))
+(ql:quickload :cl-rdkafka)
 
-(defgeneric subscription (consumer))
+(let* ((string-serde (lambda (x)
+                       (kf:bytes->object x 'string)))
+       (conf (kf:conf
+	      \"bootstrap.servers\" \"127.0.0.1:9092\"
+	      \"group.id\" \"consumer-group-id\"
+	      \"enable.auto.commit\" \"false\"
+	      \"auto.offset.reset\" \"earliest\"
+	      \"offset.store.method\" \"broker\"
+	      \"enable.partition.eof\"  \"false\"))
+       (consumer (make-instance 'kf:consumer
+                                :conf conf
+                                :key-serde string-serde
+                                :value-serde string-serde)))
+  (kf:subscribe consumer '(\"topic-name\"))
 
-(defgeneric poll (consumer timeout-ms))
+  (loop
+     for message = (kf:poll consumer (* 2 1000))
+     while message
 
-(defgeneric commit (consumer &optional topic+partitions))
+     for key = (kf:key message)
+     for value = (kf:value message)
 
-(defgeneric committed (consumer &optional topic+partitions))
+     collect (list key value)
 
-(defgeneric assignment (consumer))
+     do (kf:value (kf:commit consumer))))"))
 
-(defgeneric assign (consumer topic+partitions))
+(defgeneric subscribe (consumer topics)
+  (:documentation
+   "Subscribe consumer to sequence of topic names."))
+
+(defgeneric unsubscribe (consumer)
+  (:documentation
+   "Unsubscribe consumer from its current topic subscription."))
+
+(defgeneric subscription (consumer)
+  (:documentation
+   "Get sequence of topic names that consumer is subscribed to."))
+
+(defgeneric poll (consumer timeout-ms)
+  (:documentation
+   "Block for up to timeout-ms milliseconds and return a kf:message or nil"))
+
+(defgeneric commit (consumer &optional topic+partitions)
+  (:documentation
+   "Commit offsets and return a future containing either an error or nil.
+
+If topic+partitions is nil (the default) then the current assignment is
+committed."))
+
+(defgeneric committed (consumer &optional topic+partitions)
+  (:documentation
+   "Get a sequence of committed topic+partitions.
+
+If topic+partitions is nil (the default) then info about the current
+assignment is returned."))
+
+(defgeneric assignment (consumer)
+  (:documentation
+   "Get a sequence of assigned topic+partitions."))
+
+(defgeneric assign (consumer topic+partitions)
+  (:documentation
+   "Assign partitions to consumer.
+
+Returns nil on success or a kafka-error on failure."))
 
 (defmethod initialize-instance :after ((consumer consumer)
 				       &key conf)
@@ -143,10 +199,6 @@
 		 rd-kafka-topic-partition-list))))))
 
 (defmethod commit ((consumer consumer) &optional topic+partitions)
-  "Commit offsets and return a future containing either an error or nil.
-
-If topic+partitions is nil (the default) then the current assignment is
-committed."
   (with-slots (rd-kafka-consumer) consumer
     (if topic+partitions
 	(%commit rd-kafka-consumer
@@ -166,7 +218,6 @@ committed."
 		  nil)))))
 
 (defmethod assignment ((consumer consumer))
-  "Get a sequence of assigned topic+partitions."
   (with-slots (rd-kafka-consumer) consumer
     (multiple-value-bind (rd-list success?) (%assignment rd-kafka-consumer)
       (if success?
@@ -189,10 +240,6 @@ committed."
       topic+partitions)))
 
 (defmethod committed ((consumer consumer) &optional topic+partitions)
-  "Get a sequence of committed topic+partitions.
-
-If topic+partitions is nil (the default) then info about the current
-assignment is returned."
   (with-slots (rd-kafka-consumer) consumer
     (if topic+partitions
 	(%committed rd-kafka-consumer
@@ -204,9 +251,6 @@ assignment is returned."
 		     (error-description rd-list)))))))
 
 (defmethod assign ((consumer consumer) topic+partitions)
-  "Assign partitions to consumer.
-
-Returns nil on success or a kafka-error on failure."
   (with-slots (rd-kafka-consumer) consumer
     (let* ((rd-list (topic+partitions->rd-kafka-list topic+partitions))
 	   (err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))

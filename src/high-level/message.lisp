@@ -35,21 +35,31 @@
     :initform nil
     :documentation "Message's raw value in a byte vector.")
    (topic
-    :reader topic)
+    :reader topic
+    :documentation "The topic this message originated from.")
    (partition
-    :reader partition)
+    :reader partition
+    :documentation "The partition this message originated from.")
    (offset
-    :reader offset)
+    :reader offset
+    :documentation "Message offset.")
    (message-error
-    :reader message-error)
+    :reader message-error
+    :documentation "Message error, if any.")
    (timestamp
-    :reader timestamp)
+    :reader timestamp
+    :documentation "Message timestamp.")
    (latency
-    :reader latency)))
+    :reader latency
+    :documentation "Message latency measured from the message produce call.")))
 
-(defgeneric key (message))
+(defgeneric key (message)
+  (:documentation
+   "Return message key after applying key-serde,if available."))
 
-(defgeneric value (message))
+(defgeneric value (message)
+  (:documentation
+   "Return message value after applying value-serde, if available."))
 
 (defun deref (rd-kafka-message)
   (cffi:mem-ref rd-kafka-message '(:struct cl-rdkafka/ll:rd-kafka-message)))

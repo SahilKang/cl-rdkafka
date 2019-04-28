@@ -21,7 +21,19 @@
   ((thread
     :initform nil)
    (value
-    :initform nil)))
+    :initform nil))
+  (:documentation
+   "An object to represent the result of an async operation.
+
+Example:
+
+(let ((result (make-instance
+	       'kf:future
+	       :thunk (lambda ()
+			(sleep 5)
+			\"Hello World!\"))))
+  ;; do some other stuff while result future is being computed in background
+  (format t \"~&result from background: ~A\" (kf:value result)))"))
 
 (defgeneric value (future)
   (:documentation

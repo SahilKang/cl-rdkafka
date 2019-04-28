@@ -21,19 +21,25 @@
   ((topic
     :reader topic
     :initarg :topic
-    :initform (error "Must supply topic name."))
+    :initform (error "Must supply topic name.")
+    :documentation "Topic name.")
    (partition
     :reader partition
     :initarg :partition
-    :initform -1)
+    :initform -1
+    :documentation "Topic partition.")
    (offset
     :reader offset
     :initarg :offset
-    :initform cl-rdkafka/ll:rd-kafka-offset-invalid)
+    :initform cl-rdkafka/ll:rd-kafka-offset-invalid
+    :documentation "Topic offset.")
    (metadata
     :reader metadata
     :initarg :metadata
-    :initform nil)))
+    :initform nil
+    :documentation "Topic metadata."))
+  (:documentation
+   "Holds info for topic, partition, offset, and metadata."))
 
 (defun add-topic+partition (rd-kafka-list topic+partition)
   (let ((elem (cl-rdkafka/ll:rd-kafka-topic-partition-list-add
