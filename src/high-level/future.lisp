@@ -35,10 +35,6 @@ Example:
   ;; do some other stuff while result future is being computed in background
   (format t \"~&result from background: ~A\" (kf:value result)))"))
 
-(defgeneric value (future)
-  (:documentation
-   "Block until computation is complete and return the value."))
-
 (defmethod initialize-instance :after
     ((future future)
      &key (thunk (error "Must supply thunk.")))
@@ -49,6 +45,7 @@ Example:
 		    (setf value (funcall thunk)))))))
 
 (defmethod value ((future future))
+  "Block until computation is complete and return the value."
   (with-slots (thread value) future
     (bt:join-thread thread)
     value))
