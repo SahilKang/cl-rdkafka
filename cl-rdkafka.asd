@@ -16,7 +16,8 @@
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
 (asdf:defsystem #:cl-rdkafka
-  :description "CFFI bindings for librdkafka."
+  :description
+  "CFFI bindings for librdkafka to enable interaction with a Kafka cluster."
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :licence "GPLv3"
