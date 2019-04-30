@@ -1,7 +1,8 @@
 # cl-rdkafka
 
 A Common Lisp wrapper for [librdkafka](https://github.com/edenhill/librdkafka)
-via [CFFI](https://common-lisp.net/project/cffi/manual/html_node/index.html).
+via [CFFI](https://common-lisp.net/project/cffi/manual/html_node/index.html)
+to allow CL programs to interact with a Kafka cluster.
 
 The project structure is modelled after
 [cl-charms](https://github.com/HiTECNOLOGYs/cl-charms):
@@ -11,7 +12,7 @@ wraps the
 [librdkafka/rdkafka.h](https://github.com/edenhill/librdkafka/blob/master/src/rdkafka.h)
 header file.
 
-* And the `cl-rdkafka` package (nicknamed to `kf`) is a higher-level kafka
+* And the `cl-rdkafka` package (nicknamed to `kf`) is a higher-level Kafka
 interface. There's still work to be done for this package to make it more
 ergonomic so it's likely to change.
 
@@ -91,7 +92,7 @@ $ docker-compose -f ./test/docker-compose.test.yml \
 $ docker-compose -f ./test/docker-compose.test.yml down
 ```
 
-To spin up and teardown a dockerized kafka cluster to hack against:
+To spin up and teardown a dockerized Kafka cluster to hack against:
 
 ```bash
 # start a cluster on 127.0.0.1:9092
