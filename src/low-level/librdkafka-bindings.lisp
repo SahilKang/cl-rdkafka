@@ -879,7 +879,7 @@
 (defcfun "rd_kafka_event_destroy" :void
   (rkev :pointer))
 
-(defcfun "rd_kafka_event_message_next" rd-kafka-message
+(defcfun "rd_kafka_event_message_next" :pointer
   (rkev :pointer))
 
 (defcfun "rd_kafka_event_message_array" size-t
