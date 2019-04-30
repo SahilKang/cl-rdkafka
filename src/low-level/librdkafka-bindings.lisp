@@ -83,6 +83,7 @@
 	 (fill-table (num name)
 	   (let ((enum-symbol (name->enum name))
 		 (err (make-instance 'rd-kafka-resp-err :num num)))
+	     (proclaim `(special ,enum-symbol))
 	     (setf
 	      (symbol-value enum-symbol) err
 	      (gethash num *num->err*) err)
@@ -879,7 +880,7 @@
 (defcfun "rd_kafka_event_destroy" :void
   (rkev :pointer))
 
-(defcfun "rd_kafka_event_message_next" rd-kafka-message
+(defcfun "rd_kafka_event_message_next" :pointer
   (rkev :pointer))
 
 (defcfun "rd_kafka_event_message_array" size-t
