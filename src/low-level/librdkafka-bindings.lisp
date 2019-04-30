@@ -83,6 +83,7 @@
 	 (fill-table (num name)
 	   (let ((enum-symbol (name->enum name))
 		 (err (make-instance 'rd-kafka-resp-err :num num)))
+	     (proclaim `(special ,enum-symbol))
 	     (setf
 	      (symbol-value enum-symbol) err
 	      (gethash num *num->err*) err)
