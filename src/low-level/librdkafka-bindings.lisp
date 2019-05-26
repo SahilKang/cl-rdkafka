@@ -48,20 +48,6 @@
   (:simple-parser rd-kafka-resp-err))
 (export 'num)
 
-(defparameter populating-p t)
-(defparameter *num->err* (make-hash-table :test #'eq))
-
-(defmethod translate-to-foreign (rd-kafka-resp-err (type rd-kafka-resp-err))
-  (num rd-kafka-resp-err))
-
-(defmethod translate-from-foreign (num (type rd-kafka-resp-err))
-  (if populating-p
-      num	 ; return number while we're populating the hash-table
-      (multiple-value-bind (err exists-p) (gethash num *num->err*)
-	(if exists-p
-	    err
-	    (error "Unknown rd-kafka-resp-err number: ~A~%" num)))))
-
 (defcstruct rd-kafka-err-desc
   (code rd-kafka-resp-err)
   (name :string)
@@ -71,23 +57,26 @@
   (rd-kafka-err-desc :pointer)
   (cntp :pointer))
 
-(labels ((dashes (name)
-	   (substitute #\- #\_ name))
+(defvar *num->err* (make-hash-table :test #'eq)
+  "Hash-table to map enum numbers to rd-kafka-resp-err objects.")
 
-	 (full-name (name)
-	   (concatenate 'string "RD_KAFKA_RESP_ERR_" name))
+;; populate *num->err* with data returned from rd-kafka-get-err-descs
+(macrolet ((dashes (name)
+	     `(substitute #\- #\_ ,name))
 
-	 (name->enum (name)
-	   (read-from-string (dashes (full-name name))))
+	   (full-name (name)
+	     `(concatenate 'string "RD_KAFKA_RESP_ERR_" ,name))
 
-	 (fill-table (num name)
-	   (let ((enum-symbol (name->enum name))
-		 (err (make-instance 'rd-kafka-resp-err :num num)))
-	     (proclaim `(special ,enum-symbol))
-	     (setf
-	      (symbol-value enum-symbol) err
-	      (gethash num *num->err*) err)
-	     (export enum-symbol))))
+	   (name->enum (name)
+	     `(read-from-string (dashes (full-name ,name))))
+
+	   (fill-table (table num name)
+	     `(let ((enum-symbol (name->enum ,name))
+		    (err (make-instance 'rd-kafka-resp-err :num ,num)))
+		(setf
+		 (symbol-value enum-symbol) err
+		 (gethash ,num ,table) err)
+		(export enum-symbol))))
 
   (with-foreign-objects
       ((desc :pointer)
@@ -106,9 +95,16 @@
        for name = (getf **desc 'name)
 
        when name
-       do (fill-table num name)))
+       do (fill-table *num->err* num name))))
 
-  (setf populating-p nil))
+(defmethod translate-to-foreign (rd-kafka-resp-err (type rd-kafka-resp-err))
+  (num rd-kafka-resp-err))
+
+(defmethod translate-from-foreign (num (type rd-kafka-resp-err))
+  (multiple-value-bind (err exists-p) (gethash num *num->err*)
+    (if exists-p
+	err
+	(error "Unknown rd-kafka-resp-err number: ~A~%" num))))
 
 (defcfun "rd_kafka_err2str" :string
   (err rd-kafka-resp-err))
