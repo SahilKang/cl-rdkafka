@@ -59,7 +59,7 @@ Example:
 
      collect (list key value)
 
-     do (kf:value (kf:commit consumer))))"))
+     do (kf:commit consumer)))"))
 
 (defgeneric subscribe (consumer topics)
   (:documentation
@@ -79,7 +79,7 @@ Example:
 
 (defgeneric commit (consumer &optional topic+partitions)
   (:documentation
-   "Commit offsets and return a future containing either an error or nil.
+   "Commit offsets and return either an error or nil.
 
 If topic+partitions is nil (the default) then the current assignment is
 committed."))
@@ -183,20 +183,18 @@ Returns nil on success or a kafka-error on failure."))
 	  (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message)
 	  message)))))
 
+;; TODO signal a condition instead of returning kafka-error
 (defun %commit (rd-kafka-consumer rd-kafka-topic-partition-list)
-  (make-instance
-   'future
-   :thunk (lambda ()
-	    (unwind-protect
-		 (let ((err (cl-rdkafka/ll:rd-kafka-commit
-			     rd-kafka-consumer
-			     rd-kafka-topic-partition-list
-			     0)))
-		   (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-		     (make-instance 'kafka-error :rd-kafka-resp-err err)))
-	      (unless (cffi:null-pointer-p rd-kafka-topic-partition-list)
-		(cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy
-		 rd-kafka-topic-partition-list))))))
+  (unwind-protect
+       (let ((err (cl-rdkafka/ll:rd-kafka-commit
+		   rd-kafka-consumer
+		   rd-kafka-topic-partition-list
+		   0)))
+	 (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+	   (make-instance 'kafka-error :rd-kafka-resp-err err)))
+    (unless (cffi:null-pointer-p rd-kafka-topic-partition-list)
+      (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy
+       rd-kafka-topic-partition-list))))
 
 (defmethod commit ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer

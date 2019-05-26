@@ -34,8 +34,6 @@
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign
 
-   #:future #:value
-
    #:producer #:produce #:flush
 
    #:conf))

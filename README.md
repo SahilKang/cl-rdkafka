@@ -74,7 +74,7 @@ Here are a few examples for the `kf` package:
 
      collect (list key value)
 
-     do (kf:value (kf:commit consumer))))
+     do (kf:commit consumer)))
 
 ;; => (("key-1" "message-1") ("key-2" "message-2"))
 ```
