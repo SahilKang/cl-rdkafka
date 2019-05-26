@@ -1,5 +1,9 @@
 # cl-rdkafka
 
+[![CircleCI](https://circleci.com/gh/SahilKang/cl-rdkafka.svg?style=shield)](https://circleci.com/gh/SahilKang/cl-rdkafka)
+[![tag](https://img.shields.io/github/tag/SahilKang/cl-rdkafka.svg)](https://github.com/SahilKang/cl-rdkafka/tags)
+[![license](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://github.com/SahilKang/cl-rdkafka/blob/master/LICENSE)
+
 A Common Lisp wrapper for [librdkafka](https://github.com/edenhill/librdkafka)
 via [CFFI](https://common-lisp.net/project/cffi/manual/html_node/index.html)
 to allow CL programs to interact with a Kafka cluster.
@@ -27,7 +31,6 @@ Here are a few examples for the `kf` package:
 ## Producer
 
 ```lisp
-;; will add to quicklisp soon, after docstrings are updated
 (ql:quickload :cl-rdkafka)
 
 (let ((messages '(("key-1" "value-1") ("key-2" "value-2")))
