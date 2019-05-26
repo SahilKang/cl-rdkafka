@@ -47,11 +47,9 @@
        (:file "message" :depends-on ("kafka-error" "common"))
        (:file "conf" :depends-on ("common"))
        (:file "topic+partition" :depends-on ("common" "serde"))
-       (:file "future" :depends-on ("package"))
        (:file "consumer" :depends-on ("topic+partition"
 				      "message"
-				      "conf"
-				      "future"))
+				      "conf"))
        (:file "producer" :depends-on ("conf"))))))))
 
 (asdf:defsystem :cl-rdkafka/test

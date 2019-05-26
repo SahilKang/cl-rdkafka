@@ -70,7 +70,7 @@
     (loop
        for i below 3
        do (kf:poll consumer 5000)
-       do (kf:value (kf:commit consumer))
+       do (kf:commit consumer)
        do (setf (elt commits i) (kf:committed consumer)))
 
     ;; each element of commits is a vector of one element

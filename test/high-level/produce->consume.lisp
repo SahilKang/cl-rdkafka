@@ -57,7 +57,7 @@
 
        collect (list key value)
 
-       do (kf:value (kf:commit consumer)))))
+       do (kf:commit consumer))))
 
 (def-test produce->consume ()
   (let ((expected (produce-messages))
