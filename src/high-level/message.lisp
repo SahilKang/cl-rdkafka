@@ -55,7 +55,7 @@
 
 (defgeneric key (message)
   (:documentation
-   "Return message key after applying key-serde,if available."))
+   "Return message key after applying key-serde, if available."))
 
 (defgeneric value (message)
   (:documentation
@@ -120,18 +120,43 @@
 	(setf raw-key (get-key *rd-kafka-message)
 	      raw-value (get-payload *rd-kafka-message))))))
 
+(define-condition message-error (error)
+  ((message-error
+    :initarg :message-error
+    :initform (error "Must supply message-error.")
+    :reader message-error)
+   (topic
+    :initarg :topic
+    :initform (error "Must supply topic.")
+    :reader topic)
+   (partition
+    :initarg :partition
+    :initform (error "Must supply partition.")
+    :reader partition)
+   (offset
+    :initarg :offset
+    :initform (error "Must supply offset.")
+    :reader offset)))
+
+(defun %key-val-helper (raw serde message)
+  (restart-case
+      (progn
+	(unless raw
+	  (error 'message-error
+		 :message-error (message-error message)
+		 :topic (topic message)
+		 :partition (partition message)
+		 :offset (offset message)))
+	(if (functionp serde)
+	    (funcall serde raw)
+	    raw))
+    (use-value (value)
+      value)))
+
 (defmethod key ((message message))
   (with-slots (raw-key key-serde) message
-    (unless raw-key
-      (error "~&Can't access key of bad message."))
-    (if (functionp key-serde)
-	(funcall key-serde raw-key)
-	raw-key)))
+    (%key-val-helper raw-key key-serde message)))
 
 (defmethod value ((message message))
   (with-slots (raw-value value-serde) message
-    (unless raw-value
-      (error "~&Can't access value of bad message."))
-    (if (functionp value-serde)
-	(funcall value-serde raw-value)
-	raw-value)))
+    (%key-val-helper raw-value value-serde message)))

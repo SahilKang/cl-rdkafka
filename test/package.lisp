@@ -48,6 +48,9 @@
 (defpackage #:test/high-level/produce->consume
   (:use #:cl #:fiveam))
 
+(defpackage #:test/high-level/message
+  (:use #:cl #:fiveam))
+
 (in-package #:cl-rdkafka/test)
 
 (defun run-tests-for-shell ()
