@@ -76,7 +76,8 @@
 		(setf
 		 (symbol-value enum-symbol) err
 		 (gethash ,num ,table) err)
-		(export enum-symbol))))
+		(export enum-symbol)
+		(proclaim `(special ,enum-symbol)))))
 
   (with-foreign-objects
       ((desc :pointer)
