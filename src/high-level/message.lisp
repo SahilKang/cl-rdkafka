@@ -136,7 +136,18 @@
    (offset
     :initarg :offset
     :initform (error "Must supply offset.")
-    :reader offset)))
+    :reader offset))
+  (:report
+   (lambda (c s)
+     (format
+      s
+      "Message Error: desc: '~A' topic: '~A' partition: '~A' offset: '~A'"
+      (error-description (message-error c))
+      (topic c)
+      (partition c)
+      (offset c))))
+  (:documentation
+   "Condition signalled while retrieving key/value from message."))
 
 (defun %key-val-helper (raw serde message)
   (restart-case
@@ -151,6 +162,9 @@
 	    (funcall serde raw)
 	    raw))
     (use-value (value)
+      :report "Specify a value to return from message."
+      :interactive (lambda ()
+		     (format t "Enter a value to return: ") (list (read)))
       value)))
 
 (defmethod key ((message message))
