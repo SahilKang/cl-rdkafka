@@ -2,6 +2,7 @@
 
 [![CircleCI](https://circleci.com/gh/SahilKang/cl-rdkafka.svg?style=shield)](https://circleci.com/gh/SahilKang/cl-rdkafka)
 [![tag](https://img.shields.io/github/tag/SahilKang/cl-rdkafka.svg)](https://github.com/SahilKang/cl-rdkafka/tags)
+[![quicklisp](http://quickdocs.org/badge/cl-rdkafka.svg)](http://quickdocs.org/cl-rdkafka)
 [![license](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://github.com/SahilKang/cl-rdkafka/blob/master/LICENSE)
 
 A Common Lisp wrapper for [librdkafka](https://github.com/edenhill/librdkafka)
