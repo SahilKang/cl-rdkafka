@@ -62,22 +62,22 @@
 
 ;; populate *num->err* with data returned from rd-kafka-get-err-descs
 (macrolet ((dashes (name)
-	     `(substitute #\- #\_ ,name))
+             `(substitute #\- #\_ ,name))
 
-	   (full-name (name)
-	     `(concatenate 'string "RD_KAFKA_RESP_ERR_" ,name))
+           (full-name (name)
+             `(concatenate 'string "RD_KAFKA_RESP_ERR_" ,name))
 
-	   (name->enum (name)
-	     `(read-from-string (dashes (full-name ,name))))
+           (name->enum (name)
+             `(read-from-string (dashes (full-name ,name))))
 
-	   (fill-table (table num name)
-	     `(let ((enum-symbol (name->enum ,name))
-		    (err (make-instance 'rd-kafka-resp-err :num ,num)))
-		(setf
-		 (symbol-value enum-symbol) err
-		 (gethash ,num ,table) err)
-		(export enum-symbol)
-		(proclaim `(special ,enum-symbol)))))
+           (fill-table (table num name)
+             `(let ((enum-symbol (name->enum ,name))
+                    (err (make-instance 'rd-kafka-resp-err :num ,num)))
+                (setf
+                 (symbol-value enum-symbol) err
+                 (gethash ,num ,table) err)
+                (export enum-symbol)
+                (proclaim `(special ,enum-symbol)))))
 
   (with-foreign-objects
       ((desc :pointer)
@@ -104,8 +104,8 @@
 (defmethod translate-from-foreign (num (type rd-kafka-resp-err))
   (multiple-value-bind (err exists-p) (gethash num *num->err*)
     (if exists-p
-	err
-	(error "Unknown rd-kafka-resp-err number: ~A~%" num))))
+        err
+        (error "Unknown rd-kafka-resp-err number: ~A~%" num))))
 
 (defcfun "rd_kafka_err2str" :string
   (err rd-kafka-resp-err))

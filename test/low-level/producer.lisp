@@ -15,6 +15,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/low-level/producer
+  (:use #:cl #:cffi #:cl-rdkafka/low-level #:1am))
+
 (in-package #:test/low-level/producer)
 
 (defparameter *messages* (make-array 0
@@ -27,7 +32,7 @@
      (rk-message :pointer)
      (opaque :pointer))
   (let* ((*rk-message (mem-ref rk-message '(:struct rd-kafka-message)))
-	 (err (getf *rk-message 'cl-rdkafka/ll:err)))
+         (err (getf *rk-message 'cl-rdkafka/ll:err)))
     (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (let* ((payload (getf *rk-message 'cl-rdkafka/ll:payload))
                (len (getf *rk-message 'cl-rdkafka/ll:len))
@@ -40,27 +45,27 @@
 (defun make-conf (brokers errstr errstr-len)
   (let ((conf (rd-kafka-conf-new)))
     (if (eq 'cl-rdkafka/ll:rd-kafka-conf-ok
-	    (rd-kafka-conf-set conf
-			       "bootstrap.servers"
-			       brokers
-			       errstr
-			       errstr-len))
-	(progn
-	  (rd-kafka-conf-set-dr-msg-cb
+            (rd-kafka-conf-set conf
+                               "bootstrap.servers"
+                               brokers
+                               errstr
+                               errstr-len))
+        (progn
+          (rd-kafka-conf-set-dr-msg-cb
            conf
-	   (callback message-delivery-report-callback))
-	  conf)
-	(error (format nil
-		       "make-conf failed with: ~A~%"
-		       (foreign-string-to-lisp
-			errstr
-			:max-chars (- errstr-len 1)))))))
+           (callback message-delivery-report-callback))
+          conf)
+        (error (format nil
+                       "make-conf failed with: ~A~%"
+                       (foreign-string-to-lisp
+                        errstr
+                        :max-chars (- errstr-len 1)))))))
 
 (defun make-producer (conf errstr errstr-len)
   (let ((producer (rd-kafka-new cl-rdkafka/ll:rd-kafka-producer
-				conf
-				errstr
-				errstr-len)))
+                                conf
+                                errstr
+                                errstr-len)))
     (unless producer
       (error (format nil
                      "Failed to create new producer: ~A~%"
@@ -80,19 +85,19 @@
   (let (producer topic conf (errstr-len 512))
     (with-foreign-object (errstr :char errstr-len)
       (setf conf (make-conf brokers errstr errstr-len)
-	    producer (make-producer conf errstr errstr-len)
-	    topic (make-topic producer topic-name)))
+            producer (make-producer conf errstr errstr-len)
+            topic (make-topic producer topic-name)))
     (list producer topic)))
 
 (defun produce-buf (topic buf len)
   (rd-kafka-produce topic
-		    rd-kafka-partition-ua
-		    rd-kafka-msg-f-copy
-		    buf
-		    len
-		    (null-pointer)
-		    0
-		    (null-pointer)))
+                    rd-kafka-partition-ua
+                    rd-kafka-msg-f-copy
+                    buf
+                    len
+                    (null-pointer)
+                    0
+                    (null-pointer)))
 
 (defun produce (producer topic message)
   (let ((len (+ 1 (length message))))
@@ -106,9 +111,9 @@
                        (rd-kafka-err2str (rd-kafka-last-error)))))))
   (rd-kafka-poll producer 0))
 
-(def-test producer ()
+(test producer
   (let ((topic-name "producer-test-topic")
-	(expected '("Hello" "World" "!")))
+        (expected '("Hello" "World" "!")))
     (destructuring-bind (producer topic) (init "kafka:9092" topic-name)
       (produce producer topic "Hello")
       (produce producer topic "World")
@@ -118,4 +123,4 @@
       (rd-kafka-topic-destroy topic)
       (rd-kafka-destroy producer))
     (is (and (= (length expected) (length *messages*))
-	     (every #'string= expected *messages*)))))
+             (every #'string= expected *messages*)))))

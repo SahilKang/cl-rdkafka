@@ -43,64 +43,64 @@
 
 (defun add-topic+partition (rd-kafka-list topic+partition)
   (let ((elem (cl-rdkafka/ll:rd-kafka-topic-partition-list-add
-	       rd-kafka-list
-	       (topic topic+partition)
-	       (partition topic+partition)))
-	(offset (offset topic+partition))
-	(metadata (metadata topic+partition)))
+               rd-kafka-list
+               (topic topic+partition)
+               (partition topic+partition)))
+        (offset (offset topic+partition))
+        (metadata (metadata topic+partition)))
     (flet ((set-field (field value)
-	     (setf (cffi:foreign-slot-value
-		    elem
-		    '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
-		    field)
-		   value)))
+             (setf (cffi:foreign-slot-value
+                    elem
+                    '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
+                    field)
+                   value)))
       (set-field 'cl-rdkafka/ll:offset offset)
       (when metadata
-	(let ((bytes (object->bytes metadata)))
-	  (set-field 'cl-rdkafka/ll:metadata
-		     (cffi:foreign-alloc :uint8 :initial-contents bytes))
-	  (set-field 'cl-rdkafka/ll:metadata-size (length bytes)))))
+        (let ((bytes (object->bytes metadata)))
+          (set-field 'cl-rdkafka/ll:metadata
+                     (cffi:foreign-alloc :uint8 :initial-contents bytes))
+          (set-field 'cl-rdkafka/ll:metadata-size (length bytes)))))
     elem))
 
 (defun topic+partitions->rd-kafka-list (topic+partitions)
   "Returns a pointer to a newly allocated
  cl-rdkafka/ll:rd-kafka-topic-partition-list."
   (let ((rd-list (cl-rdkafka/ll:rd-kafka-topic-partition-list-new
-		  (length topic+partitions))))
+                  (length topic+partitions))))
     (map nil (lambda (t+p) (add-topic+partition rd-list t+p)) topic+partitions)
     rd-list))
 
 (defun parse-metadata (rd-kafka-topic-partition)
   (let ((metadata (getf rd-kafka-topic-partition 'cl-rdkafka/ll:metadata))
-	(length (getf rd-kafka-topic-partition 'cl-rdkafka/ll:metadata-size)))
+        (length (getf rd-kafka-topic-partition 'cl-rdkafka/ll:metadata-size)))
     (unless (cffi:null-pointer-p metadata)
       (bytes->object (pointer->bytes metadata length) 'string))))
 
 (defun struct->topic+partition (rd-kafka-topic-partition)
   (let ((topic (getf rd-kafka-topic-partition 'cl-rdkafka/ll:topic))
-	(partition (getf rd-kafka-topic-partition 'cl-rdkafka/ll:partition))
-	(offset (getf rd-kafka-topic-partition 'cl-rdkafka/ll:offset))
-	(metadata (parse-metadata rd-kafka-topic-partition)))
+        (partition (getf rd-kafka-topic-partition 'cl-rdkafka/ll:partition))
+        (offset (getf rd-kafka-topic-partition 'cl-rdkafka/ll:offset))
+        (metadata (parse-metadata rd-kafka-topic-partition)))
     (make-instance 'topic+partition
-		   :topic topic
-		   :partition partition
-		   :offset offset
-		   :metadata metadata)))
+                   :topic topic
+                   :partition partition
+                   :offset offset
+                   :metadata metadata)))
 
 (defun rd-kafka-list->topic+partitions (rd-kafka-list)
   (let* ((*rd-kafka-list
-	  (cffi:mem-ref
-	   rd-kafka-list
-	   '(:struct cl-rdkafka/ll:rd-kafka-topic-partition-list)))
-	 (elems (getf *rd-kafka-list 'cl-rdkafka/ll:elems))
-	 (length (getf *rd-kafka-list 'cl-rdkafka/ll:cnt))
-	 (vector (make-array length :element-type 'topic+partition)))
+          (cffi:mem-ref
+           rd-kafka-list
+           '(:struct cl-rdkafka/ll:rd-kafka-topic-partition-list)))
+         (elems (getf *rd-kafka-list 'cl-rdkafka/ll:elems))
+         (length (getf *rd-kafka-list 'cl-rdkafka/ll:cnt))
+         (vector (make-array length :element-type 'topic+partition)))
     (loop
        for i below length
        for elem = (cffi:mem-aref
-		   elems
-		   '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
-		   i)
+                   elems
+                   '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
+                   i)
        for topic+partition = (struct->topic+partition elem)
        do (setf (elt vector i) topic+partition))
     vector))

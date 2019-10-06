@@ -72,16 +72,16 @@
 (defun get-timestamp (rd-kafka-message)
   (cffi:with-foreign-object (ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-type)
     (let ((timestamp (cl-rdkafka/ll:rd-kafka-message-timestamp
-		      rd-kafka-message
-		      ts-type)))
+                      rd-kafka-message
+                      ts-type)))
       (unless (= -1 timestamp)
-	timestamp))))
+        timestamp))))
 
 (defun get-latency (rd-kafka-message)
   (handler-case
       (let ((latency (cl-rdkafka/ll:rd-kafka-message-latency rd-kafka-message)))
-	(unless (= -1 latency)
-	  latency))
+        (unless (= -1 latency)
+          latency))
     (serious-condition () nil)))
 
 (defun get-topic (*rd-kafka-message)
@@ -90,35 +90,35 @@
 
 (defun get-key (*rd-kafka-message)
   (let ((key (getf *rd-kafka-message 'cl-rdkafka/ll:key))
-	(len (getf *rd-kafka-message 'cl-rdkafka/ll:key-len)))
+        (len (getf *rd-kafka-message 'cl-rdkafka/ll:key-len)))
     (pointer->bytes key len)))
 
 (defun get-payload (*rd-kafka-message)
   (let ((payload (getf *rd-kafka-message 'cl-rdkafka/ll:payload))
-	(len (getf *rd-kafka-message 'cl-rdkafka/ll:len)))
+        (len (getf *rd-kafka-message 'cl-rdkafka/ll:len)))
     (pointer->bytes payload len)))
 
 (defmethod initialize-instance :after
     ((message message)
      &key (rd-kafka-message (error "Must supply pointer to rd-kafka-message.")))
   (with-slots (message-error
-      	       topic
-	       partition
-	       offset
-	       timestamp
-	       latency
-	       raw-key
-	       raw-value) message
+               topic
+               partition
+               offset
+               timestamp
+               latency
+               raw-key
+               raw-value) message
     (let ((*rd-kafka-message (deref rd-kafka-message)))
       (setf message-error (get-error *rd-kafka-message)
-	    topic (get-topic *rd-kafka-message)
-	    partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)
-	    offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
-	    timestamp (get-timestamp rd-kafka-message)
-	    latency (get-latency rd-kafka-message))
+            topic (get-topic *rd-kafka-message)
+            partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)
+            offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
+            timestamp (get-timestamp rd-kafka-message)
+            latency (get-latency rd-kafka-message))
       (unless message-error
-	(setf raw-key (get-key *rd-kafka-message)
-	      raw-value (get-payload *rd-kafka-message))))))
+        (setf raw-key (get-key *rd-kafka-message)
+              raw-value (get-payload *rd-kafka-message))))))
 
 (define-condition message-error (error)
   ((message-error
@@ -152,19 +152,19 @@
 (defun %key-val-helper (raw serde message)
   (restart-case
       (progn
-	(unless raw
-	  (error 'message-error
-		 :message-error (message-error message)
-		 :topic (topic message)
-		 :partition (partition message)
-		 :offset (offset message)))
-	(if (functionp serde)
-	    (funcall serde raw)
-	    raw))
+        (unless raw
+          (error 'message-error
+                 :message-error (message-error message)
+                 :topic (topic message)
+                 :partition (partition message)
+                 :offset (offset message)))
+        (if (functionp serde)
+            (funcall serde raw)
+            raw))
     (use-value (value)
       :report "Specify a value to return from message."
       :interactive (lambda ()
-		     (format t "Enter a value to return: ") (list (read)))
+                     (format t "Enter a value to return: ") (list (read)))
       value)))
 
 (defmethod key ((message message))

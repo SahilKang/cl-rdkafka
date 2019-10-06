@@ -13,15 +13,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sbcl cl-quicklisp gcc libc6-dev librdkafka-dev libffi-dev kafkacat \
     && sbcl --noinform --end-runtime-options \
             --no-sysinit --no-userinit \
-    	    --load $(find / -name 'quicklisp.lisp' -type f) \
-    	    --non-interactive \
-    	    --eval '(quicklisp-quickstart:install)' \
-    	    --eval '(ql:quickload :cffi)' \
-    	    --eval '(ql:quickload :cl-rdkafka/test)' \
-    	    --eval '(sb-ext:save-lisp-and-die \
+            --load $(find / -name 'quicklisp.lisp' -type f) \
+            --non-interactive \
+            --eval '(quicklisp-quickstart:install)' \
+            --eval '(ql:quickload :cffi)' \
+            --eval '(ql:quickload :cl-rdkafka/test)' \
+            --eval '(sb-ext:save-lisp-and-die \
                       "test-image" \
-                      :toplevel \
-                        (function cl-rdkafka/test:run-tests-for-shell))' \
+                      :toplevel (lambda () \
+                                  (asdf:operate :test-op :cl-rdkafka)))' \
             --end-toplevel-options \
     && mkdir /app \
     && mv ./test-image /app/test-image

@@ -20,68 +20,62 @@
   "CFFI bindings for librdkafka to enable interaction with a Kafka cluster."
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
-  :licence "GPLv3"
-  :depends-on (#:cffi #:babel #:trivial-garbage #:bordeaux-threads)
+  :license "GPLv3"
+  :depends-on (#:cffi #:babel #:trivial-garbage)
   :defsystem-depends-on (#:cffi-grovel)
-  :in-order-to ((test-op (test-op :cl-rdkafka/test)))
+  :in-order-to ((test-op (test-op #:cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
   :components
-  ((:module
-    "src"
-    :components
-    ((:module
-      "low-level"
-      :serial t
-      :components
-      ((:file "package")
-       (:cffi-grovel-file "librdkafka-grovel")
-       (:file "librdkafka-bindings")))
-     (:module
-      "high-level"
-      :depends-on ("low-level")
-      :components
-      ((:file "package")
-       (:file "common" :depends-on ("package"))
-       (:file "serde" :depends-on ("package"))
-       (:file "kafka-error" :depends-on ("package"))
-       (:file "message" :depends-on ("kafka-error" "common"))
-       (:file "conf" :depends-on ("common"))
-       (:file "topic+partition" :depends-on ("common" "serde"))
-       (:file "consumer" :depends-on ("topic+partition"
-				      "message"
-				      "conf"))
-       (:file "producer" :depends-on ("conf"))))))))
+  ((:module "low-level"
+            :pathname "src/low-level"
+            :serial t
+            :components
+            ((:file "package")
+             (:cffi-grovel-file "librdkafka-grovel")
+             (:file "librdkafka-bindings")))
+   (:module "high-level"
+            :pathname "src/high-level"
+            :depends-on ("low-level")
+            :components
+            ((:file "package")
+             (:file "common" :depends-on ("package"))
+             (:file "serde" :depends-on ("package"))
+             (:file "kafka-error" :depends-on ("package"))
+             (:file "message" :depends-on ("kafka-error" "common"))
+             (:file "conf" :depends-on ("common"))
+             (:file "topic+partition" :depends-on ("common" "serde"))
+             (:file "consumer" :depends-on ("topic+partition"
+                                            "message"
+                                            "conf"))
+             (:file "producer" :depends-on ("conf"))))))
 
-(asdf:defsystem :cl-rdkafka/test
+
+(asdf:defsystem #:cl-rdkafka/test
   :description "Tests for cl-rdkafka."
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
-  :licence "GPLv3"
-  :depends-on (#:cl-rdkafka #:fiveam)
-  :perform (test-op (op sys) (uiop:symbol-call :fiveam :run-all-tests))
+  :license "GPLv3"
+  :depends-on (#:cl-rdkafka #:1am)
+  :perform (test-op (op sys) (uiop:symbol-call :1am :run))
   :components
-  ((:module
-    "test"
-    :serial t
-    :components
-    ((:file "package")
-     (:module
-      "low-level"
-      :components
-      ((:file "unit-test")
-       (:file "producer")
-       (:file "consumer")))
-     (:module
-      "high-level"
-      :components
-      ((:file "serde")
-       (:file "kafka-error")
-       (:file "conf")
-       (:file "topic+partition")
-       (:file "consumer")
-       (:file "producer")
-       (:file "produce->consume")
-       (:file "message")))))))
+  ((:module "low-level"
+            :pathname "test/low-level"
+            :components
+            ((:file "unit-test")
+             (:file "producer")
+             (:file "consumer")))
+   (:module "high-level"
+            :pathname "test/high-level"
+            :components
+            ((:file "serde")
+             (:file "kafka-error")
+             (:file "conf")
+             (:file "topic+partition")
+             (:file "consumer")
+             (:file "producer")
+             (:file "produce->consume")
+             (:file "message")))))
+
 
 #+sb-core-compression
 (defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))

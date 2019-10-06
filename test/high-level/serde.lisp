@@ -15,19 +15,24 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/high-level/serde
+  (:use #:cl #:1am))
+
 (in-package #:test/high-level/serde)
 
-(def-test string-utf8 ()
+(test string-utf8
   (let* ((expected "Hello World!")
-	 (actual (kf:bytes->object
-		  (kf:object->bytes expected)
-		  'string)))
+         (actual (kf:bytes->object
+                  (kf:object->bytes expected)
+                  'string)))
     (is (string= expected actual))))
 
-(def-test string-utf16 ()
+(test string-utf16
   (let* ((expected "Hello World!")
-	 (actual (kf:bytes->object
-		  (kf:object->bytes expected :encoding :utf-16)
-		  'string
-		  :encoding :utf-16)))
+         (actual (kf:bytes->object
+                  (kf:object->bytes expected :encoding :utf-16)
+                  'string
+                  :encoding :utf-16)))
     (is (string= expected actual))))

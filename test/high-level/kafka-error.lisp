@@ -15,18 +15,23 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/high-level/kafka-error
+  (:use #:cl #:1am))
+
 (in-package #:test/high-level/kafka-error)
 
-(def-test error-code ()
+(test error-code
   (let* ((err cl-rdkafka/ll:rd-kafka-resp-err-invalid-group-id)
-	 (kafka-error (make-instance 'kf:kafka-error :rd-kafka-resp-err err))
-	 (expected (cl-rdkafka/ll:num err))
-	 (actual (kf:error-code kafka-error)))
+         (kafka-error (make-instance 'kf:kafka-error :rd-kafka-resp-err err))
+         (expected (cl-rdkafka/ll:num err))
+         (actual (kf:error-code kafka-error)))
     (is (= expected actual))))
 
-(def-test error-description ()
+(test error-description
   (let* ((err cl-rdkafka/ll:rd-kafka-resp-err-invalid-group-id)
-	 (kafka-error (make-instance 'kf:kafka-error :rd-kafka-resp-err err))
-	 (expected (cl-rdkafka/ll:rd-kafka-err2str err))
-	 (actual (kf:error-description kafka-error)))
+         (kafka-error (make-instance 'kf:kafka-error :rd-kafka-resp-err err))
+         (expected (cl-rdkafka/ll:rd-kafka-err2str err))
+         (actual (kf:error-description kafka-error)))
     (is (string= expected actual))))

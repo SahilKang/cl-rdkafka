@@ -15,6 +15,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/high-level/topic+partition
+  (:use #:cl #:1am))
+
 (in-package #:test/high-level/topic+partition)
 
 (defun equal? (lhs rhs)
@@ -24,22 +29,22 @@
    (string= (kf:topic lhs) (kf:topic rhs))
    (string= (kf:metadata lhs) (kf:metadata rhs))))
 
-(def-test topic+partition ()
+(test topic+partition
   (let* ((expected
-	  (list
-	   (make-instance 'kf:topic+partition :topic "topic-1")
-	   (make-instance 'kf:topic+partition
-			  :topic "topic-2"
-			  :offset 2
-			  :partition 3)
-	   (make-instance 'kf:topic+partition
-			  :topic "topic-3"
-			  :offset 3
-			  :partition 4
-			  :metadata "Here's some metadata.")))
-	 (rd-kafka-list (kf::topic+partitions->rd-kafka-list expected))
-	 (actual (kf::rd-kafka-list->topic+partitions rd-kafka-list)))
+          (list
+           (make-instance 'kf:topic+partition :topic "topic-1")
+           (make-instance 'kf:topic+partition
+                          :topic "topic-2"
+                          :offset 2
+                          :partition 3)
+           (make-instance 'kf:topic+partition
+                          :topic "topic-3"
+                          :offset 3
+                          :partition 4
+                          :metadata "Here's some metadata.")))
+         (rd-kafka-list (kf::topic+partitions->rd-kafka-list expected))
+         (actual (kf::rd-kafka-list->topic+partitions rd-kafka-list)))
     (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)
     (is (and
-	 (= (length expected) (length actual))
-	 (every #'equal? expected actual)))))
+         (= (length expected) (length actual))
+         (every #'equal? expected actual)))))

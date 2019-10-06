@@ -48,7 +48,7 @@
 (constant (rd-kafka-purge-f-inflight "RD_KAFKA_PURGE_F_INFLIGHT") :optional t)
 
 (constant (rd-kafka-purge-f-non-blocking "RD_KAFKA_PURGE_F_NON_BLOCKING")
-	  :optional t)
+          :optional t)
 
 (constant (rd-kafka-event-none "RD_KAFKA_EVENT_NONE"))
 
@@ -67,21 +67,21 @@
 (constant (rd-kafka-event-stats "RD_KAFKA_EVENT_STATS") :optional t)
 
 (constant (rd-kafka-event-createtopics-result
-	   "RD_KAFKA_EVENT_CREATETOPICS_RESULT")
-	  :optional t)
+           "RD_KAFKA_EVENT_CREATETOPICS_RESULT")
+          :optional t)
 
 (constant (rd-kafka-event-deletetopics-result
-	   "RD_KAFKA_EVENT_DELETETOPICS_RESULT")
-	  :optional t)
+           "RD_KAFKA_EVENT_DELETETOPICS_RESULT")
+          :optional t)
 
 (constant (rd-kafka-event-createpartitions-result
-	   "RD_KAFKA_EVENT_CREATEPARTITIONS_RESULT")
-	  :optional t)
+           "RD_KAFKA_EVENT_CREATEPARTITIONS_RESULT")
+          :optional t)
 
 (constant (rd-kafka-event-alterconfigs-result
-	   "RD_KAFKA_EVENT_ALTERCONFIGS_RESULT")
-	  :optional t)
+           "RD_KAFKA_EVENT_ALTERCONFIGS_RESULT")
+          :optional t)
 
 (constant (rd-kafka-event-describeconfigs-result
-	   "RD_KAFKA_EVENT_DESCRIBECONFIGS_RESULT")
-	  :optional t)
+           "RD_KAFKA_EVENT_DESCRIBECONFIGS_RESULT")
+          :optional t)
