@@ -45,8 +45,8 @@
              (:file "conf" :depends-on ("common"))
              (:file "topic+partition" :depends-on ("common" "serde"))
              (:file "consumer" :depends-on ("topic+partition"
-				            "message"
-				            "conf"))
+                                            "message"
+                                            "conf"))
              (:file "producer" :depends-on ("conf"))))))
 
 

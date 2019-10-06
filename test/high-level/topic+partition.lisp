@@ -26,20 +26,20 @@
 
 (def-test topic+partition ()
   (let* ((expected
-	  (list
-	   (make-instance 'kf:topic+partition :topic "topic-1")
-	   (make-instance 'kf:topic+partition
-			  :topic "topic-2"
-			  :offset 2
-			  :partition 3)
-	   (make-instance 'kf:topic+partition
-			  :topic "topic-3"
-			  :offset 3
-			  :partition 4
-			  :metadata "Here's some metadata.")))
-	 (rd-kafka-list (kf::topic+partitions->rd-kafka-list expected))
-	 (actual (kf::rd-kafka-list->topic+partitions rd-kafka-list)))
+          (list
+           (make-instance 'kf:topic+partition :topic "topic-1")
+           (make-instance 'kf:topic+partition
+                          :topic "topic-2"
+                          :offset 2
+                          :partition 3)
+           (make-instance 'kf:topic+partition
+                          :topic "topic-3"
+                          :offset 3
+                          :partition 4
+                          :metadata "Here's some metadata.")))
+         (rd-kafka-list (kf::topic+partitions->rd-kafka-list expected))
+         (actual (kf::rd-kafka-list->topic+partitions rd-kafka-list)))
     (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)
     (is (and
-	 (= (length expected) (length actual))
-	 (every #'equal? expected actual)))))
+         (= (length expected) (length actual))
+         (every #'equal? expected actual)))))

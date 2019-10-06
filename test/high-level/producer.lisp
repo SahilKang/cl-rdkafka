@@ -18,11 +18,11 @@
 (in-package #:test/high-level/producer)
 
 (defvar *conf* (kf:conf
-		"bootstrap.servers" "kafka:9092"))
+                "bootstrap.servers" "kafka:9092"))
 
 (defun parse-kafkacat (output-lines)
   (flet ((parse (partition-key-value)
-	   (cdr (uiop:split-string partition-key-value :separator "|"))))
+           (cdr (uiop:split-string partition-key-value :separator "|"))))
     (loop
        for x in output-lines
        by #'cddr
@@ -30,21 +30,21 @@
 
 (defun same-pairs-p (lhs rhs)
   (flet ((same-pair-p (lhs rhs)
-	   (and
-	    (= 2 (length lhs) (length rhs))
-	    (every #'string= lhs rhs))))
+           (and
+            (= 2 (length lhs) (length rhs))
+            (every #'string= lhs rhs))))
     (and
      (= (length lhs) (length rhs))
      (every #'same-pair-p lhs rhs))))
 
 (def-test producer-produce ()
   (let ((bootstrap-servers (gethash "bootstrap.servers" *conf*))
-	(topic "test-producer-produce")
-	(expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
-	(producer (make-instance 'kf:producer
-				 :conf *conf*
-				 :key-serde #'kf:object->bytes
-				 :value-serde #'kf:object->bytes)))
+        (topic "test-producer-produce")
+        (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
+        (producer (make-instance 'kf:producer
+                                 :conf *conf*
+                                 :key-serde #'kf:object->bytes
+                                 :value-serde #'kf:object->bytes)))
     (loop
        for (k v) in expected
        do (kf:produce producer topic v :key k)) ; TODO test partition here, too
@@ -52,14 +52,14 @@
     (kf:flush producer (* 2 1000))
 
     (let* ((kafkacat-output-lines
-	    (uiop:run-program
-	     (format nil "kafkacat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A'"
-		     #\newline
-		     bootstrap-servers
-		     topic)
-	     :force-shell t
-	     :output :lines
-	     :error-output t
-	     :ignore-error-status t))
-	   (actual (parse-kafkacat kafkacat-output-lines)))
+            (uiop:run-program
+             (format nil "kafkacat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A'"
+                     #\newline
+                     bootstrap-servers
+                     topic)
+             :force-shell t
+             :output :lines
+             :error-output t
+             :ignore-error-status t))
+           (actual (parse-kafkacat kafkacat-output-lines)))
       (is (same-pairs-p expected actual)))))

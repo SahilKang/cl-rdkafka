@@ -32,4 +32,4 @@
 (defmethod initialize-instance :after ((kafka-error kafka-error) &key)
   (with-slots (rd-kafka-resp-err code description) kafka-error
     (setf code (cl-rdkafka/ll:num rd-kafka-resp-err)
-	  description (cl-rdkafka/ll:rd-kafka-err2str rd-kafka-resp-err))))
+          description (cl-rdkafka/ll:rd-kafka-err2str rd-kafka-resp-err))))

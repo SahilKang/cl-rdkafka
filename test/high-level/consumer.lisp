@@ -18,33 +18,33 @@
 (in-package #:test/high-level/consumer)
 
 (defvar *conf* (kf:conf
-		"bootstrap.servers" "kafka:9092"
-		"group.id" (write-to-string (get-universal-time))
-		"enable.auto.commit" "true"
-		"auto.offset.reset" "earliest"
-		"offset.store.method" "broker"))
+                "bootstrap.servers" "kafka:9092"
+                "group.id" (write-to-string (get-universal-time))
+                "enable.auto.commit" "true"
+                "auto.offset.reset" "earliest"
+                "offset.store.method" "broker"))
 
 (def-test consumer-subscribe ()
   (setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))
   (let ((consumer (make-instance 'kf:consumer :conf *conf*))
-	(expected '("consumer-test-topic" "foobar"))
-	actual)
+        (expected '("consumer-test-topic" "foobar"))
+        actual)
     (kf:subscribe consumer expected)
     (setf actual (sort (kf:subscription consumer) #'string<))
     (kf:unsubscribe consumer)
     (is (and
-	 (= (length expected) (length actual))
-	 (every #'string= expected actual)
-	 (= 0 (length (kf:subscription consumer)))))))
+         (= (length expected) (length actual))
+         (every #'string= expected actual)
+         (= 0 (length (kf:subscription consumer)))))))
 
 (def-test poll ()
   (setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))
   (let ((consumer (make-instance 'kf:consumer
-				 :conf *conf*
-				 :value-serde (lambda (x)
-						(kf:bytes->object x 'string))))
-	(expected '("Hello" "World" "!"))
-	(actual (make-array 3 :element-type 'string :initial-element "")))
+                                 :conf *conf*
+                                 :value-serde (lambda (x)
+                                                (kf:bytes->object x 'string))))
+        (expected '("Hello" "World" "!"))
+        (actual (make-array 3 :element-type 'string :initial-element "")))
     (kf:subscribe consumer '("consumer-test-topic"))
 
     (loop
@@ -54,17 +54,17 @@
        do (setf (elt actual i) value))
 
     (is (and
-	 (= (length expected) (length actual))
-	 (every #'string= expected actual)))))
+         (= (length expected) (length actual))
+         (every #'string= expected actual)))))
 
 (def-test commit ()
   (setf (gethash "enable.auto.commit" *conf*) "false"
-	(gethash "group.id" *conf*) "commit-test-group")
+        (gethash "group.id" *conf*) "commit-test-group")
 
   (let ((consumer (make-instance 'kf:consumer :conf *conf*))
-	(expected '(1 2 3))
-	actual
-	(commits (make-array 3)))
+        (expected '(1 2 3))
+        actual
+        (commits (make-array 3)))
     (kf:subscribe consumer '("consumer-test-topic"))
 
     (loop
@@ -78,23 +78,23 @@
       (setf actual (mapcar (lambda (t+p) (kf:offset t+p)) flattened)))
 
     (is (and
-	 (= (length expected) (length actual) (length commits))
-	 (every #'= expected actual)
-	 (apply #'= (map 'list #'length commits))))))
+         (= (length expected) (length actual) (length commits))
+         (every #'= expected actual)
+         (apply #'= (map 'list #'length commits))))))
 
 (def-test assign ()
   (let ((consumer (make-instance 'kf:consumer :conf *conf*))
-	assignment)
+        assignment)
     (kf:assign consumer (list (make-instance 'kf:topic+partition
-					     :topic "foobar"
-					     :offset 7
-					     :partition 35
-					     :metadata "foobarbaz")))
+                                             :topic "foobar"
+                                             :offset 7
+                                             :partition 35
+                                             :metadata "foobarbaz")))
 
     (setf assignment (elt (kf:assignment consumer) 0))
 
     (is (and
-	 (string= "foobar" (kf:topic assignment))
-	 (= 7 (kf:offset assignment))
-	 (= 35 (kf:partition assignment))
-	 (string= "foobarbaz" (kf:metadata assignment))))))
+         (string= "foobar" (kf:topic assignment))
+         (= 7 (kf:offset assignment))
+         (= 35 (kf:partition assignment))
+         (string= "foobarbaz" (kf:metadata assignment))))))

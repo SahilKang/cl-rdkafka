@@ -23,16 +23,16 @@
 (defun new-conf ()
   (let ((handle (cl-rdkafka/ll:rd-kafka-conf-new)))
     (if (cffi:null-pointer-p handle)
-	(error "~&Function ~A failed to allocate new rd-kafka-conf"
-	       'cl-rdkafka/ll:rd-kafka-conf-new)
-	handle)))
+        (error "~&Function ~A failed to allocate new rd-kafka-conf"
+               'cl-rdkafka/ll:rd-kafka-conf-new)
+        handle)))
 
 (defun new-topic-conf ()
   (let ((handle (cl-rdkafka/ll:rd-kafka-topic-conf-new)))
     (if (cffi:null-pointer-p handle)
-	(error "~&Function ~A failed to allocate new rd-kafka-topic-conf"
-	       'cl-rdkafka/ll:rd-kafka-topic-conf-new)
-	handle)))
+        (error "~&Function ~A failed to allocate new rd-kafka-topic-conf"
+               'cl-rdkafka/ll:rd-kafka-topic-conf-new)
+        handle)))
 
 ;; TODO add use-value condition handler
 (defun conf (&rest key-vals)
@@ -73,11 +73,11 @@
 
 (defun fall-through (rd-kafka-topic-conf prop-key prop-value errstr errstr-len)
   (let ((result (cl-rdkafka/ll:rd-kafka-topic-conf-set
-		 rd-kafka-topic-conf
-		 prop-key
-		 prop-value
-		 errstr
-		 errstr-len)))
+                 rd-kafka-topic-conf
+                 prop-key
+                 prop-value
+                 errstr
+                 errstr-len)))
     (when (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
       prop-value)))
 
@@ -85,25 +85,25 @@
   (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
     (cffi:with-foreign-object (errstr :char +errstr-len+)
       (let ((result (cl-rdkafka/ll:rd-kafka-conf-set
-		     rd-kafka-conf
-		     prop-key
-		     prop-value
-		     errstr
-		     +errstr-len+)))
-	(if (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-	    prop-value
-	    (fall-through rd-kafka-topic-conf
-			  prop-key
-			  prop-value
-			  errstr
-			  +errstr-len+))))))
+                     rd-kafka-conf
+                     prop-key
+                     prop-value
+                     errstr
+                     +errstr-len+)))
+        (if (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
+            prop-value
+            (fall-through rd-kafka-topic-conf
+                          prop-key
+                          prop-value
+                          errstr
+                          +errstr-len+))))))
 
 (defun rise-through (rd-kafka-topic-conf prop-key prop-value len)
   (let ((result (cl-rdkafka/ll:rd-kafka-topic-conf-get
-		 rd-kafka-topic-conf
-		 prop-key
-		 prop-value
-		 len)))
+                 rd-kafka-topic-conf
+                 prop-key
+                 prop-value
+                 len)))
     (when (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
       (cffi:foreign-string-to-lisp
        prop-value
@@ -112,29 +112,29 @@
 (defmethod prop ((conf conf) (prop-key string))
   (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
     (cffi:with-foreign-objects
-	((prop-value :char +prop-value-len+)
-	 (len 'cl-rdkafka/ll:size-t))
+        ((prop-value :char +prop-value-len+)
+         (len 'cl-rdkafka/ll:size-t))
 
       (setf (cffi:mem-ref len 'cl-rdkafka/ll:size-t) +prop-value-len+)
 
       (let ((result (cl-rdkafka/ll:rd-kafka-conf-get
-		     rd-kafka-conf
-		     prop-key
-		     prop-value
-		     len)))
-	(cond
-	  ((eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-	   (cffi:foreign-string-to-lisp
-	    prop-value
-	    :max-chars (cffi:mem-ref len 'cl-rdkafka/ll:size-t)))
+                     rd-kafka-conf
+                     prop-key
+                     prop-value
+                     len)))
+        (cond
+          ((eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
+           (cffi:foreign-string-to-lisp
+            prop-value
+            :max-chars (cffi:mem-ref len 'cl-rdkafka/ll:size-t)))
 
-	  ((eq result 'cl-rdkafka/ll:rd-kafka-conf-unknown)
-	   (rise-through rd-kafka-topic-conf prop-key prop-value len))
+          ((eq result 'cl-rdkafka/ll:rd-kafka-conf-unknown)
+           (rise-through rd-kafka-topic-conf prop-key prop-value len))
 
-	  (t
-	   (error "~&Unexpected result when getting prop-key ~A: ~A"
-		  prop-key
-		  result)))))))
+          (t
+           (error "~&Unexpected result when getting prop-key ~A: ~A"
+                  prop-key
+                  result)))))))
 
 (defmethod rd-kafka-conf ((conf conf))
   (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf

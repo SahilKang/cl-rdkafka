@@ -55,7 +55,7 @@
 
 (defun run-tests-for-shell ()
   (let ((*on-error* :backtrace)
-	(*on-failure* :backtrace))
+        (*on-failure* :backtrace))
     (if (run-all-tests)
-	(uiop:quit 0)
-	(uiop:quit 1))))
+        (uiop:quit 0)
+        (uiop:quit 1))))

@@ -20,24 +20,24 @@
 (def-test conf ()
   (let ((conf (make-instance 'kf::conf)))
     (setf (kf::prop conf "client.id") "foo"
-	  (kf::prop conf "message.max.bytes") "1024"
-	  (kf::prop conf "bootstrap.servers") "foobar:9092")
+          (kf::prop conf "message.max.bytes") "1024"
+          (kf::prop conf "bootstrap.servers") "foobar:9092")
     (is (and
-	 (string= "foo" (kf::prop conf "client.id"))
-	 (string= "1024" (kf::prop conf "message.max.bytes"))
-	 (string= "foobar:9092" (kf::prop conf "bootstrap.servers"))))))
+         (string= "foo" (kf::prop conf "client.id"))
+         (string= "1024" (kf::prop conf "message.max.bytes"))
+         (string= "foobar:9092" (kf::prop conf "bootstrap.servers"))))))
 
 (def-test conf-function ()
   (let* ((expected '(("a" "A")
-		     ("b" "B")
-		     ("c" "C")
-		     ("d" "D")))
-	 (flattened (loop for (k v) in expected collect k collect v))
-	 (actual (eval `(kf:conf ,@flattened))))
+                     ("b" "B")
+                     ("c" "C")
+                     ("d" "D")))
+         (flattened (loop for (k v) in expected collect k collect v))
+         (actual (eval `(kf:conf ,@flattened))))
     (is (and
-	 (= (length expected) (hash-table-count actual))
-	 (every
-	  (lambda (key-val)
-	    (string= (cadr key-val)
-		     (gethash (car key-val) actual)))
-	  expected)))))
+         (= (length expected) (hash-table-count actual))
+         (every
+          (lambda (key-val)
+            (string= (cadr key-val)
+                     (gethash (car key-val) actual)))
+          expected)))))

@@ -18,18 +18,18 @@
 (in-package #:test/low-level/consumer)
 
 (defparameter *messages* (make-array 0
-				     :element-type 'string
-				     :adjustable t
-				     :fill-pointer 0))
+                                     :element-type 'string
+                                     :adjustable t
+                                     :fill-pointer 0))
 
 (defun consume-message (rk-message)
   (let* ((*rk-message (mem-ref rk-message '(:struct rd-kafka-message)))
-	 (err (getf *rk-message 'cl-rdkafka/ll:err))
-	 (len (getf *rk-message 'cl-rdkafka/ll:len))
-	 (payload (getf *rk-message 'cl-rdkafka/ll:payload)))
+         (err (getf *rk-message 'cl-rdkafka/ll:err))
+         (len (getf *rk-message 'cl-rdkafka/ll:len))
+         (payload (getf *rk-message 'cl-rdkafka/ll:payload)))
     (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (let ((message (foreign-string-to-lisp payload :max-chars len)))
-	(vector-push-extend message *messages*)))))
+        (vector-push-extend message *messages*)))))
 
 (defcallback rebalance-callback :void
     ((rk :pointer)
@@ -57,15 +57,15 @@
 (defun make-topic-conf (conf errstr errstr-len)
   (let ((topic-conf (rd-kafka-topic-conf-new)))
     (rd-kafka-topic-conf-set topic-conf
-			     "offset.store.method"
-			     "broker"
-			     errstr
-			     errstr-len)
+                             "offset.store.method"
+                             "broker"
+                             errstr
+                             errstr-len)
     (rd-kafka-topic-conf-set topic-conf
-			     "auto.offset.reset"
-			     "earliest"
-			     errstr
-			     errstr-len)
+                             "auto.offset.reset"
+                             "earliest"
+                             errstr
+                             errstr-len)
     (rd-kafka-conf-set-default-topic-conf conf topic-conf)))
 
 (defun make-topic+partition-list (topics)
@@ -77,12 +77,12 @@
 
 (defun make-consumer (conf brokers topics errstr errstr-len)
   (let* ((consumer (rd-kafka-new cl-rdkafka/ll:rd-kafka-consumer
-				 conf
-				 errstr
-				 errstr-len))
-	 (topic+partitions (make-topic+partition-list topics))
-	 (*topic+partitions (mem-ref topic+partitions
-				     '(:struct rd-kafka-topic-partition-list))))
+                                 conf
+                                 errstr
+                                 errstr-len))
+         (topic+partitions (make-topic+partition-list topics))
+         (*topic+partitions (mem-ref topic+partitions
+                                     '(:struct rd-kafka-topic-partition-list))))
     (unless consumer
       (error (format nil "Failed to create new consumer: ~A~%" errstr)))
     (rd-kafka-brokers-add consumer brokers)
@@ -100,10 +100,10 @@
   (let (conf topic-conf consumer&topic+partitions (errstr-len 512))
     (with-foreign-object (errstr :char errstr-len)
       (setf conf (make-conf group-id errstr errstr-len)
-	    topic-conf (make-topic-conf conf errstr errstr-len)
+            topic-conf (make-topic-conf conf errstr errstr-len)
 
-	    consumer&topic+partitions
-	    (make-consumer conf brokers topics errstr errstr-len)))
+            consumer&topic+partitions
+            (make-consumer conf brokers topics errstr errstr-len)))
     consumer&topic+partitions))
 
 (defun destroy (consumer topic+partitions)
@@ -113,13 +113,13 @@
 
 (def-test consumer ()
   (destructuring-bind
-	(consumer topic+partitions) (init (write-to-string (get-universal-time))
-					  "kafka:9092"
-					  (list "consumer-test-topic"))
+        (consumer topic+partitions) (init (write-to-string (get-universal-time))
+                                          "kafka:9092"
+                                          (list "consumer-test-topic"))
     (consume consumer)
     (consume consumer)
     (consume consumer)
     (destroy consumer topic+partitions))
   (let ((expected '("Hello" "World" "!")))
     (is (and (= (length expected) (length *messages*))
-	     (every #'string= expected *messages*)))))
+             (every #'string= expected *messages*)))))
