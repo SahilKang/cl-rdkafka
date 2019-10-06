@@ -21,7 +21,7 @@
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :licence "GPLv3"
-  :depends-on (#:cffi #:babel #:trivial-garbage #:bordeaux-threads)
+  :depends-on (#:cffi #:babel #:trivial-garbage)
   :defsystem-depends-on (#:cffi-grovel)
   :in-order-to ((test-op (test-op :cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
