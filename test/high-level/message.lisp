@@ -15,6 +15,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/high-level/message
+  (:use #:cl #:1am))
+
 (in-package #:test/high-level/message)
 
 (defmacro with-producer (producer &body body)
@@ -86,7 +91,7 @@
               cl-rdkafka/ll:len (length ,payload)))
            ,@body)))))
 
-(def-test message-constructor ()
+(test message-constructor
   (let ((topic "test-topic")
         (partition 1)
         (offset 3)
@@ -113,7 +118,7 @@
              (string= key (kf:key message))
              (string= value (kf:value message))))))))
 
-(def-test bad-message-value ()
+(test bad-message-value
   (let ((topic "test-topic")
         (partition 1)
         (offset 3)
@@ -137,7 +142,7 @@
         (signals kf:message-error
           (kf:value message))))))
 
-(def-test bad-message-key ()
+(test bad-message-key
   (let ((topic "test-topic")
         (partition 1)
         (offset 3)
@@ -161,7 +166,7 @@
         (signals kf:message-error
           (kf:key message))))))
 
-(def-test bad-message-use-value ()
+(test bad-message-use-value
   (let ((topic "test-topic")
         (partition 1)
         (offset 3)
@@ -197,7 +202,7 @@
              (string= key actual-key)
              (string= value actual-value)))))))
 
-(def-test message-error ()
+(test message-error
   (let ((topic "test-topic")
         (partition 1)
         (offset 3)

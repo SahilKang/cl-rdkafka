@@ -15,7 +15,12 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
-(in-package #:cl-rdkafka/test)
+(in-package #:cl-user)
+
+(defpackage #:test/low-level/unit-test
+  (:use #:cl #:1am))
+
+(in-package #:test/low-level/unit-test)
 
 (defun version->string (version-num)
   "Parse rdkafka.h version number to string.
@@ -44,7 +49,7 @@ librdkafka/rdkafka.h says that the version int should be interpreted as:
               revision
               (format-pre-release pre-release)))))
 
-(def-test check-version-funcs ()
+(test check-version-funcs
   (let ((num (cl-rdkafka/ll:rd-kafka-version))
         (str (cl-rdkafka/ll:rd-kafka-version-str)))
     (is (string= (version->string num) str))))

@@ -15,6 +15,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/high-level/produce->consume
+  (:use #:cl #:1am))
+
 (in-package #:test/high-level/produce->consume)
 
 (defvar +topic+ "test-produce-to-consume")
@@ -59,7 +64,7 @@
 
        do (kf:commit consumer))))
 
-(def-test produce->consume ()
+(test produce->consume
   (let ((expected (produce-messages))
         (actual (consume-messages))
         (same-pair-p (lambda (lhs rhs)

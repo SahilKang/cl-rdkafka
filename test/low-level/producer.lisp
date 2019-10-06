@@ -15,6 +15,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/low-level/producer
+  (:use #:cl #:cffi #:cl-rdkafka/low-level #:1am))
+
 (in-package #:test/low-level/producer)
 
 (defparameter *messages* (make-array 0
@@ -106,7 +111,7 @@
                        (rd-kafka-err2str (rd-kafka-last-error)))))))
   (rd-kafka-poll producer 0))
 
-(def-test producer ()
+(test producer
   (let ((topic-name "producer-test-topic")
         (expected '("Hello" "World" "!")))
     (destructuring-bind (producer topic) (init "kafka:9092" topic-name)

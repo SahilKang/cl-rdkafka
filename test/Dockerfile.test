@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
             --eval '(ql:quickload :cl-rdkafka/test)' \
             --eval '(sb-ext:save-lisp-and-die \
                       "test-image" \
-                      :toplevel \
-                        (function cl-rdkafka/test:run-tests-for-shell))' \
+                      :toplevel (lambda () \
+                                  (asdf:operate :test-op :cl-rdkafka)))' \
             --end-toplevel-options \
     && mkdir /app \
     && mv ./test-image /app/test-image

@@ -15,9 +15,14 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/high-level/conf
+  (:use #:cl #:1am))
+
 (in-package #:test/high-level/conf)
 
-(def-test conf ()
+(test conf
   (let ((conf (make-instance 'kf::conf)))
     (setf (kf::prop conf "client.id") "foo"
           (kf::prop conf "message.max.bytes") "1024"
@@ -27,13 +32,13 @@
          (string= "1024" (kf::prop conf "message.max.bytes"))
          (string= "foobar:9092" (kf::prop conf "bootstrap.servers"))))))
 
-(def-test conf-function ()
+(test conf-function
   (let* ((expected '(("a" "A")
                      ("b" "B")
                      ("c" "C")
                      ("d" "D")))
          (flattened (loop for (k v) in expected collect k collect v))
-         (actual (eval `(kf:conf ,@flattened))))
+         (actual (apply #'kf:conf flattened)))
     (is (and
          (= (length expected) (hash-table-count actual))
          (every

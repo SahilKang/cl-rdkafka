@@ -15,6 +15,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/low-level/consumer
+  (:use #:cl #:cffi #:cl-rdkafka/low-level #:1am))
+
 (in-package #:test/low-level/consumer)
 
 (defparameter *messages* (make-array 0
@@ -111,7 +116,7 @@
   (rd-kafka-topic-partition-list-destroy topic+partitions)
   (rd-kafka-destroy consumer))
 
-(def-test consumer ()
+(test consumer
   (destructuring-bind
         (consumer topic+partitions) (init (write-to-string (get-universal-time))
                                           "kafka:9092"

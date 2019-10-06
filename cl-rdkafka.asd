@@ -55,29 +55,26 @@
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :license "GPLv3"
-  :depends-on (#:cl-rdkafka #:fiveam)
-  :perform (test-op (op sys) (uiop:symbol-call :fiveam :run-all-tests))
+  :depends-on (#:cl-rdkafka #:1am)
+  :perform (test-op (op sys) (uiop:symbol-call :1am :run))
   :components
-  ((:module
-    "test"
-    :serial t
-    :components
-    ((:file "package")
-     (:module "low-level"
-              :components
-              ((:file "unit-test")
-               (:file "producer")
-               (:file "consumer")))
-     (:module "high-level"
-              :components
-              ((:file "serde")
-               (:file "kafka-error")
-               (:file "conf")
-               (:file "topic+partition")
-               (:file "consumer")
-               (:file "producer")
-               (:file "produce->consume")
-               (:file "message")))))))
+  ((:module "low-level"
+            :pathname "test/low-level"
+            :components
+            ((:file "unit-test")
+             (:file "producer")
+             (:file "consumer")))
+   (:module "high-level"
+            :pathname "test/high-level"
+            :components
+            ((:file "serde")
+             (:file "kafka-error")
+             (:file "conf")
+             (:file "topic+partition")
+             (:file "consumer")
+             (:file "producer")
+             (:file "produce->consume")
+             (:file "message")))))
 
 
 #+sb-core-compression

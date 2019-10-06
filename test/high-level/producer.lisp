@@ -15,6 +15,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/high-level/producer
+  (:use #:cl #:1am))
+
 (in-package #:test/high-level/producer)
 
 (defvar *conf* (kf:conf
@@ -37,7 +42,7 @@
      (= (length lhs) (length rhs))
      (every #'same-pair-p lhs rhs))))
 
-(def-test producer-produce ()
+(test producer-produce
   (let ((bootstrap-servers (gethash "bootstrap.servers" *conf*))
         (topic "test-producer-produce")
         (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))

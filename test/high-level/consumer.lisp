@@ -15,6 +15,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with cl-rdkafka.  If not, see <http://www.gnu.org/licenses/>.
 
+(in-package #:cl-user)
+
+(defpackage #:test/high-level/consumer
+  (:use #:cl #:1am))
+
 (in-package #:test/high-level/consumer)
 
 (defvar *conf* (kf:conf
@@ -24,7 +29,7 @@
                 "auto.offset.reset" "earliest"
                 "offset.store.method" "broker"))
 
-(def-test consumer-subscribe ()
+(test consumer-subscribe
   (setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))
   (let ((consumer (make-instance 'kf:consumer :conf *conf*))
         (expected '("consumer-test-topic" "foobar"))
@@ -37,7 +42,7 @@
          (every #'string= expected actual)
          (= 0 (length (kf:subscription consumer)))))))
 
-(def-test poll ()
+(test poll
   (setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))
   (let ((consumer (make-instance 'kf:consumer
                                  :conf *conf*
@@ -57,7 +62,7 @@
          (= (length expected) (length actual))
          (every #'string= expected actual)))))
 
-(def-test commit ()
+(test commit
   (setf (gethash "enable.auto.commit" *conf*) "false"
         (gethash "group.id" *conf*) "commit-test-group")
 
@@ -82,7 +87,7 @@
          (every #'= expected actual)
          (apply #'= (map 'list #'length commits))))))
 
-(def-test assign ()
+(test assign
   (let ((consumer (make-instance 'kf:consumer :conf *conf*))
         assignment)
     (kf:assign consumer (list (make-instance 'kf:topic+partition
