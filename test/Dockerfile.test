@@ -1,7 +1,4 @@
-# TODO unit tests started failing with debian:stable for some reason,
-# so switched to debian:stretch. Need to figure out root cause and
-# come up with proper fix, though.
-FROM debian:stretch
+FROM debian:stable
 
 WORKDIR /root/quicklisp/local-projects/cl-rdkafka/
 

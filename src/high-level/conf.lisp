@@ -52,7 +52,12 @@
     :documentation "Pointer to rd_kafka_conf_t struct.")
    (rd-kafka-topic-conf
     :initform (new-topic-conf)
-    :documentation "Pointer to rd_kafka_topic_conf_t struct.")))
+    :documentation "Pointer to rd_kafka_topic_conf_t struct.")
+   (merge-confs-p
+    :initform nil
+    :documentation
+    "Determines if the two confs should be merged.
+This is set to true only when the fall-through function is needed.")))
 
 (defgeneric (setf prop) (prop-value conf prop-key))
 
@@ -82,7 +87,7 @@
       prop-value)))
 
 (defmethod (setf prop) ((prop-value string) (conf conf) (prop-key string))
-  (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
+  (with-slots (rd-kafka-conf rd-kafka-topic-conf merge-confs-p) conf
     (cffi:with-foreign-object (errstr :char +errstr-len+)
       (let ((result (cl-rdkafka/ll:rd-kafka-conf-set
                      rd-kafka-conf
@@ -92,11 +97,17 @@
                      +errstr-len+)))
         (if (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
             prop-value
-            (fall-through rd-kafka-topic-conf
-                          prop-key
-                          prop-value
-                          errstr
-                          +errstr-len+))))))
+            (let ((value (fall-through rd-kafka-topic-conf
+                                       prop-key
+                                       prop-value
+                                       errstr
+                                       +errstr-len+)))
+              (when value
+                ;; fall-through was successful so we're running an
+                ;; older version of librdkafka and need to merge the
+                ;; two confs during the rd-kafka-conf call
+                (setf merge-confs-p t))
+              value))))))
 
 (defun rise-through (rd-kafka-topic-conf prop-key prop-value len)
   (let ((result (cl-rdkafka/ll:rd-kafka-topic-conf-get
@@ -137,9 +148,14 @@
                   result)))))))
 
 (defmethod rd-kafka-conf ((conf conf))
-  (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
-    (cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf
-     rd-kafka-conf
-     rd-kafka-topic-conf)
-    (setf rd-kafka-topic-conf nil) ; unusable after set-default-topic-conf call
+  (with-slots (rd-kafka-conf rd-kafka-topic-conf merge-confs-p) conf
+    ;; merge the two confs if needed, or destroy the topic-conf if not
+    (if merge-confs-p
+        (progn
+          (cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf
+           rd-kafka-conf
+           rd-kafka-topic-conf)
+          ;; rd-kafka-topic-conf is unusable after set-default-topic-conf call
+          (setf rd-kafka-topic-conf nil))
+        (cl-rdkafka/ll:rd-kafka-topic-conf-destroy rd-kafka-topic-conf))
     rd-kafka-conf))
