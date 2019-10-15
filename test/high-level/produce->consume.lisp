@@ -54,7 +54,7 @@
     (kf:subscribe consumer (list +topic+))
 
     (loop
-       for message = (kf:poll consumer (* 2 1000))
+       for message = (kf:poll consumer 5000)
        while message
 
        for key = (kf:key message)
