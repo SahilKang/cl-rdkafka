@@ -83,6 +83,21 @@ Here are a few examples for the `kf` package:
 ;; => (("key-1" "message-1") ("key-2" "message-2"))
 ```
 
+## Admin
+
+### Create Topics
+
+```lisp
+;; client can be either a producer or consumer
+
+(let ((client (make-instance 'kf:consumer
+                             :conf (kf:conf
+                                    "bootstrap.servers" "127.0.0.1:9092"))))
+  (kf:create-topic client "your-favorite-topic-name" :partitions 7))
+
+;; => "your-favorite-topic-name"
+```
+
 # Contributing and Hacking
 
 PRs and GitHub issues are always welcome and feel free to email me with any

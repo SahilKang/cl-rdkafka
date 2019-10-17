@@ -45,7 +45,11 @@
              (:file "consumer" :depends-on ("topic+partition"
                                             "message"
                                             "conf"))
-             (:file "producer" :depends-on ("conf"))))))
+             (:file "producer" :depends-on ("conf"))
+             (:module "admin"
+                      :depends-on ("common" "consumer" "producer")
+                      :components
+                      ((:file "create-topic")))))))
 
 
 (asdf:defsystem #:cl-rdkafka/test
@@ -70,7 +74,8 @@
              (:file "consumer")
              (:file "producer")
              (:file "produce->consume")
-             (:file "message")))))
+             (:file "message")
+             (:file "create-topic")))))
 
 
 #+sb-core-compression

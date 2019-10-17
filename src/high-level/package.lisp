@@ -34,4 +34,6 @@
 
    #:producer #:produce #:flush
 
-   #:conf))
+   #:conf
+
+   #:create-topic))
