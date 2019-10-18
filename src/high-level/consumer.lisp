@@ -33,10 +33,8 @@
 
 Example:
 
-(ql:quickload :cl-rdkafka)
-
 (let* ((string-serde (lambda (x)
-                       (kf:bytes->object x 'string)))
+                       (babel:octets-to-string x :encoding :utf-8)))
        (conf (kf:conf
               \"bootstrap.servers\" \"127.0.0.1:9092\"
               \"group.id\" \"consumer-group-id\"

@@ -56,10 +56,9 @@
                    value)))
       (set-field 'cl-rdkafka/ll:offset offset)
       (when metadata
-        (let ((bytes (object->bytes metadata)))
-          (set-field 'cl-rdkafka/ll:metadata
-                     (cffi:foreign-alloc :uint8 :initial-contents bytes))
-          (set-field 'cl-rdkafka/ll:metadata-size (length bytes)))))
+        (set-field 'cl-rdkafka/ll:metadata
+                   (cffi:foreign-alloc :uint8 :initial-contents metadata))
+        (set-field 'cl-rdkafka/ll:metadata-size (length metadata))))
     elem))
 
 (defun topic+partitions->rd-kafka-list (topic+partitions)
@@ -74,7 +73,7 @@
   (let ((metadata (getf rd-kafka-topic-partition 'cl-rdkafka/ll:metadata))
         (length (getf rd-kafka-topic-partition 'cl-rdkafka/ll:metadata-size)))
     (unless (cffi:null-pointer-p metadata)
-      (bytes->object (pointer->bytes metadata length) 'string))))
+      (pointer->bytes metadata length))))
 
 (defun struct->topic+partition (rd-kafka-topic-partition)
   (let ((topic (getf rd-kafka-topic-partition 'cl-rdkafka/ll:topic))

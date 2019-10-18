@@ -32,14 +32,16 @@ Here are a few examples for the `kf` package:
 ## Producer
 
 ```lisp
-(ql:quickload :cl-rdkafka)
+(ql:quickload '(cl-rdkafka babel))
 
-(let ((messages '(("key-1" "value-1") ("key-2" "value-2")))
-      (producer (make-instance 'kf:producer
-                               :conf (kf:conf
-                                      "bootstrap.servers" "127.0.0.1:9092")
-                               :key-serde #'kf:object->bytes
-                               :value-serde #'kf:object->bytes)))
+(let* ((serde (lambda (string)
+                (babel:string-to-octets string :encoding :utf-8)))
+       (messages '(("key-1" "value-1") ("key-2" "value-2")))
+       (producer (make-instance 'kf:producer
+                                :conf (kf:conf
+                                       "bootstrap.servers" "127.0.0.1:9092")
+                                :key-serde serde
+                                :value-serde serde)))
   (loop
      for (k v) in messages
      do (kf:produce producer "topic-name" v :key k))
@@ -50,12 +52,12 @@ Here are a few examples for the `kf` package:
 ## Consumer
 
 ```lisp
-(ql:quickload :cl-rdkafka)
+(ql:quickload '(cl-rdkafka babel))
 
 ;; see librdkafka and kafka docs for config info
 
-(let* ((string-serde (lambda (x)
-                       (kf:bytes->object x 'string)))
+(let* ((string-serde (lambda (bytes)
+                       (babel:octets-to-string bytes :encoding :utf-8)))
        (conf (kf:conf
               "bootstrap.servers" "127.0.0.1:9092"
               "group.id" "consumer-group-id"

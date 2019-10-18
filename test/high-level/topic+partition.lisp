@@ -27,7 +27,7 @@
    (= (kf:offset lhs) (kf:offset rhs))
    (= (kf:partition lhs) (kf:partition rhs))
    (string= (kf:topic lhs) (kf:topic rhs))
-   (string= (kf:metadata lhs) (kf:metadata rhs))))
+   (equalp (kf:metadata lhs) (kf:metadata rhs))))
 
 (test topic+partition
   (let* ((expected
@@ -41,7 +41,7 @@
                           :topic "topic-3"
                           :offset 3
                           :partition 4
-                          :metadata "Here's some metadata.")))
+                          :metadata #(2 4 6 8))))
          (rd-kafka-list (kf::topic+partitions->rd-kafka-list expected))
          (actual (kf::rd-kafka-list->topic+partitions rd-kafka-list)))
     (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)

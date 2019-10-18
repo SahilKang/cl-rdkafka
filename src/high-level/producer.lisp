@@ -38,12 +38,13 @@ Example:
 
 (ql:quickload :cl-rdkafka)
 
-(let ((messages '((\"key-1\" \"value-1\") (\"key-2\" \"value-2\")))
-      (producer (make-instance 'kf:producer
-                               :conf (kf:conf
-                                      \"bootstrap.servers\" \"127.0.0.1:9092\")
-                               :key-serde #'kf:object->bytes
-                               :value-serde #'kf:object->bytes)))
+(let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
+       (messages '((\"key-1\" \"value-1\") (\"key-2\" \"value-2\")))
+       (producer (make-instance 'kf:producer
+                                :conf (kf:conf
+                                       \"bootstrap.servers\" \"127.0.0.1:9092\")
+                                :key-serde serde
+                                :value-serde serde)))
   (loop
      for (k v) in messages
      do (kf:produce producer \"topic-name\" v :key k))

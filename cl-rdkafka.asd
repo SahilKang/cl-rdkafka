@@ -21,7 +21,7 @@
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :license "GPLv3"
-  :depends-on (#:cffi #:babel #:trivial-garbage)
+  :depends-on (#:cffi #:trivial-garbage)
   :defsystem-depends-on (#:cffi-grovel)
   :in-order-to ((test-op (test-op #:cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
@@ -38,11 +38,10 @@
             :components
             ((:file "package")
              (:file "common" :depends-on ("package"))
-             (:file "serde" :depends-on ("package"))
              (:file "kafka-error" :depends-on ("package"))
              (:file "message" :depends-on ("kafka-error" "common"))
              (:file "conf" :depends-on ("common"))
-             (:file "topic+partition" :depends-on ("common" "serde"))
+             (:file "topic+partition" :depends-on ("common"))
              (:file "consumer" :depends-on ("topic+partition"
                                             "message"
                                             "conf"))
@@ -54,7 +53,7 @@
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :license "GPLv3"
-  :depends-on (#:cl-rdkafka #:1am)
+  :depends-on (#:cl-rdkafka #:babel #:1am)
   :perform (test-op (op sys) (uiop:symbol-call :1am :run))
   :pathname "test"
   :components
@@ -65,8 +64,7 @@
              (:file "consumer")))
    (:module "high-level"
             :components
-            ((:file "serde")
-             (:file "kafka-error")
+            ((:file "kafka-error")
              (:file "conf")
              (:file "topic+partition")
              (:file "consumer")

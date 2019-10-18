@@ -43,13 +43,14 @@
      (every #'same-pair-p lhs rhs))))
 
 (test producer-produce
-  (let ((bootstrap-servers (gethash "bootstrap.servers" *conf*))
-        (topic "test-producer-produce")
-        (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
-        (producer (make-instance 'kf:producer
-                                 :conf *conf*
-                                 :key-serde #'kf:object->bytes
-                                 :value-serde #'kf:object->bytes)))
+  (let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
+         (bootstrap-servers (gethash "bootstrap.servers" *conf*))
+         (topic "test-producer-produce")
+         (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
+         (producer (make-instance 'kf:producer
+                                  :conf *conf*
+                                  :key-serde serde
+                                  :value-serde serde)))
     (loop
        for (k v) in expected
        do (kf:produce producer topic v :key k)) ; TODO test partition here, too

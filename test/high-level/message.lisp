@@ -98,7 +98,7 @@
         (key "key-1")
         (value "Hello World!")
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         cl-rdkafka/ll:rd-kafka-resp-err-no-error
@@ -126,7 +126,7 @@
         (value "Hello World!")
         (err cl-rdkafka/ll:rd-kafka-resp-err-not-enough-replicas)
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         err
@@ -150,7 +150,7 @@
         (value "Hello World!")
         (err cl-rdkafka/ll:rd-kafka-resp-err-not-enough-replicas)
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         err
@@ -174,7 +174,7 @@
         (value "Hello World!")
         (err cl-rdkafka/ll:rd-kafka-resp-err-not-enough-replicas)
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         err
@@ -210,7 +210,7 @@
         (value "Hello World!")
         (err cl-rdkafka/ll:rd-kafka-resp-err-not-enough-replicas)
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         err
