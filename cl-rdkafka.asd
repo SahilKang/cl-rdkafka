@@ -25,16 +25,15 @@
   :defsystem-depends-on (#:cffi-grovel)
   :in-order-to ((test-op (test-op #:cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
+  :pathname "src"
   :components
   ((:module "low-level"
-            :pathname "src/low-level"
             :serial t
             :components
             ((:file "package")
              (:cffi-grovel-file "librdkafka-grovel")
              (:file "librdkafka-bindings")))
    (:module "high-level"
-            :pathname "src/high-level"
             :depends-on ("low-level")
             :components
             ((:file "package")
@@ -57,15 +56,14 @@
   :license "GPLv3"
   :depends-on (#:cl-rdkafka #:1am)
   :perform (test-op (op sys) (uiop:symbol-call :1am :run))
+  :pathname "test"
   :components
   ((:module "low-level"
-            :pathname "test/low-level"
             :components
             ((:file "unit-test")
              (:file "producer")
              (:file "consumer")))
    (:module "high-level"
-            :pathname "test/high-level"
             :components
             ((:file "serde")
              (:file "kafka-error")
