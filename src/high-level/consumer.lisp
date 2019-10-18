@@ -21,11 +21,9 @@
   ((rd-kafka-consumer
     :documentation "Pointer to rd_kafka_t struct.")
    (key-serde
-    :initarg :key-serde
     :initform nil
     :documentation "Function to map byte vector to object, or nil for bytes.")
    (value-serde
-    :initarg :value-serde
     :initform nil
     :documentation "Function to map byte vector to object, or nil for bytes."))
   (:documentation
@@ -44,8 +42,7 @@ Example:
               \"enable.partition.eof\"  \"false\"))
        (consumer (make-instance 'kf:consumer
                                 :conf conf
-                                :key-serde string-serde
-                                :value-serde string-serde)))
+                                :serde string-serde)))
   (kf:subscribe consumer '(\"topic-name\"))
 
   (loop
@@ -99,9 +96,9 @@ assignment is returned."))
 
 Returns nil on success or a kafka-error on failure."))
 
-(defmethod initialize-instance :after ((consumer consumer)
-                                       &key conf)
-  (with-slots (rd-kafka-consumer) consumer
+(defmethod initialize-instance :after
+    ((consumer consumer) &key conf serde key-serde value-serde)
+  (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
     (cffi:with-foreign-object (errstr :char +errstr-len+)
       (setf rd-kafka-consumer (cl-rdkafka/ll:rd-kafka-new
                                cl-rdkafka/ll:rd-kafka-consumer
@@ -111,6 +108,8 @@ Returns nil on success or a kafka-error on failure."))
       (when (cffi:null-pointer-p rd-kafka-consumer)
         (error "~&Failed to allocate new consumer: ~A"
                (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+))))
+    (setf ks (or key-serde serde)
+          vs (or value-serde serde))
     (tg:finalize
      consumer
      (lambda ()

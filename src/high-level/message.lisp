@@ -19,11 +19,9 @@
 
 (defclass message ()
   ((key-serde
-    :initarg :key-serde
     :initform nil
     :documentation "Function to map byte vector to object, or nil for bytes.")
    (value-serde
-    :initarg :value-serde
     :initform nil
     :documentation "Function to map byte vector to object, or nil for bytes.")
    (raw-key
@@ -100,7 +98,11 @@
 
 (defmethod initialize-instance :after
     ((message message)
-     &key (rd-kafka-message (error "Must supply pointer to rd-kafka-message.")))
+     &key
+       (rd-kafka-message (error "Must supply pointer to rd-kafka-message."))
+       serde
+       key-serde
+       value-serde)
   (with-slots (message-error
                topic
                partition
@@ -108,14 +110,19 @@
                timestamp
                latency
                raw-key
-               raw-value) message
+               raw-value
+               (ks key-serde)
+               (vs value-serde))
+      message
     (let ((*rd-kafka-message (deref rd-kafka-message)))
       (setf message-error (get-error *rd-kafka-message)
             topic (get-topic *rd-kafka-message)
             partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)
             offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
             timestamp (get-timestamp rd-kafka-message)
-            latency (get-latency rd-kafka-message))
+            latency (get-latency rd-kafka-message)
+            ks (or key-serde serde)
+            vs (or value-serde serde))
       (unless message-error
         (setf raw-key (get-key *rd-kafka-message)
               raw-value (get-payload *rd-kafka-message))))))

@@ -40,8 +40,7 @@ Here are a few examples for the `kf` package:
        (producer (make-instance 'kf:producer
                                 :conf (kf:conf
                                        "bootstrap.servers" "127.0.0.1:9092")
-                                :key-serde serde
-                                :value-serde serde)))
+                                :serde serde)))
   (loop
      for (k v) in messages
      do (kf:produce producer "topic-name" v :key k))
@@ -67,8 +66,7 @@ Here are a few examples for the `kf` package:
               "enable.partition.eof"  "false"))
        (consumer (make-instance 'kf:consumer
                                 :conf conf
-                                :key-serde string-serde
-                                :value-serde string-serde)))
+                                :serde string-serde)))
   (kf:subscribe consumer '("topic-name"))
 
   (loop

@@ -109,8 +109,7 @@
         key
       (let ((message (make-instance 'kf:message
                                     :rd-kafka-message rd-message
-                                    :key-serde string-serde
-                                    :value-serde string-serde)))
+                                    :serde string-serde)))
         (is (and
              (string= topic (kf:topic message))
              (= partition (kf:partition message))
@@ -137,8 +136,7 @@
         key
       (let ((message (make-instance 'kf:message
                                     :rd-kafka-message rd-message
-                                    :key-serde string-serde
-                                    :value-serde string-serde)))
+                                    :serde string-serde)))
         (signals kf:message-error
           (kf:value message))))))
 
@@ -161,8 +159,7 @@
         key
       (let ((message (make-instance 'kf:message
                                     :rd-kafka-message rd-message
-                                    :key-serde string-serde
-                                    :value-serde string-serde)))
+                                    :serde string-serde)))
         (signals kf:message-error
           (kf:key message))))))
 
@@ -185,8 +182,7 @@
         key
       (let* ((message (make-instance 'kf:message
                                      :rd-kafka-message rd-message
-                                     :key-serde string-serde
-                                     :value-serde string-serde))
+                                     :serde string-serde))
              (actual-key (handler-bind
                              ((kf:message-error (lambda (c)
                                                   (use-value key))))
@@ -221,8 +217,7 @@
         key
       (let ((message (make-instance 'kf:message
                                     :rd-kafka-message rd-message
-                                    :key-serde string-serde
-                                    :value-serde string-serde))
+                                    :serde string-serde))
             message-error)
         (handler-bind
             ((kf:message-error (lambda (c)

@@ -30,8 +30,7 @@
          (producer (make-instance 'kf:producer
                                   :conf (kf:conf
                                          "bootstrap.servers" "kafka:9092")
-                                  :key-serde serde
-                                  :value-serde serde)))
+                                  :serde serde)))
     (loop
        for (k v) in messages
        do (kf:produce producer +topic+ v :key k))
