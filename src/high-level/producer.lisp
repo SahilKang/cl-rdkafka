@@ -24,11 +24,9 @@
     :initform (make-hash-table :test #'equal)
     :documentation "Hash-table mapping topic-names to rd-kafka-topic handles.")
    (key-serde
-    :initarg :key-serde
     :initform nil
     :documentation "Function to map object to byte vector, or nil for identity.")
    (value-serde
-    :initarg :value-serde
     :initform nil
     :documentation "Function to map object to byte vector, or nil for identity."))
   (:documentation
@@ -38,12 +36,12 @@ Example:
 
 (ql:quickload :cl-rdkafka)
 
-(let ((messages '((\"key-1\" \"value-1\") (\"key-2\" \"value-2\")))
-      (producer (make-instance 'kf:producer
-                               :conf (kf:conf
-                                      \"bootstrap.servers\" \"127.0.0.1:9092\")
-                               :key-serde #'kf:object->bytes
-                               :value-serde #'kf:object->bytes)))
+(let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
+       (messages '((\"key-1\" \"value-1\") (\"key-2\" \"value-2\")))
+       (producer (make-instance 'kf:producer
+                                :conf (kf:conf
+                                       \"bootstrap.servers\" \"127.0.0.1:9092\")
+                                :serde serde)))
   (loop
      for (k v) in messages
      do (kf:produce producer \"topic-name\" v :key k))
@@ -62,8 +60,13 @@ function."))
    "Block for up to timeout-ms milliseconds while in-flight messages are
 sent to kafka cluster."))
 
-(defmethod initialize-instance :after ((producer producer) &key conf)
-  (with-slots (rd-kafka-producer topic-name->handle) producer
+(defmethod initialize-instance :after
+    ((producer producer) &key conf serde key-serde value-serde)
+  (with-slots (rd-kafka-producer
+               topic-name->handle
+               (ks key-serde)
+               (vs value-serde))
+      producer
     (cffi:with-foreign-object (errstr :char +errstr-len+)
       (setf rd-kafka-producer (cl-rdkafka/ll:rd-kafka-new
                                cl-rdkafka/ll:rd-kafka-producer
@@ -73,6 +76,8 @@ sent to kafka cluster."))
       (when (cffi:null-pointer-p rd-kafka-producer)
         (error "~&Failed to allocate new producer: ~A"
                (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+))))
+    (setf ks (or key-serde serde)
+          vs (or value-serde serde))
     (tg:finalize
      producer
      (lambda ()

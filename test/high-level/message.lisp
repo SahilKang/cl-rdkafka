@@ -98,7 +98,7 @@
         (key "key-1")
         (value "Hello World!")
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         cl-rdkafka/ll:rd-kafka-resp-err-no-error
@@ -109,8 +109,7 @@
         key
       (let ((message (make-instance 'kf:message
                                     :rd-kafka-message rd-message
-                                    :key-serde string-serde
-                                    :value-serde string-serde)))
+                                    :serde string-serde)))
         (is (and
              (string= topic (kf:topic message))
              (= partition (kf:partition message))
@@ -126,7 +125,7 @@
         (value "Hello World!")
         (err cl-rdkafka/ll:rd-kafka-resp-err-not-enough-replicas)
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         err
@@ -137,8 +136,7 @@
         key
       (let ((message (make-instance 'kf:message
                                     :rd-kafka-message rd-message
-                                    :key-serde string-serde
-                                    :value-serde string-serde)))
+                                    :serde string-serde)))
         (signals kf:message-error
           (kf:value message))))))
 
@@ -150,7 +148,7 @@
         (value "Hello World!")
         (err cl-rdkafka/ll:rd-kafka-resp-err-not-enough-replicas)
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         err
@@ -161,8 +159,7 @@
         key
       (let ((message (make-instance 'kf:message
                                     :rd-kafka-message rd-message
-                                    :key-serde string-serde
-                                    :value-serde string-serde)))
+                                    :serde string-serde)))
         (signals kf:message-error
           (kf:key message))))))
 
@@ -174,7 +171,7 @@
         (value "Hello World!")
         (err cl-rdkafka/ll:rd-kafka-resp-err-not-enough-replicas)
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         err
@@ -185,8 +182,7 @@
         key
       (let* ((message (make-instance 'kf:message
                                      :rd-kafka-message rd-message
-                                     :key-serde string-serde
-                                     :value-serde string-serde))
+                                     :serde string-serde))
              (actual-key (handler-bind
                              ((kf:message-error (lambda (c)
                                                   (use-value key))))
@@ -210,7 +206,7 @@
         (value "Hello World!")
         (err cl-rdkafka/ll:rd-kafka-resp-err-not-enough-replicas)
         (string-serde (lambda (x)
-                        (kf:bytes->object x 'string))))
+                        (babel:octets-to-string x :encoding :utf-8))))
     (with-message
         rd-message
         err
@@ -221,8 +217,7 @@
         key
       (let ((message (make-instance 'kf:message
                                     :rd-kafka-message rd-message
-                                    :key-serde string-serde
-                                    :value-serde string-serde))
+                                    :serde string-serde))
             message-error)
         (handler-bind
             ((kf:message-error (lambda (c)

@@ -21,8 +21,6 @@
   (:nicknames #:kf)
   (:use #:cl)
   (:export
-   #:bytes->object #:object->bytes
-
    #:kafka-error #:error-code #:error-description
 
    #:message #:key #:value #:topic
@@ -36,4 +34,6 @@
 
    #:producer #:produce #:flush
 
-   #:conf))
+   #:conf
+
+   #:create-topic))

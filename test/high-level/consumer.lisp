@@ -46,8 +46,9 @@
   (setf (gethash "group.id" *conf*) (write-to-string (get-universal-time)))
   (let ((consumer (make-instance 'kf:consumer
                                  :conf *conf*
-                                 :value-serde (lambda (x)
-                                                (kf:bytes->object x 'string))))
+                                 :value-serde
+                                 (lambda (x)
+                                   (babel:octets-to-string x :encoding :utf-8))))
         (expected '("Hello" "World" "!"))
         (actual (make-array 3 :element-type 'string :initial-element "")))
     (kf:subscribe consumer '("consumer-test-topic"))
@@ -94,7 +95,7 @@
                                              :topic "foobar"
                                              :offset 7
                                              :partition 35
-                                             :metadata "foobarbaz")))
+                                             :metadata #(4 8 12))))
 
     (setf assignment (elt (kf:assignment consumer) 0))
 
@@ -102,4 +103,4 @@
          (string= "foobar" (kf:topic assignment))
          (= 7 (kf:offset assignment))
          (= 35 (kf:partition assignment))
-         (string= "foobarbaz" (kf:metadata assignment))))))
+         (equalp #(4 8 12) (kf:metadata assignment))))))

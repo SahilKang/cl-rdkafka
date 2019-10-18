@@ -32,14 +32,15 @@ Here are a few examples for the `kf` package:
 ## Producer
 
 ```lisp
-(ql:quickload :cl-rdkafka)
+(ql:quickload '(cl-rdkafka babel))
 
-(let ((messages '(("key-1" "value-1") ("key-2" "value-2")))
-      (producer (make-instance 'kf:producer
-                               :conf (kf:conf
-                                      "bootstrap.servers" "127.0.0.1:9092")
-                               :key-serde #'kf:object->bytes
-                               :value-serde #'kf:object->bytes)))
+(let* ((serde (lambda (string)
+                (babel:string-to-octets string :encoding :utf-8)))
+       (messages '(("key-1" "value-1") ("key-2" "value-2")))
+       (producer (make-instance 'kf:producer
+                                :conf (kf:conf
+                                       "bootstrap.servers" "127.0.0.1:9092")
+                                :serde serde)))
   (loop
      for (k v) in messages
      do (kf:produce producer "topic-name" v :key k))
@@ -50,12 +51,12 @@ Here are a few examples for the `kf` package:
 ## Consumer
 
 ```lisp
-(ql:quickload :cl-rdkafka)
+(ql:quickload '(cl-rdkafka babel))
 
 ;; see librdkafka and kafka docs for config info
 
-(let* ((string-serde (lambda (x)
-                       (kf:bytes->object x 'string)))
+(let* ((string-serde (lambda (bytes)
+                       (babel:octets-to-string bytes :encoding :utf-8)))
        (conf (kf:conf
               "bootstrap.servers" "127.0.0.1:9092"
               "group.id" "consumer-group-id"
@@ -65,8 +66,7 @@ Here are a few examples for the `kf` package:
               "enable.partition.eof"  "false"))
        (consumer (make-instance 'kf:consumer
                                 :conf conf
-                                :key-serde string-serde
-                                :value-serde string-serde)))
+                                :serde string-serde)))
   (kf:subscribe consumer '("topic-name"))
 
   (loop
@@ -81,6 +81,21 @@ Here are a few examples for the `kf` package:
      do (kf:commit consumer)))
 
 ;; => (("key-1" "message-1") ("key-2" "message-2"))
+```
+
+## Admin
+
+### Create Topics
+
+```lisp
+;; client can be either a producer or consumer
+
+(let ((client (make-instance 'kf:consumer
+                             :conf (kf:conf
+                                    "bootstrap.servers" "127.0.0.1:9092"))))
+  (kf:create-topic client "your-favorite-topic-name" :partitions 7))
+
+;; => "your-favorite-topic-name"
 ```
 
 # Contributing and Hacking
