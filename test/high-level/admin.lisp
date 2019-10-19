@@ -17,10 +17,10 @@
 
 (in-package #:cl-user)
 
-(defpackage #:test/high-level/create-topic
+(defpackage #:test/high-level/admin
   (:use #:cl #:1am))
 
-(in-package #:test/high-level/create-topic)
+(in-package #:test/high-level/admin)
 
 (defun make-sed-commmand (topic)
   (format nil "sed -En 's/^\\s+topic\\s+~S\\s+with\\s+([0-9]+).*/\\1/p'" topic))
@@ -35,6 +35,7 @@
     (make-kafkacat-command topic)
     :force-shell t
     :output 'string)))
+
 
 (test create-topic-with-consumer
   (let ((consumer (make-instance
@@ -62,7 +63,7 @@
     (sleep 2)
     (is (= partitions (get-partitions topic)))))
 
-(test check-validatep
+(test create-topic-validatep
   (let ((consumer (make-instance
                    'kf:consumer
                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))

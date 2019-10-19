@@ -76,7 +76,7 @@
              (:file "producer")
              (:file "produce->consume")
              (:file "message")
-             (:file "create-topic")))))
+             (:file "admin")))))
 
 
 #+sb-core-compression
