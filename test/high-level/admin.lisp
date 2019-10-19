@@ -17,10 +17,10 @@
 
 (in-package #:cl-user)
 
-(defpackage #:test/high-level/create-topic
+(defpackage #:test/high-level/admin
   (:use #:cl #:1am))
 
-(in-package #:test/high-level/create-topic)
+(in-package #:test/high-level/admin)
 
 (defun make-sed-commmand (topic)
   (format nil "sed -En 's/^\\s+topic\\s+~S\\s+with\\s+([0-9]+).*/\\1/p'" topic))
@@ -35,6 +35,7 @@
     (make-kafkacat-command topic)
     :force-shell t
     :output 'string)))
+
 
 (test create-topic-with-consumer
   (let ((consumer (make-instance
@@ -62,7 +63,7 @@
     (sleep 2)
     (is (= partitions (get-partitions topic)))))
 
-(test check-validatep
+(test create-topic-validatep
   (let ((consumer (make-instance
                    'kf:consumer
                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
@@ -73,5 +74,40 @@
                                         :partitions partitions
                                         :timeout-ms 5000
                                         :validate-only-p t)))
+    (sleep 2)
+    (is (= 0 (get-partitions topic)))))
+
+
+(test delete-topic-with-consumer
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+        (topic "delete-topic-with-consumer")
+        (partitions 7))
+    (is (string= topic (kf:create-topic consumer
+                                        topic
+                                        :partitions partitions
+                                        :timeout-ms 5000)))
+    (sleep 2)
+    (is (= partitions (get-partitions topic)))
+
+    (is (string= topic (kf:delete-topic consumer topic :timeout-ms 5000)))
+    (sleep 2)
+    (is (= 0 (get-partitions topic)))))
+
+(test delete-topic-with-producer
+  (let ((producer (make-instance
+                   'kf:producer
+                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+        (topic "delete-topic-with-producer")
+        (partitions 4))
+    (is (string= topic (kf:create-topic producer
+                                        topic
+                                        :partitions partitions
+                                        :timeout-ms 5000)))
+    (sleep 2)
+    (is (= partitions (get-partitions topic)))
+
+    (is (string= topic (kf:delete-topic producer topic :timeout-ms 5000)))
     (sleep 2)
     (is (= 0 (get-partitions topic)))))

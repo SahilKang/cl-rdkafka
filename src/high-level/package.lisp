@@ -36,4 +36,5 @@
 
    #:conf
 
-   #:create-topic))
+   #:create-topic
+   #:delete-topic))
