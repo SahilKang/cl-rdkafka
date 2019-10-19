@@ -49,7 +49,8 @@
              (:module "admin"
                       :depends-on ("common" "consumer" "producer")
                       :components
-                      ((:file "create-topic")))))))
+                      ((:file "common")
+                       (:file "create-topic" :depends-on ("common"))))))))
 
 
 (asdf:defsystem #:cl-rdkafka/test

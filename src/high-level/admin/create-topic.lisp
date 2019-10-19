@@ -27,34 +27,6 @@ If VALIDATE-ONLY-P is true, then the create topic request will be
 validated by the broker without the topic actually being created."))
 
 
-(defun set-timeout (admin-options timeout-ms errstr errstr-len)
-  (let ((err (cl-rdkafka/ll:rd-kafka-adminoptions-set-request-timeout
-              admin-options
-              timeout-ms
-              errstr
-              errstr-len)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error "~&Failed to set request timeout of admin-options: ~S"
-             (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))))
-
-(defun set-validate (admin-options validatep errstr errstr-len)
-  (let ((err (cl-rdkafka/ll:rd-kafka-adminoptions-set-validate-only
-              admin-options
-              (if validatep 1 0)
-              errstr
-              errstr-len)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error "~&Failed to set validate-only to true/false: ~S"
-             (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))))
-
-(defun make-admin-options (rd-kafka-client)
-  (let ((admin-options (cl-rdkafka/ll:rd-kafka-adminoptions-new
-                        rd-kafka-client
-                        cl-rdkafka/ll:rd-kafka-admin-op-any)))
-    (when (cffi:null-pointer-p admin-options)
-      (error "~&Failed to allocate new admin-options pointer"))
-    admin-options))
-
 (defun make-newtopic
     (topic-name partitions replication-factor errstr errstr-len)
   (cffi:with-foreign-string (buf topic-name)
@@ -86,12 +58,6 @@ validated by the broker without the topic actually being created."))
        do (error "~&Odd number of key-val pairs: missing value for key: ~S" k)
        else do (set-kv k v))))
 
-(defun make-queue (rd-kafka-client)
-  (let ((queue (cl-rdkafka/ll:rd-kafka-queue-new rd-kafka-client)))
-    (when (cffi:null-pointer-p queue)
-      (error "~&Failed to create new queue"))
-    queue))
-
 (defun event->createtopics (event)
   (let ((res (cl-rdkafka/ll:rd-kafka-event-createtopics-result event)))
     (when (cffi:null-pointer-p res)
@@ -109,13 +75,11 @@ validated by the broker without the topic actually being created."))
        for *results = (cffi:mem-aref results :pointer i)
 
        for err = (cl-rdkafka/ll:rd-kafka-topic-result-error *results)
-       for errstr = (cl-rdkafka/ll:rd-kafka-topic-result-error *results)
+       for errstr = (cl-rdkafka/ll:rd-kafka-topic-result-error-string *results)
        for topic = (cl-rdkafka/ll:rd-kafka-topic-result-name *results)
 
        unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error "~&Failed to create topic ~S with error: ~S"
-                 topic
-                 (cl-rdkafka/ll:rd-kafka-err2str errstr)))))
+       do (error "~&Failed to create topic ~S with error: ~S" topic errstr))))
 
 (defun %%create-topic (rd-kafka-client admin-options newtopic queue)
   (cffi:with-foreign-objects ((newtopic-array :pointer 1)
