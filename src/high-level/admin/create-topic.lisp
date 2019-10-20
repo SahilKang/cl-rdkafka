@@ -58,15 +58,9 @@ validated by the broker without the topic actually being created."))
        do (error "~&Odd number of key-val pairs: missing value for key: ~S" k)
        else do (set-kv k v))))
 
-(defun event->createtopics (event)
-  (let ((res (cl-rdkafka/ll:rd-kafka-event-createtopics-result event)))
-    (when (cffi:null-pointer-p res)
-      (error "~&Unexpected event type"))
-    res))
-
 (defun assert-successful-create-topic (event count)
   (let ((results (cl-rdkafka/ll:rd-kafka-createtopics-result-topics
-                  (event->createtopics event)
+                  (event->result event createtopics)
                   count)))
     (loop
        with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)

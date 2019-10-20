@@ -51,3 +51,16 @@
     (when (cffi:null-pointer-p queue)
       (error "~&Failed to create new queue"))
     queue))
+
+
+(defmacro event->result (event result)
+  (let ((res (gensym))
+        (function (find-symbol
+                   (format nil "RD-KAFKA-EVENT-~A-RESULT" result)
+                   'cl-rdkafka/ll)))
+    (unless function
+      (error "~&Could not find function for: ~S" result))
+    `(let ((,res (,function ,event)))
+       (when (cffi:null-pointer-p ,res)
+         (error "~&Unexpected result type, expected: ~S" ',result))
+       ,res)))

@@ -29,15 +29,9 @@
         (error "~&Failed to allocate deletetopic pointer"))
       deletetopic)))
 
-(defun event->deletetopics (event)
-  (let ((res (cl-rdkafka/ll:rd-kafka-event-deletetopics-result event)))
-    (when (cffi:null-pointer-p res)
-      (error "~&Unexpected event type"))
-    res))
-
 (defun assert-successful-delete-topic (event count)
   (let ((results (cl-rdkafka/ll:rd-kafka-deletetopics-result-topics
-                  (event->deletetopics event)
+                  (event->result event deletetopics)
                   count)))
     (loop
        with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)
