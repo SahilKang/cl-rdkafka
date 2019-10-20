@@ -58,48 +58,6 @@ validated by the broker without the topic actually being created."))
        do (error "~&Odd number of key-val pairs: missing value for key: ~S" k)
        else do (set-kv k v))))
 
-(defun event->createtopics (event)
-  (let ((res (cl-rdkafka/ll:rd-kafka-event-createtopics-result event)))
-    (when (cffi:null-pointer-p res)
-      (error "~&Unexpected event type"))
-    res))
-
-(defun assert-successful-create-topic (event count)
-  (let ((results (cl-rdkafka/ll:rd-kafka-createtopics-result-topics
-                  (event->createtopics event)
-                  count)))
-    (loop
-       with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)
-
-       for i below *count
-       for *results = (cffi:mem-aref results :pointer i)
-
-       for err = (cl-rdkafka/ll:rd-kafka-topic-result-error *results)
-       for errstr = (cl-rdkafka/ll:rd-kafka-topic-result-error-string *results)
-       for topic = (cl-rdkafka/ll:rd-kafka-topic-result-name *results)
-
-       unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error "~&Failed to create topic ~S with error: ~S" topic errstr))))
-
-(defun %%create-topic (rd-kafka-client admin-options newtopic queue)
-  (cffi:with-foreign-objects ((newtopic-array :pointer 1)
-                              (count :pointer))
-    (setf (cffi:mem-aref newtopic-array :pointer 0) newtopic)
-    (cl-rdkafka/ll:rd-kafka-createtopics rd-kafka-client
-                                         newtopic-array
-                                         1
-                                         admin-options
-                                         queue)
-    (let (event)
-      (unwind-protect
-           (progn
-             (setf event (cl-rdkafka/ll:rd-kafka-queue-poll queue 2000))
-             (when (cffi:null-pointer-p event)
-               (error "~&Failed to get event from queue"))
-             (assert-successful-create-topic event count))
-        (when event
-          (cl-rdkafka/ll:rd-kafka-event-destroy event))))))
-
 (defun %create-topic
     (rd-kafka-client
      topic
@@ -108,7 +66,7 @@ validated by the broker without the topic actually being created."))
      conf
      timeout-ms
      validate-only-p)
-  (let (admin-options newtopic queue)
+  (let (admin-options newtopic)
     (unwind-protect
          (cffi:with-foreign-object (errstr :char +errstr-len+)
            (setf admin-options (make-admin-options rd-kafka-client)
@@ -116,53 +74,36 @@ validated by the broker without the topic actually being created."))
                                          partitions
                                          replication-factor
                                          errstr
-                                         +errstr-len+)
-                 queue (make-queue rd-kafka-client))
+                                         +errstr-len+))
            (set-timeout admin-options timeout-ms errstr +errstr-len+)
            (set-validate admin-options validate-only-p errstr +errstr-len+)
            (set-conf newtopic conf)
-           (%%create-topic rd-kafka-client admin-options newtopic queue))
-      (when queue
-        (cl-rdkafka/ll:rd-kafka-queue-destroy queue))
+           (perform-admin-op createtopics rd-kafka-client admin-options newtopic))
       (when newtopic
         (cl-rdkafka/ll:rd-kafka-newtopic-destroy newtopic))
       (when admin-options
         (cl-rdkafka/ll:rd-kafka-adminoptions-destroy admin-options)))))
 
-(defmethod create-topic
-    ((client consumer)
-     (topic string)
-     &key
-       (partitions 1)
-       (replication-factor 1)
-       conf
-       (timeout-ms 5000)
-       (validate-only-p nil))
-  (with-slots (rd-kafka-consumer) client
-    (%create-topic rd-kafka-consumer
-                   topic
-                   partitions
-                   replication-factor
-                   conf
-                   timeout-ms
-                   validate-only-p))
-  topic)
-
-(defmethod create-topic
-    ((client producer)
-     (topic string)
-     &key
-       (partitions 1)
-       (replication-factor 1)
-       conf
-       (timeout-ms 5000)
-       (validate-only-p nil))
-  (with-slots (rd-kafka-producer) client
-    (%create-topic rd-kafka-producer
-                   topic
-                   partitions
-                   replication-factor
-                   conf
-                   timeout-ms
-                   validate-only-p))
-  topic)
+(macrolet
+    ((defcreate (client-class)
+       (let ((slot (read-from-string (format nil "rd-kafka-~A" client-class))))
+         `(defmethod create-topic
+              ((client ,client-class)
+               (topic string)
+               &key
+                 (partitions 1)
+                 (replication-factor 1)
+                 conf
+                 (timeout-ms 5000)
+                 (validate-only-p nil))
+            (with-slots (,slot) client
+              (%create-topic ,slot
+                             topic
+                             partitions
+                             replication-factor
+                             conf
+                             timeout-ms
+                             validate-only-p))
+            topic))))
+  (defcreate consumer)
+  (defcreate producer))

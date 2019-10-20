@@ -51,3 +51,65 @@
     (when (cffi:null-pointer-p queue)
       (error "~&Failed to create new queue"))
     queue))
+
+
+(defmacro event->result (event result)
+  (let ((res (gensym))
+        (function (find-symbol
+                   (format nil "RD-KAFKA-EVENT-~A-RESULT" result)
+                   'cl-rdkafka/ll)))
+    (unless function
+      (error "~&Could not find function for: ~S" result))
+    `(let ((,res (,function ,event)))
+       (when (cffi:null-pointer-p ,res)
+         (error "~&Unexpected result type, expected: ~S" ',result))
+       ,res)))
+
+
+(defmacro assert-successful-event (event result)
+  (let ((function (find-symbol
+                   (format nil "RD-KAFKA-~A-RESULT-TOPICS" result)
+                   'cl-rdkafka/ll))
+        (count (gensym)))
+    (unless function
+      (error "~&Could not find function for: ~S" result))
+    `(cffi:with-foreign-object (,count :pointer)
+       (loop
+          with results = (,function (event->result ,event ,result) ,count)
+          with count = (cffi:mem-ref ,count 'cl-rdkafka/ll:size-t)
+
+          for i below count
+          for *results = (cffi:mem-aref results :pointer i)
+
+          for err = (cl-rdkafka/ll:rd-kafka-topic-result-error *results)
+          for errstr = (cl-rdkafka/ll:rd-kafka-topic-result-error-string *results)
+          for topic = (cl-rdkafka/ll:rd-kafka-topic-result-name *results)
+
+          unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          do (error "~&Failed to perform ~S on topic ~S: ~S" ',result topic errstr)))))
+
+
+(defmacro perform-admin-op (op rd-kafka-client admin-options admin-object)
+  (let ((function (find-symbol
+                   (format nil "RD-KAFKA-~A" op)
+                   'cl-rdkafka/ll))
+        (event (gensym))
+        (array (gensym))
+        (queue (gensym)))
+    (unless function
+      (error "~&Could not find function for: ~S" op))
+    `(cffi:with-foreign-object (,array :pointer 1)
+       (let (,queue ,event)
+         (unwind-protect
+              (progn
+                (setf (cffi:mem-aref ,array :pointer 0) ,admin-object
+                      ,queue (make-queue ,rd-kafka-client))
+                (,function ,rd-kafka-client ,array 1 ,admin-options ,queue)
+                (setf ,event (cl-rdkafka/ll:rd-kafka-queue-poll ,queue 2000))
+                (when (cffi:null-pointer-p ,event)
+                  (error "~&Failed to get event from queue"))
+                (assert-successful-event ,event ,op))
+           (when ,event
+             (cl-rdkafka/ll:rd-kafka-event-destroy ,event))
+           (when ,queue
+             (cl-rdkafka/ll:rd-kafka-queue-destroy ,queue)))))))
