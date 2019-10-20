@@ -29,35 +29,14 @@
         (error "~&Failed to allocate deletetopic pointer"))
       deletetopic)))
 
-(defun %%delete-topic (rd-kafka-client admin-options deletetopic queue)
-  (cffi:with-foreign-object (deletetopic-array :pointer 1)
-    (setf (cffi:mem-aref deletetopic-array :pointer 0) deletetopic)
-    (cl-rdkafka/ll:rd-kafka-deletetopics rd-kafka-client
-                                         deletetopic-array
-                                         1
-                                         admin-options
-                                         queue)
-    (let (event)
-      (unwind-protect
-           (progn
-             (setf event (cl-rdkafka/ll:rd-kafka-queue-poll queue 2000))
-             (when (cffi:null-pointer-p event)
-               (error "~&Failed to get event from queue"))
-             (assert-successful-event event deletetopics))
-        (when event
-          (cl-rdkafka/ll:rd-kafka-event-destroy event))))))
-
 (defun %delete-topic (rd-kafka-client topic timeout-ms)
-  (let (admin-options deletetopic queue)
+  (let (admin-options deletetopic)
     (unwind-protect
          (cffi:with-foreign-object (errstr :char +errstr-len+)
            (setf admin-options (make-admin-options rd-kafka-client)
-                 deletetopic (make-deletetopic topic)
-                 queue (make-queue rd-kafka-client))
+                 deletetopic (make-deletetopic topic))
            (set-timeout admin-options timeout-ms errstr +errstr-len+)
-           (%%delete-topic rd-kafka-client admin-options deletetopic queue))
-      (when queue
-        (cl-rdkafka/ll:rd-kafka-queue-destroy queue))
+           (perform-admin-op deletetopics rd-kafka-client admin-options deletetopic))
       (when deletetopic
         (cl-rdkafka/ll:rd-kafka-deletetopic-destroy deletetopic))
       (when admin-options

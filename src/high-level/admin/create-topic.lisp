@@ -58,24 +58,6 @@ validated by the broker without the topic actually being created."))
        do (error "~&Odd number of key-val pairs: missing value for key: ~S" k)
        else do (set-kv k v))))
 
-(defun %%create-topic (rd-kafka-client admin-options newtopic queue)
-  (cffi:with-foreign-object (newtopic-array :pointer 1)
-    (setf (cffi:mem-aref newtopic-array :pointer 0) newtopic)
-    (cl-rdkafka/ll:rd-kafka-createtopics rd-kafka-client
-                                         newtopic-array
-                                         1
-                                         admin-options
-                                         queue)
-    (let (event)
-      (unwind-protect
-           (progn
-             (setf event (cl-rdkafka/ll:rd-kafka-queue-poll queue 2000))
-             (when (cffi:null-pointer-p event)
-               (error "~&Failed to get event from queue"))
-             (assert-successful-event event createtopics))
-        (when event
-          (cl-rdkafka/ll:rd-kafka-event-destroy event))))))
-
 (defun %create-topic
     (rd-kafka-client
      topic
@@ -84,7 +66,7 @@ validated by the broker without the topic actually being created."))
      conf
      timeout-ms
      validate-only-p)
-  (let (admin-options newtopic queue)
+  (let (admin-options newtopic)
     (unwind-protect
          (cffi:with-foreign-object (errstr :char +errstr-len+)
            (setf admin-options (make-admin-options rd-kafka-client)
@@ -92,14 +74,11 @@ validated by the broker without the topic actually being created."))
                                          partitions
                                          replication-factor
                                          errstr
-                                         +errstr-len+)
-                 queue (make-queue rd-kafka-client))
+                                         +errstr-len+))
            (set-timeout admin-options timeout-ms errstr +errstr-len+)
            (set-validate admin-options validate-only-p errstr +errstr-len+)
            (set-conf newtopic conf)
-           (%%create-topic rd-kafka-client admin-options newtopic queue))
-      (when queue
-        (cl-rdkafka/ll:rd-kafka-queue-destroy queue))
+           (perform-admin-op createtopics rd-kafka-client admin-options newtopic))
       (when newtopic
         (cl-rdkafka/ll:rd-kafka-newtopic-destroy newtopic))
       (when admin-options

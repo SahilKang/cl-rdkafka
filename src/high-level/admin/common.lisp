@@ -87,3 +87,29 @@
 
           unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           do (error "~&Failed to perform ~S on topic ~S: ~S" ',result topic errstr)))))
+
+
+(defmacro perform-admin-op (op rd-kafka-client admin-options admin-object)
+  (let ((function (find-symbol
+                   (format nil "RD-KAFKA-~A" op)
+                   'cl-rdkafka/ll))
+        (event (gensym))
+        (array (gensym))
+        (queue (gensym)))
+    (unless function
+      (error "~&Could not find function for: ~S" op))
+    `(cffi:with-foreign-object (,array :pointer 1)
+       (let (,queue ,event)
+         (unwind-protect
+              (progn
+                (setf (cffi:mem-aref ,array :pointer 0) ,admin-object
+                      ,queue (make-queue ,rd-kafka-client))
+                (,function ,rd-kafka-client ,array 1 ,admin-options ,queue)
+                (setf ,event (cl-rdkafka/ll:rd-kafka-queue-poll ,queue 2000))
+                (when (cffi:null-pointer-p ,event)
+                  (error "~&Failed to get event from queue"))
+                (assert-successful-event ,event ,op))
+           (when ,event
+             (cl-rdkafka/ll:rd-kafka-event-destroy ,event))
+           (when ,queue
+             (cl-rdkafka/ll:rd-kafka-queue-destroy ,queue)))))))
