@@ -64,3 +64,26 @@
        (when (cffi:null-pointer-p ,res)
          (error "~&Unexpected result type, expected: ~S" ',result))
        ,res)))
+
+
+(defmacro assert-successful-event (event result)
+  (let ((function (find-symbol
+                   (format nil "RD-KAFKA-~A-RESULT-TOPICS" result)
+                   'cl-rdkafka/ll))
+        (count (gensym)))
+    (unless function
+      (error "~&Could not find function for: ~S" result))
+    `(cffi:with-foreign-object (,count :pointer)
+       (loop
+          with results = (,function (event->result ,event ,result) ,count)
+          with count = (cffi:mem-ref ,count 'cl-rdkafka/ll:size-t)
+
+          for i below count
+          for *results = (cffi:mem-aref results :pointer i)
+
+          for err = (cl-rdkafka/ll:rd-kafka-topic-result-error *results)
+          for errstr = (cl-rdkafka/ll:rd-kafka-topic-result-error-string *results)
+          for topic = (cl-rdkafka/ll:rd-kafka-topic-result-name *results)
+
+          unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          do (error "~&Failed to perform ~S on topic ~S: ~S" ',result topic errstr)))))

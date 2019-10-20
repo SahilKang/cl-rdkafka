@@ -29,26 +29,8 @@
         (error "~&Failed to allocate deletetopic pointer"))
       deletetopic)))
 
-(defun assert-successful-delete-topic (event count)
-  (let ((results (cl-rdkafka/ll:rd-kafka-deletetopics-result-topics
-                  (event->result event deletetopics)
-                  count)))
-    (loop
-       with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)
-
-       for i below *count
-       for *results = (cffi:mem-aref results :pointer i)
-
-       for err = (cl-rdkafka/ll:rd-kafka-topic-result-error *results)
-       for errstr = (cl-rdkafka/ll:rd-kafka-topic-result-error-string *results)
-       for topic = (cl-rdkafka/ll:rd-kafka-topic-result-name *results)
-
-       unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error "~&Failed to delete topic ~S with error: ~S" topic errstr))))
-
 (defun %%delete-topic (rd-kafka-client admin-options deletetopic queue)
-  (cffi:with-foreign-objects ((deletetopic-array :pointer 1)
-                              (count :pointer))
+  (cffi:with-foreign-object (deletetopic-array :pointer 1)
     (setf (cffi:mem-aref deletetopic-array :pointer 0) deletetopic)
     (cl-rdkafka/ll:rd-kafka-deletetopics rd-kafka-client
                                          deletetopic-array
@@ -61,7 +43,7 @@
              (setf event (cl-rdkafka/ll:rd-kafka-queue-poll queue 2000))
              (when (cffi:null-pointer-p event)
                (error "~&Failed to get event from queue"))
-             (assert-successful-delete-topic event count))
+             (assert-successful-event event deletetopics))
         (when event
           (cl-rdkafka/ll:rd-kafka-event-destroy event))))))
 

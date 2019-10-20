@@ -58,26 +58,8 @@ validated by the broker without the topic actually being created."))
        do (error "~&Odd number of key-val pairs: missing value for key: ~S" k)
        else do (set-kv k v))))
 
-(defun assert-successful-create-topic (event count)
-  (let ((results (cl-rdkafka/ll:rd-kafka-createtopics-result-topics
-                  (event->result event createtopics)
-                  count)))
-    (loop
-       with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)
-
-       for i below *count
-       for *results = (cffi:mem-aref results :pointer i)
-
-       for err = (cl-rdkafka/ll:rd-kafka-topic-result-error *results)
-       for errstr = (cl-rdkafka/ll:rd-kafka-topic-result-error-string *results)
-       for topic = (cl-rdkafka/ll:rd-kafka-topic-result-name *results)
-
-       unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error "~&Failed to create topic ~S with error: ~S" topic errstr))))
-
 (defun %%create-topic (rd-kafka-client admin-options newtopic queue)
-  (cffi:with-foreign-objects ((newtopic-array :pointer 1)
-                              (count :pointer))
+  (cffi:with-foreign-object (newtopic-array :pointer 1)
     (setf (cffi:mem-aref newtopic-array :pointer 0) newtopic)
     (cl-rdkafka/ll:rd-kafka-createtopics rd-kafka-client
                                          newtopic-array
@@ -90,7 +72,7 @@ validated by the broker without the topic actually being created."))
              (setf event (cl-rdkafka/ll:rd-kafka-queue-poll queue 2000))
              (when (cffi:null-pointer-p event)
                (error "~&Failed to get event from queue"))
-             (assert-successful-create-topic event count))
+             (assert-successful-event event createtopics))
         (when event
           (cl-rdkafka/ll:rd-kafka-event-destroy event))))))
 
