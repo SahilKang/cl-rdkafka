@@ -111,3 +111,38 @@
     (is (string= topic (kf:delete-topic producer topic :timeout-ms 5000)))
     (sleep 2)
     (is (= 0 (get-partitions topic)))))
+
+
+(test create-partitions-with-consumer
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+        (topic "create-partitions-with-consumer")
+        (old-partitions 7)
+        (new-partitions 10))
+    (is (string= topic (kf:create-topic consumer
+                                        topic
+                                        :partitions old-partitions)))
+    (sleep 2)
+    (is (= old-partitions (get-partitions topic)))
+
+    (is (= new-partitions (kf:create-partitions consumer topic new-partitions)))
+    (sleep 2)
+    (is (= new-partitions (get-partitions topic)))))
+
+(test create-partitions-with-producer
+  (let ((producer (make-instance
+                   'kf:producer
+                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+        (topic "create-partitions-with-producer")
+        (old-partitions 11)
+        (new-partitions 20))
+    (is (string= topic (kf:create-topic producer
+                                        topic
+                                        :partitions old-partitions)))
+    (sleep 2)
+    (is (= old-partitions (get-partitions topic)))
+
+    (is (= new-partitions (kf:create-partitions producer topic new-partitions)))
+    (sleep 2)
+    (is (= new-partitions (get-partitions topic)))))
