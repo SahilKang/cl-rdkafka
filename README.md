@@ -109,6 +109,17 @@ Here are a few examples for the `kf` package:
 ;; => "your-least-favorite-topic-name"
 ```
 
+### Create Partitions
+
+```lisp
+(let ((client (make-instance 'kf:consumer
+                             :conf (kf:conf
+                                    "bootstrap.servers" "127.0.0.1:9092"))))
+  (kf:create-partitions client "needs-moar-partitions-topic-name" 6))
+
+;; => 6
+```
+
 # Contributing and Hacking
 
 PRs and GitHub issues are always welcome and feel free to email me with any

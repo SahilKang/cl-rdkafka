@@ -37,4 +37,5 @@
    #:conf
 
    #:create-topic
-   #:delete-topic))
+   #:delete-topic
+   #:create-partitions))
