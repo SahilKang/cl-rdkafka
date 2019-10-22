@@ -120,6 +120,52 @@ Here are a few examples for the `kf` package:
 ;; => 6
 ```
 
+### Describe Topics
+
+```lisp
+(let ((client (make-instance 'kf:producer
+                             :conf (kf:conf
+                                    "bootstrap.servers" "127.0.0.1:9092"))))
+  (kf:describe-config client "mysterious-topic" :topic))
+
+;; => '(("compression.type" . "producer")
+;;      ("cleanup.policy" . "delete")
+;;         ...
+;;         ...
+;;      ("flush.ms" . "9223372036854775807")
+;;      ("follower.replication.throttled.replicas" . "")
+;;      ("message.format.version" . "2.3-IV1")
+;;      ("max.message.bytes" . "1000012")
+;;      ("message.timestamp.type" . "CreateTime"))
+```
+
+### Describe Brokers
+
+```lisp
+(let ((client (make-instance 'kf:consumer
+                             :conf (kf:conf
+                                    "bootstrap.servers" "127.0.0.1:9092"))))
+  (kf:describe-config client "1001" :broker))
+
+;; => '(("advertised.host.name" . "127.0.0.1")
+;;      ("offsets.topic.num.partitions" . "50")
+;;      ("auto.create.topics.enable" . "true")
+;;      ("controller.socket.timeout.ms" . "30000")
+;;      ("min.insync.replicas" . "1")
+;;         ...
+;;         ...
+;;      ("replica.fetch.wait.max.ms" . "500")
+;;      ("num.recovery.threads.per.data.dir" . "1")
+;;      ("ssl.keystore.type" . "JKS")
+;;      ("sasl.mechanism.inter.broker.protocol" . "GSSAPI")
+;;      ("default.replication.factor" . "1")
+;;      ("ssl.truststore.password")
+;;      ("log.retention.hours" . "168")
+;;      ("advertised.port" . "9092")
+;;      ("metrics.recording.level" . "INFO")
+;;      ("log.dirs" . "/kafka/kafka-logs-6644432aee02"))
+```
+
 # Contributing and Hacking
 
 PRs and GitHub issues are always welcome and feel free to email me with any

@@ -38,4 +38,5 @@
 
    #:create-topic
    #:delete-topic
-   #:create-partitions))
+   #:create-partitions
+   #:describe-config))
