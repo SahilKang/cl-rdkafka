@@ -52,7 +52,8 @@
                       ((:file "common")
                        (:file "create-topic" :depends-on ("common"))
                        (:file "delete-topic" :depends-on ("common"))
-                       (:file "create-partitions" :depends-on ("common"))))))))
+                       (:file "create-partitions" :depends-on ("common"))
+                       (:file "config" :depends-on ("common"))))))))
 
 
 (asdf:defsystem #:cl-rdkafka/test

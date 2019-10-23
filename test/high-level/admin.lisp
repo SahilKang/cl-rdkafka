@@ -146,3 +146,50 @@
     (is (= new-partitions (kf:create-partitions producer topic new-partitions)))
     (sleep 2)
     (is (= new-partitions (get-partitions topic)))))
+
+
+(test describe-topic-with-consumer
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+        (topic "describe-topic-with-consumer"))
+    (is (string= topic (kf:create-topic consumer topic)))
+    (sleep 2)
+    (let ((expected "CreateTime")
+          (actual (cdr (assoc "message.timestamp.type"
+                              (kf:describe-config consumer topic :topic)
+                              :test #'string=))))
+      (is (string= expected actual)))))
+
+(test describe-topic-with-producer
+  (let ((producer (make-instance
+                   'kf:producer
+                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+        (topic "describe-topic-with-producer"))
+    (is (string= topic (kf:create-topic producer topic)))
+    (sleep 2)
+    (let ((expected "CreateTime")
+          (actual (cdr (assoc "message.timestamp.type"
+                              (kf:describe-config producer topic :topic)
+                              :test #'string=))))
+      (is (string= expected actual)))))
+
+(test describe-broker-with-consumer
+  (let* ((consumer (make-instance
+                    'kf:consumer
+                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+         (config (kf:describe-config consumer "1001" :broker)))
+    (is (string= "kafka"
+                 (cdr (assoc "advertised.host.name" config :test #'string=))))
+    (is (string= "9092"
+                 (cdr (assoc "advertised.port" config :test #'string=))))))
+
+(test describe-broker-with-producer
+  (let* ((producer (make-instance
+                    'kf:producer
+                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+         (config (kf:describe-config producer "1001" :broker)))
+    (is (string= "kafka"
+                 (cdr (assoc "advertised.host.name" config :test #'string=))))
+    (is (string= "9092"
+                 (cdr (assoc "advertised.port" config :test #'string=))))))

@@ -53,40 +53,97 @@
     queue))
 
 
-(defmacro event->result (event result)
-  (let ((res (gensym))
-        (function (find-symbol
-                   (format nil "RD-KAFKA-EVENT-~A-RESULT" result)
-                   'cl-rdkafka/ll)))
-    (unless function
-      (error "~&Could not find function for: ~S" result))
-    `(let ((,res (,function ,event)))
-       (when (cffi:null-pointer-p ,res)
-         (error "~&Unexpected result type, expected: ~S" ',result))
-       ,res)))
+(defmacro find-function (format-template &rest format-args)
+  (let ((name (gensym))
+        (function (gensym)))
+    `(let* ((,name (format nil ,format-template ,@format-args))
+            (,function (find-symbol ,name 'cl-rdkafka/ll)))
+       (or ,function (error "~&Could not find function ~S" ,name)))))
 
+(defmacro event->result (event result)
+  `(let ((res (gensym))
+         (function (find-function "RD-KAFKA-EVENT-~A-RESULT" ,result)))
+     `(let ((,res (,function ,,event)))
+        (when (cffi:null-pointer-p ,res)
+          (error "~&Unexpected result type, expected: ~S" ',,result))
+        ,res)))
+
+(defun config-op-p (op)
+  (declare (symbol op))
+  (uiop:string-suffix-p (string op) "CONFIGS"))
+
+(defmacro find-result-function (op)
+  `(find-function "RD-KAFKA-~A-RESULT-~A"
+                  ,op
+                  (if (config-op-p ,op)
+                      'resources
+                      'topics)))
+
+(defmacro find-field-function (op field)
+  `(find-function "RD-KAFKA-~A-~A"
+                  (if (config-op-p ,op)
+                      'configresource
+                      'topic-result)
+                  ,field))
+
+(defun parse-configentry (entry)
+  (list
+   (cons 'name (cl-rdkafka/ll:rd-kafka-configentry-name entry))
+   (cons 'value (cl-rdkafka/ll:rd-kafka-configentry-value entry))
+   (cons 'readonlyp (cl-rdkafka/ll:rd-kafka-configentry-is-read-only entry))
+   (cons 'defaultp (cl-rdkafka/ll:rd-kafka-configentry-is-default entry))
+   (cons 'sensitivep (cl-rdkafka/ll:rd-kafka-configentry-is-sensitive entry))
+   (cons 'synonymp (cl-rdkafka/ll:rd-kafka-configentry-is-synonym entry))
+   (cons 'synonyms (get-synonyms entry))))
+
+(defun get-synonyms (rd-kafka-configentry)
+  (cffi:with-foreign-object (count :pointer)
+    (loop
+       with entries = (cl-rdkafka/ll:rd-kafka-configentry-synonyms
+                       rd-kafka-configentry
+                       count)
+       with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)
+
+       for i below *count
+       for entry = (cffi:mem-aref entries :pointer i)
+       collect (parse-configentry entry))))
+
+(defun get-config-data (rd-kafka-configresource)
+  (cffi:with-foreign-object (count :pointer)
+    (loop
+       with entries = (cl-rdkafka/ll:rd-kafka-configresource-configs
+                       rd-kafka-configresource
+                       count)
+       with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)
+
+       for i below *count
+       for entry = (cffi:mem-aref entries :pointer i)
+
+       collect (parse-configentry entry))))
 
 (defmacro assert-successful-event (event result)
-  (let ((function (find-symbol
-                   (format nil "RD-KAFKA-~A-RESULT-TOPICS" result)
-                   'cl-rdkafka/ll))
+  (let ((function (find-result-function result))
+        (get-err (find-field-function result 'error))
+        (get-errstr (find-field-function result 'error-string))
+        (get-name (find-field-function result 'name))
         (count (gensym)))
-    (unless function
-      (error "~&Could not find function for: ~S" result))
     `(cffi:with-foreign-object (,count :pointer)
        (loop
-          with results = (,function (event->result ,event ,result) ,count)
+          with results = (,function ,(event->result event result) ,count)
           with count = (cffi:mem-ref ,count 'cl-rdkafka/ll:size-t)
 
           for i below count
           for *results = (cffi:mem-aref results :pointer i)
 
-          for err = (cl-rdkafka/ll:rd-kafka-topic-result-error *results)
-          for errstr = (cl-rdkafka/ll:rd-kafka-topic-result-error-string *results)
-          for topic = (cl-rdkafka/ll:rd-kafka-topic-result-name *results)
+          for err = (,get-err *results)
+          for errstr = (,get-errstr *results)
+          for name = (,get-name *results)
 
           unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          do (error "~&Failed to perform ~S on topic ~S: ~S" ',result topic errstr)))))
+          do (error "~&Failed to perform ~S on ~S: ~S" ',result name errstr)
+
+          when (config-op-p ',result)
+          collect (get-config-data *results)))))
 
 
 (defmacro perform-admin-op (op rd-kafka-client admin-options admin-object)
