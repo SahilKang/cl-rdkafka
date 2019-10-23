@@ -64,18 +64,10 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
         (cl-rdkafka/ll:rd-kafka-adminoptions-destroy admin-options)))))
 
 (macrolet
-    ((defdescribe (client-class)
-       (let ((slot (read-from-string (format nil "rd-kafka-~A" client-class))))
-         `(progn
-            ,@(mapcar
-               (lambda (type)
-                 `(defmethod describe-config
-                      ((client ,client-class)
-                       (name string)
-                       (type (eql ,type))
-                       &key (timeout-ms 5000))
-                    (with-slots (,slot) client
-                      (%describe-config ,slot name type timeout-ms))))
-               '(:topic :broker))))))
-  (defdescribe consumer)
-  (defdescribe producer))
+    ((defdescribe (type)
+       `(def-admin-methods
+            describe-config
+            (client (name string) (type (eql ,type)) &key (timeout-ms 5000))
+          (%describe-config pointer name type timeout-ms))))
+  (defdescribe :topic)
+  (defdescribe :broker))

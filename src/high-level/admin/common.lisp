@@ -170,3 +170,26 @@ POINTER symbol is bound to each array elem for BODY to use."
              (cl-rdkafka/ll:rd-kafka-event-destroy ,event))
            (when ,queue
              (cl-rdkafka/ll:rd-kafka-queue-destroy ,queue)))))))
+
+
+(defmacro def-admin-methods (name (&rest lambda-list) &body body)
+  "Define two methods named NAME with the first arg of LAMBDA-LIST
+specialized to consumer and producer.
+
+A POINTER symbol is bound to the rd-kafka-[consumer|producer] slot of
+the first LAMBDA-LIST arg for BODY to use."
+  (let ((client (first lambda-list)))
+    (unless (and client (symbolp client))
+      (error "~&First element of lambda-list should be a symbol: ~S" client))
+    `(progn
+       ,@(mapcar
+          (lambda (class)
+            (let ((slot (read-from-string
+                         (format nil "rd-kafka-~A" class)))
+                  (lambda-list (cons (list client class)
+                                     (cdr lambda-list))))
+              `(defmethod ,name ,lambda-list
+                 (with-slots (,slot) ,client
+                   (let ((pointer ,slot))
+                     ,@body)))))
+          '(consumer producer)))))
