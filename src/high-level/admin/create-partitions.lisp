@@ -49,18 +49,8 @@
       (when admin-options
         (cl-rdkafka/ll:rd-kafka-adminoptions-destroy admin-options)))))
 
-(macrolet
-    ((defpart (client-class)
-       (let ((slot (read-from-string (format nil "rd-kafka-~A" client-class))))
-         `(defmethod create-partitions
-              ((client ,client-class)
-               (topic string)
-               (partitions fixnum)
-               &key (timeout-ms 5000))
-            (with-slots (,slot) client
-              (%create-partitions ,slot topic
-                                  partitions
-                                  timeout-ms))
-            partitions))))
-  (defpart consumer)
-  (defpart producer))
+(def-admin-methods
+    create-partitions
+    (client (topic string) (partitions fixnum) &key (timeout-ms 5000))
+  (%create-partitions pointer topic partitions timeout-ms)
+  partitions)

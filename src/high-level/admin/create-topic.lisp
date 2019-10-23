@@ -84,26 +84,21 @@ validated by the broker without the topic actually being created."))
       (when admin-options
         (cl-rdkafka/ll:rd-kafka-adminoptions-destroy admin-options)))))
 
-(macrolet
-    ((defcreate (client-class)
-       (let ((slot (read-from-string (format nil "rd-kafka-~A" client-class))))
-         `(defmethod create-topic
-              ((client ,client-class)
-               (topic string)
-               &key
-                 (partitions 1)
-                 (replication-factor 1)
+(def-admin-methods
+    create-topic
+    (client
+     (topic string)
+     &key
+     (partitions 1)
+     (replication-factor 1)
+     conf
+     (timeout-ms 5000)
+     (validate-only-p nil))
+  (%create-topic pointer
+                 topic
+                 partitions
+                 replication-factor
                  conf
-                 (timeout-ms 5000)
-                 (validate-only-p nil))
-            (with-slots (,slot) client
-              (%create-topic ,slot
-                             topic
-                             partitions
-                             replication-factor
-                             conf
-                             timeout-ms
-                             validate-only-p))
-            topic))))
-  (defcreate consumer)
-  (defcreate producer))
+                 timeout-ms
+                 validate-only-p)
+  topic)

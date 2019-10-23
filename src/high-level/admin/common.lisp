@@ -96,55 +96,55 @@
    (cons 'synonymp (cl-rdkafka/ll:rd-kafka-configentry-is-synonym entry))
    (cons 'synonyms (get-synonyms entry))))
 
-(defun get-synonyms (rd-kafka-configentry)
-  (cffi:with-foreign-object (count :pointer)
-    (loop
-       with entries = (cl-rdkafka/ll:rd-kafka-configentry-synonyms
-                       rd-kafka-configentry
-                       count)
-       with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)
+(defmacro make-loop (array-generating-form &body body)
+  "Expands to a loop form that iterates over the results of ARRAY-GENERATING-FORM.
 
-       for i below *count
-       for entry = (cffi:mem-aref entries :pointer i)
-       collect (parse-configentry entry))))
+BODY is appended as the last lines of the expanded loop form and a
+POINTER symbol is bound to each array elem for BODY to use."
+  (let ((count (first (last array-generating-form)))
+        (array (gensym))
+        (*count (gensym))
+        (i (gensym)))
+    `(cffi:with-foreign-object (,count :pointer)
+       (loop
+          with ,array = ,array-generating-form
+          with ,*count = (cffi:mem-ref ,count 'cl-rdkafka/ll:size-t)
+
+          for ,i below ,*count
+          for pointer = (cffi:mem-aref ,array :pointer ,i)
+
+          ,@body))))
+
+(defun get-synonyms (rd-kafka-configentry)
+  (make-loop
+      (cl-rdkafka/ll:rd-kafka-configentry-synonyms
+       rd-kafka-configentry
+       count)
+    collect (parse-configentry pointer)))
 
 (defun get-config-data (rd-kafka-configresource)
-  (cffi:with-foreign-object (count :pointer)
-    (loop
-       with entries = (cl-rdkafka/ll:rd-kafka-configresource-configs
-                       rd-kafka-configresource
-                       count)
-       with *count = (cffi:mem-ref count 'cl-rdkafka/ll:size-t)
-
-       for i below *count
-       for entry = (cffi:mem-aref entries :pointer i)
-
-       collect (parse-configentry entry))))
+  (make-loop
+      (cl-rdkafka/ll:rd-kafka-configresource-configs
+       rd-kafka-configresource
+       count)
+    collect (parse-configentry pointer)))
 
 (defmacro assert-successful-event (event result)
   (let ((function (find-result-function result))
         (get-err (find-field-function result 'error))
         (get-errstr (find-field-function result 'error-string))
-        (get-name (find-field-function result 'name))
-        (count (gensym)))
-    `(cffi:with-foreign-object (,count :pointer)
-       (loop
-          with results = (,function ,(event->result event result) ,count)
-          with count = (cffi:mem-ref ,count 'cl-rdkafka/ll:size-t)
+        (get-name (find-field-function result 'name)))
+    `(make-loop
+         (,function ,(event->result event result) count)
+       for err = (,get-err pointer)
+       for errstr = (,get-errstr pointer)
+       for name = (,get-name pointer)
 
-          for i below count
-          for *results = (cffi:mem-aref results :pointer i)
+       unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+       do (error "~&Failed to perform ~S on ~S: ~S" ',result name errstr)
 
-          for err = (,get-err *results)
-          for errstr = (,get-errstr *results)
-          for name = (,get-name *results)
-
-          unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          do (error "~&Failed to perform ~S on ~S: ~S" ',result name errstr)
-
-          when (config-op-p ',result)
-          collect (get-config-data *results)))))
-
+       when (config-op-p ',result)
+       collect (get-config-data pointer))))
 
 (defmacro perform-admin-op (op rd-kafka-client admin-options admin-object)
   (let ((function (find-symbol
@@ -170,3 +170,26 @@
              (cl-rdkafka/ll:rd-kafka-event-destroy ,event))
            (when ,queue
              (cl-rdkafka/ll:rd-kafka-queue-destroy ,queue)))))))
+
+
+(defmacro def-admin-methods (name (&rest lambda-list) &body body)
+  "Define two methods named NAME with the first arg of LAMBDA-LIST
+specialized to consumer and producer.
+
+A POINTER symbol is bound to the rd-kafka-[consumer|producer] slot of
+the first LAMBDA-LIST arg for BODY to use."
+  (let ((client (first lambda-list)))
+    (unless (and client (symbolp client))
+      (error "~&First element of lambda-list should be a symbol: ~S" client))
+    `(progn
+       ,@(mapcar
+          (lambda (class)
+            (let ((slot (read-from-string
+                         (format nil "rd-kafka-~A" class)))
+                  (lambda-list (cons (list client class)
+                                     (cdr lambda-list))))
+              `(defmethod ,name ,lambda-list
+                 (with-slots (,slot) ,client
+                   (let ((pointer ,slot))
+                     ,@body)))))
+          '(consumer producer)))))

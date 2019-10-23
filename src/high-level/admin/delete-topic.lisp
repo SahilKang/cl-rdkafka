@@ -42,13 +42,8 @@
       (when admin-options
         (cl-rdkafka/ll:rd-kafka-adminoptions-destroy admin-options)))))
 
-(macrolet
-    ((defdelete (client-class)
-       (let ((slot (read-from-string (format nil "rd-kafka-~A" client-class))))
-         `(defmethod delete-topic
-              ((client ,client-class) (topic string) &key (timeout-ms 5000))
-            (with-slots (,slot) client
-              (%delete-topic ,slot topic timeout-ms))
-            topic))))
-  (defdelete consumer)
-  (defdelete producer))
+(def-admin-methods
+    delete-topic
+    (client (topic string) &key (timeout-ms 5000))
+  (%delete-topic pointer topic timeout-ms)
+  topic)
