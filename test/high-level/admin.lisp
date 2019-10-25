@@ -232,3 +232,46 @@
                      '(("message.timestamp.type" . "LogAppendTime")))
     (sleep 2)
     (is (string= "LogAppendTime" (funcall get-actual)))))
+
+
+(test cluster-metadata-with-consumer
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+        (topic "cluster-metadata-with-consumer"))
+    (is (string= topic (kf:create-topic consumer topic)))
+    (sleep 2)
+    (is (equal `((:originating-broker . ((:id . 1001)
+                                         (:name . "kafka:9092/1001")))
+                 (:broker-metadata . (((:id . 1001)
+                                       (:host . "kafka")
+                                       (:port . 9092))))
+                 (:topic-metadata . (((:topic . ,topic)
+                                      (:partitions . (((:id . 0)
+                                                       (:err . nil)
+                                                       (:leader . 1001)
+                                                       (:replicas . (1001))
+                                                       (:in-sync-replicas . (1001)))))
+                                      (:err . nil)))))
+               (kf:cluster-metadata consumer topic)))))
+
+(test cluster-metadata-with-producer
+  (let ((producer (make-instance
+                   'kf:producer
+                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+        (topic "cluster-metadata-with-producer"))
+    (is (string= topic (kf:create-topic producer topic)))
+    (sleep 2)
+    (is (equal `((:originating-broker . ((:id . 1001)
+                                         (:name . "kafka:9092/1001")))
+                 (:broker-metadata . (((:id . 1001)
+                                       (:host . "kafka")
+                                       (:port . 9092))))
+                 (:topic-metadata . (((:topic . ,topic)
+                                      (:partitions . (((:id . 0)
+                                                       (:err . nil)
+                                                       (:leader . 1001)
+                                                       (:replicas . (1001))
+                                                       (:in-sync-replicas . (1001)))))
+                                      (:err . nil)))))
+               (kf:cluster-metadata producer topic)))))

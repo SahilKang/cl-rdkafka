@@ -40,4 +40,5 @@
    #:delete-topic
    #:create-partitions
    #:describe-config
-   #:alter-config))
+   #:alter-config
+   #:cluster-metadata))

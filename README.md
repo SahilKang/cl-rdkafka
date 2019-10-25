@@ -186,6 +186,29 @@ Here are a few examples for the `kf` package:
                      ("cleanup.policy" . "compact"))))
 ```
 
+### Query Cluster Metadata
+
+```lisp
+(let ((consumer (make-instance
+                 'kf:consumer
+                 :conf (kf:conf
+                        "bootstrap.servers" "127.0.0.1:9092"))))
+  (kf:cluster-metadata consumer "interesting-topic-name"))
+
+;; => ((:originating-broker . ((:id . 1001)
+;;                             (:name . "127.0.0.1:9092/1001")))
+;;     (:broker-metadata . (((:id . 1001)
+;;                           (:host . "127.0.0.1")
+;;                           (:port . 9092))))
+;;     (:topic-metadata . (((:topic . "interesting-topic-name")
+;;                          (:partitions . (((:id . 0)
+;;                                           (:err . nil)
+;;                                           (:leader . 1001)
+;;                                           (:replicas . (1001))
+;;                                           (:in-sync-replicas . (1001)))))
+;;                          (:err . nil)))))
+```
+
 # Contributing and Hacking
 
 PRs and GitHub issues are always welcome and feel free to email me with any
