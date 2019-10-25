@@ -193,3 +193,42 @@
                  (cdr (assoc "advertised.host.name" config :test #'string=))))
     (is (string= "9092"
                  (cdr (assoc "advertised.port" config :test #'string=))))))
+
+
+(test alter-topic-with-consumer
+  (let* ((consumer (make-instance
+                    'kf:consumer
+                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+         (topic "alter-topic-with-consumer")
+         (get-actual (lambda ()
+                       (cdr (assoc "message.timestamp.type"
+                                   (kf:describe-config consumer topic :topic)
+                                   :test #'string=)))))
+    (is (string= topic (kf:create-topic consumer topic)))
+    (sleep 2)
+    (is (string= "CreateTime" (funcall get-actual)))
+
+    (kf:alter-config consumer
+                     topic
+                     '(("message.timestamp.type" . "LogAppendTime")))
+    (sleep 2)
+    (is (string= "LogAppendTime" (funcall get-actual)))))
+
+(test alter-topic-with-producer
+  (let* ((producer (make-instance
+                    'kf:producer
+                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+         (topic "alter-topic-with-producer")
+         (get-actual (lambda ()
+                       (cdr (assoc "message.timestamp.type"
+                                   (kf:describe-config producer topic :topic)
+                                   :test #'string=)))))
+    (is (string= topic (kf:create-topic producer topic)))
+    (sleep 2)
+    (is (string= "CreateTime" (funcall get-actual)))
+
+    (kf:alter-config producer
+                     topic
+                     '(("message.timestamp.type" . "LogAppendTime")))
+    (sleep 2)
+    (is (string= "LogAppendTime" (funcall get-actual)))))
