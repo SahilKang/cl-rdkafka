@@ -37,10 +37,11 @@ Here are a few examples for the `kf` package:
 (let* ((serde (lambda (string)
                 (babel:string-to-octets string :encoding :utf-8)))
        (messages '(("key-1" "value-1") ("key-2" "value-2")))
-       (producer (make-instance 'kf:producer
-                                :conf (kf:conf
-                                       "bootstrap.servers" "127.0.0.1:9092")
-                                :serde serde)))
+       (producer (make-instance
+                  'kf:producer
+                  :conf (kf:conf
+                         "bootstrap.servers" "127.0.0.1:9092")
+                  :serde serde)))
   (loop
      for (k v) in messages
      do (kf:produce producer "topic-name" v :key k))
@@ -64,9 +65,10 @@ Here are a few examples for the `kf` package:
               "auto.offset.reset" "earliest"
               "offset.store.method" "broker"
               "enable.partition.eof"  "false"))
-       (consumer (make-instance 'kf:consumer
-                                :conf conf
-                                :serde string-serde)))
+       (consumer (make-instance
+                  'kf:consumer
+                  :conf conf
+                  :serde string-serde)))
   (kf:subscribe consumer '("topic-name"))
 
   (loop
@@ -90,9 +92,10 @@ Here are a few examples for the `kf` package:
 ```lisp
 ;; client can be either a producer or consumer
 
-(let ((client (make-instance 'kf:consumer
-                             :conf (kf:conf
-                                    "bootstrap.servers" "127.0.0.1:9092"))))
+(let ((client (make-instance
+               'kf:consumer
+               :conf (kf:conf
+                      "bootstrap.servers" "127.0.0.1:9092"))))
   (kf:create-topic client "your-favorite-topic-name" :partitions 7))
 
 ;; => "your-favorite-topic-name"
@@ -101,9 +104,10 @@ Here are a few examples for the `kf` package:
 ### Delete Topics
 
 ```lisp
-(let ((client (make-instance 'kf:consumer
-                             :conf (kf:conf
-                                    "bootstrap.servers" "127.0.0.1:9092"))))
+(let ((client (make-instance
+               'kf:consumer
+               :conf (kf:conf
+                      "bootstrap.servers" "127.0.0.1:9092"))))
   (kf:delete-topic consumer "your-least-favorite-topic-name"))
 
 ;; => "your-least-favorite-topic-name"
@@ -112,20 +116,22 @@ Here are a few examples for the `kf` package:
 ### Create Partitions
 
 ```lisp
-(let ((client (make-instance 'kf:consumer
-                             :conf (kf:conf
-                                    "bootstrap.servers" "127.0.0.1:9092"))))
+(let ((client (make-instance
+               'kf:consumer
+               :conf (kf:conf
+                      "bootstrap.servers" "127.0.0.1:9092"))))
   (kf:create-partitions client "needs-moar-partitions-topic-name" 6))
 
 ;; => 6
 ```
 
-### Describe Topics
+### Describe Topic Configs
 
 ```lisp
-(let ((client (make-instance 'kf:producer
-                             :conf (kf:conf
-                                    "bootstrap.servers" "127.0.0.1:9092"))))
+(let ((client (make-instance
+               'kf:producer
+               :conf (kf:conf
+                      "bootstrap.servers" "127.0.0.1:9092"))))
   (kf:describe-config client "mysterious-topic" :topic))
 
 ;; => '(("compression.type" . "producer")
@@ -139,12 +145,13 @@ Here are a few examples for the `kf` package:
 ;;      ("message.timestamp.type" . "CreateTime"))
 ```
 
-### Describe Brokers
+### Describe Broker Configs
 
 ```lisp
-(let ((client (make-instance 'kf:consumer
-                             :conf (kf:conf
-                                    "bootstrap.servers" "127.0.0.1:9092"))))
+(let ((client (make-instance
+               'kf:consumer
+               :conf (kf:conf
+                      "bootstrap.servers" "127.0.0.1:9092"))))
   (kf:describe-config client "1001" :broker))
 
 ;; => '(("advertised.host.name" . "127.0.0.1")
@@ -164,6 +171,19 @@ Here are a few examples for the `kf` package:
 ;;      ("advertised.port" . "9092")
 ;;      ("metrics.recording.level" . "INFO")
 ;;      ("log.dirs" . "/kafka/kafka-logs-6644432aee02"))
+```
+
+### Alter Topic Configs
+
+```lisp
+(let ((consumer (make-instance
+                 'kf:consumer
+                 :conf (kf:conf
+                        "bootstrap.servers" "127.0.0.1:9092"))))
+  (kf:alter-config consumer
+                   "topic-to-alter"
+                   '(("message.timestamp.type" . "LogAppendTime")
+                     ("cleanup.policy" . "compact"))))
 ```
 
 # Contributing and Hacking

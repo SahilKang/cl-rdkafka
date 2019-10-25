@@ -17,12 +17,21 @@
 
 (in-package #:cl-rdkafka)
 
+;; TODO change describe-config and alter-config to:
+;;   * describe-topic
+;;   * describe-broker
+;;   * alter-topic
+
 (defgeneric describe-config (client name type &key timeout-ms)
   (:documentation
    "Return an alist of config key-val pairs for NAME.
 
 If TYPE is :BROKER, then NAME should be the broker-id, like \"1001\".
 If TYPE is :TOPIC, then NAME should be the topic-name."))
+
+(defgeneric alter-config (client topic config &key timeout-ms)
+  (:documentation
+   "Alter config of TOPIC according to CONFIG, reverting to defaults for unspecified configs."))
 
 
 (defun make-configresource (name type)
@@ -39,6 +48,16 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
           (error "~&Failed to allocate a new configresource pointer"))
         configresource))))
 
+(defun giant-alist->decent-alist (giant-alist)
+  (mapcar
+   (lambda (giant)
+     (let ((name (cdr (assoc 'name giant)))
+           (value (cdr (assoc 'value giant))))
+       (unless name
+         (error "~&Name is nil"))
+       (cons name value)))
+   (first giant-alist)))
+
 (defun %describe-config (rd-kafka-client name type timeout-ms)
   (let (admin-options configresource)
     (unwind-protect
@@ -46,18 +65,11 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
            (setf admin-options (make-admin-options rd-kafka-client)
                  configresource (make-configresource name type))
            (set-timeout admin-options timeout-ms errstr +errstr-len+)
-           (mapcar
-            (lambda (giant-alist)
-              (let ((name (cdr (assoc 'name giant-alist)))
-                    (value (cdr (assoc 'value giant-alist))))
-                (unless name
-                  (error "~&Name is nil"))
-                (cons name value)))
-            (first
-             (perform-admin-op describeconfigs
-                               rd-kafka-client
-                               admin-options
-                               configresource))))
+           (giant-alist->decent-alist
+            (perform-admin-op describeconfigs
+                              rd-kafka-client
+                              admin-options
+                              configresource)))
       (when configresource
         (cl-rdkafka/ll:rd-kafka-configresource-destroy configresource))
       (when admin-options
@@ -71,3 +83,42 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
           (%describe-config pointer name type timeout-ms))))
   (defdescribe :topic)
   (defdescribe :broker))
+
+
+(defun set-keyvals (configresource alist)
+  (map nil
+       (lambda (cons)
+         (destructuring-bind (name . value)
+             cons
+           (cffi:with-foreign-strings ((name name) (value value))
+             (let ((err (cl-rdkafka/ll:rd-kafka-configresource-set-config
+                         configresource
+                         name
+                         value)))
+               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                 (error "~&Failed to set config: ~S"
+                        (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+       alist))
+
+(defun %alter-config (rd-kafka-client name config timeout-ms)
+  (let (admin-options configresource)
+    (unwind-protect
+         (cffi:with-foreign-object (errstr :char +errstr-len+)
+           (setf admin-options (make-admin-options rd-kafka-client)
+                 configresource (make-configresource name 'topic))
+           (set-timeout admin-options timeout-ms errstr +errstr-len+)
+           (set-keyvals configresource config)
+           (giant-alist->decent-alist
+            (perform-admin-op alterconfigs
+                              rd-kafka-client
+                              admin-options
+                              configresource)))
+      (when configresource
+        (cl-rdkafka/ll:rd-kafka-configresource-destroy configresource))
+      (when admin-options
+        (cl-rdkafka/ll:rd-kafka-adminoptions-destroy admin-options)))))
+
+(def-admin-methods
+    alter-config
+    (client (topic string) (config list) &key (timeout-ms 5000))
+  (%alter-config pointer topic config timeout-ms))
