@@ -41,4 +41,5 @@
    #:create-partitions
    #:describe-config
    #:alter-config
-   #:cluster-metadata))
+   #:cluster-metadata
+   #:group-info))
