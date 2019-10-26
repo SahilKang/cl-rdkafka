@@ -209,6 +209,37 @@ Here are a few examples for the `kf` package:
 ;;                          (:err . nil)))))
 ```
 
+### Describe Groups
+
+```lisp
+(let ((producer (make-instance
+                 'kf:producer
+                 :conf (kf:conf
+                        "bootstrap.servers" "127.0.0.1:9092"))))
+  (sleep 1)
+  (kf:group-info producer
+                 "clever-group-name-to-showcase-my-creative-personality"))
+
+;; => ((:GROUP . "clever-group-name-to-showcase-my-creative-personality")
+;;     (:BROKER (:ID . 1001)
+;;              (:HOST . "127.0.0.1")
+;;              (:PORT . 9092))
+;;     (:STATE . "Stable")
+;;     (:PROTOCOL-TYPE . "consumer")
+;;     (:PROTOCOL . "range")
+;;     (:MEMBERS
+;;      ((:ID . "rdkafka-b4af90cc-bd32-4b24-a0e6-cbad8f5888aa")
+;;       (:CLIENT-ID . "rdkafka")
+;;       (:CLIENT-HOST . "/172.18.0.1")
+;;       (:METADATA
+;;     .    #(0 0 0 0 0 1 0 15 102 111 111 45 98 97 114 45 116 111 112 105 99 45 51
+;;            0 0 0 1 0 0 0 0 0 0 0 0))
+;;       (:ASSIGNMENT
+;;     .    #(0 0 0 0 0 1 0 15 102 111 111 45 98 97 114 45 116 111 112 105 99 45 51
+;;            0 0 0 1 0 0 0 0 0 0 0 0))))
+;;     (:ERR))
+```
+
 # Contributing and Hacking
 
 PRs and GitHub issues are always welcome and feel free to email me with any

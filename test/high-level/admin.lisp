@@ -275,3 +275,81 @@
                                                        (:in-sync-replicas . (1001)))))
                                       (:err . nil)))))
                (kf:cluster-metadata producer topic)))))
+
+
+(test group-info-with-consumer
+  (let* ((group-1 "group-info-with-consumer-group-1")
+         (group-2 "group-info-with-consumer-group-2")
+         (consumer-1 (make-instance
+                      'kf:consumer
+                      :conf (kf:conf
+                             "bootstrap.servers" "kafka:9092"
+                             "group.id" group-1)))
+         (consumer-2 (make-instance
+                      'kf:consumer
+                      :conf (kf:conf
+                             "bootstrap.servers" "kafka:9092"
+                             "group.id" group-2)))
+         (topic "group-info-with-consumer"))
+    (is (string= topic (kf:create-topic consumer-1 topic)))
+    (sleep 2)
+
+    (kf:subscribe consumer-1 (list topic))
+    (kf:subscribe consumer-2 (list topic))
+    (sleep 2)
+
+    (let ((group-info (kf:group-info consumer-1 group-1)))
+      (is (string= group-1 (cdr (assoc :group group-info)))))
+
+    (let ((group-info (kf:group-info consumer-1 nil)))
+      (is (< 1 (length group-info)))
+      (is (find group-1
+                group-info
+                :test #'string=
+                :key (lambda (alist)
+                       (cdr (assoc :group alist)))))
+      (is (find group-2
+                group-info
+                :test #'string=
+                :key (lambda (alist)
+                       (cdr (assoc :group alist))))))))
+
+(test group-info-with-producer
+  (let* ((group-1 "group-info-with-producer-group-1")
+         (group-2 "group-info-with-producer-group-2")
+         (consumer-1 (make-instance
+                      'kf:consumer
+                      :conf (kf:conf
+                             "bootstrap.servers" "kafka:9092"
+                             "group.id" group-1)))
+         (consumer-2 (make-instance
+                      'kf:consumer
+                      :conf (kf:conf
+                             "bootstrap.servers" "kafka:9092"
+                             "group.id" group-2)))
+         (producer (make-instance
+                    'kf:producer
+                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+         (topic "group-info-with-producer"))
+    (is (string= topic (kf:create-topic producer topic)))
+    (sleep 2)
+
+    (kf:subscribe consumer-1 (list topic))
+    (kf:subscribe consumer-2 (list topic))
+    (sleep 2)
+
+    (let ((group-info (kf:group-info producer group-1)))
+      (is (string= group-1 (cdr (assoc :group group-info)))))
+
+    (let ((group-info (kf:group-info producer nil)))
+      (is (< 1 (length group-info)))
+      (is (find group-1
+                group-info
+                :test #'string=
+                :key (lambda (alist)
+                       (cdr (assoc :group alist)))))
+      (is (find group-2
+                group-info
+                :test #'string=
+                :key (lambda (alist)
+                       (cdr (assoc :group alist))))))))

@@ -54,7 +54,8 @@
                        (:file "delete-topic" :depends-on ("common"))
                        (:file "create-partitions" :depends-on ("common"))
                        (:file "config" :depends-on ("common"))
-                       (:file "cluster-metadata" :depends-on ("common"))))))))
+                       (:file "cluster-metadata" :depends-on ("common"))
+                       (:file "group-info" :depends-on ("common"))))))))
 
 
 (asdf:defsystem #:cl-rdkafka/test
