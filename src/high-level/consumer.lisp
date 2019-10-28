@@ -96,6 +96,10 @@ assignment is returned."))
 
 Returns nil on success or a kafka-error on failure."))
 
+(defgeneric member-id (consumer)
+  (:documentation
+   "Return CONSUMER's broker-assigned group member-id."))
+
 (defmethod initialize-instance :after
     ((consumer consumer) &key conf serde key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
@@ -252,3 +256,7 @@ Returns nil on success or a kafka-error on failure."))
       (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (make-instance 'kafka-error :rd-kafka-resp-err err)))))
+
+(defmethod member-id ((consumer consumer))
+  (with-slots (rd-kafka-consumer) consumer
+    (cl-rdkafka/ll:rd-kafka-memberid rd-kafka-consumer)))

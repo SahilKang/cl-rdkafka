@@ -104,3 +104,24 @@
          (= 7 (kf:offset assignment))
          (= 35 (kf:partition assignment))
          (equalp #(4 8 12) (kf:metadata assignment))))))
+
+(test consumer-member-id
+  (let* ((group "consumer-member-id-group")
+         (consumer (make-instance
+                    'kf:consumer
+                    :conf (kf:conf
+                           "bootstrap.servers" "kafka:9092"
+                           "group.id" group)))
+         (topic "consumer-member-id"))
+    (is (string= topic (kf:create-topic consumer topic)))
+    (sleep 2)
+    (kf:subscribe consumer (list topic))
+    (sleep 2)
+
+    (let ((member-id (kf:member-id consumer))
+          (group-info (kf:group-info consumer group)))
+      (is (find member-id
+                (cdr (assoc :members group-info))
+                :test #'string=
+                :key (lambda (alist)
+                       (cdr (assoc :id alist))))))))
