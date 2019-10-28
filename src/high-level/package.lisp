@@ -30,7 +30,7 @@
    #:topic+partition #:topic #:partition #:offset #:metadata
 
    #:consumer #:subscribe #:unsubscribe #:subscription
-   #:poll #:commit #:committed #:assignment #:assign
+   #:poll #:commit #:committed #:assignment #:assign #:member-id
 
    #:producer #:produce #:flush
 
