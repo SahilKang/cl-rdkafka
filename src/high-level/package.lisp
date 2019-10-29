@@ -42,4 +42,5 @@
    #:describe-config
    #:alter-config
    #:cluster-metadata
-   #:group-info))
+   #:group-info
+   #:cluster-id))

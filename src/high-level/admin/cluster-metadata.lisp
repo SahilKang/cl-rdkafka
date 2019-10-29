@@ -41,6 +41,13 @@ The returned alist looks something like:
                                        (:in-sync-replicas . (1001)))))
                       (:err . nil)))))"))
 
+;; TODO think about switching timeout-ms from a keyword arg to an
+;; optional arg for these admin methods
+(defgeneric cluster-id
+    (client &key timeout-ms)
+  (:documentation
+   "Returns the cluster-id as reported in the broker metadata."))
+
 
 (defun parse-broker-metadata (metadata)
   "Return a list of (:id :host :port) alists."
@@ -167,3 +174,9 @@ The returned alist looks something like:
     cluster-metadata
     (client (topic (eql :all)) &key (timeout-ms 5000))
   (%cluster-metadata pointer 1 (cffi:null-pointer) timeout-ms))
+
+
+(def-admin-methods
+    cluster-id
+    (client &key (timeout-ms 5000))
+  (cl-rdkafka/ll:rd-kafka-clusterid pointer timeout-ms))
