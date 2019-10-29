@@ -353,3 +353,13 @@
                 :test #'string=
                 :key (lambda (alist)
                        (cdr (assoc :group alist))))))))
+
+
+(test cluster-id
+  (let* ((conf (kf:conf "bootstrap.servers" "kafka:9092"))
+         (consumer (make-instance 'kf:consumer :conf conf))
+         (producer (make-instance 'kf:producer :conf conf))
+         (lhs (kf:cluster-id consumer))
+         (rhs (kf:cluster-id producer)))
+    (is (string= lhs rhs))
+    (is (not (zerop (length lhs))))))
