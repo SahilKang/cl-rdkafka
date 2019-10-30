@@ -43,4 +43,5 @@
    #:alter-config
    #:cluster-metadata
    #:group-info
-   #:cluster-id))
+   #:cluster-id
+   #:controller-id))
