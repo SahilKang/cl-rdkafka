@@ -363,3 +363,12 @@
          (rhs (kf:cluster-id producer)))
     (is (string= lhs rhs))
     (is (not (zerop (length lhs))))))
+
+
+(test controller-id
+  (let* ((conf (kf:conf "bootstrap.servers" "kafka:9092"))
+         (consumer (make-instance 'kf:consumer :conf conf))
+         (producer (make-instance 'kf:producer :conf conf))
+         (lhs (kf:controller-id consumer))
+         (rhs (kf:controller-id producer)))
+    (is (= lhs rhs))))

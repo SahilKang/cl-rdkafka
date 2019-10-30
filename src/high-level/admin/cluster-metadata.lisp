@@ -48,6 +48,11 @@ The returned alist looks something like:
   (:documentation
    "Returns the cluster-id as reported in the broker metadata."))
 
+(defgeneric controller-id
+    (client &key timeout-ms)
+  (:documentation
+   "Returns the controller-id as reported in the broker metadata, or nil."))
+
 
 (defun parse-broker-metadata (metadata)
   "Return a list of (:id :host :port) alists."
@@ -180,3 +185,11 @@ The returned alist looks something like:
     cluster-id
     (client &key (timeout-ms 5000))
   (cl-rdkafka/ll:rd-kafka-clusterid pointer timeout-ms))
+
+
+(def-admin-methods
+    controller-id
+    (client &key (timeout-ms 5000))
+  (let ((id (cl-rdkafka/ll:rd-kafka-controllerid pointer timeout-ms)))
+    (unless (= id -1)
+      id)))
