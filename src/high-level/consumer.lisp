@@ -173,16 +173,21 @@ Returns nil on success or a kafka-error on failure."))
 
 (defmethod poll ((consumer consumer) (timeout-ms integer))
   (with-slots (rd-kafka-consumer key-serde value-serde) consumer
-    (let ((rd-kafka-message (cl-rdkafka/ll:rd-kafka-consumer-poll
-                             rd-kafka-consumer
-                             timeout-ms)))
-      (unless (cffi:null-pointer-p rd-kafka-message)
-        (let ((message (make-instance 'message
-                                      :rd-kafka-message rd-kafka-message
-                                      :key-serde key-serde
-                                      :value-serde value-serde)))
-          (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message)
-          message)))))
+    (let (rd-kafka-message)
+      (unwind-protect
+           (progn
+             (setf rd-kafka-message (cl-rdkafka/ll:rd-kafka-consumer-poll
+                                     rd-kafka-consumer
+                                     timeout-ms))
+             (when (cffi:null-pointer-p rd-kafka-message)
+               (setf rd-kafka-message nil))
+             (when rd-kafka-message
+               (make-instance 'message
+                              :rd-kafka-message rd-kafka-message
+                              :key-serde key-serde
+                              :value-serde value-serde)))
+        (when rd-kafka-message
+          (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
 ;; TODO signal a condition instead of returning kafka-error
 (defun %commit (rd-kafka-consumer rd-kafka-topic-partition-list)
