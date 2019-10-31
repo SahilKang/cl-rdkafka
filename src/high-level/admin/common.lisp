@@ -105,7 +105,7 @@ POINTER symbol is bound to each array elem for BODY to use."
         (array (gensym))
         (*count (gensym))
         (i (gensym)))
-    `(cffi:with-foreign-object (,count :pointer)
+    `(cffi:with-foreign-object (,count 'cl-rdkafka/ll:size-t)
        (loop
           with ,array = ,array-generating-form
           with ,*count = (cffi:mem-ref ,count 'cl-rdkafka/ll:size-t)
