@@ -44,4 +44,5 @@
    #:cluster-metadata
    #:group-info
    #:cluster-id
-   #:controller-id))
+   #:controller-id
+   #:get-conf))

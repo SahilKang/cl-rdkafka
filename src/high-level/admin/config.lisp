@@ -33,6 +33,10 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
   (:documentation
    "Alter config of TOPIC according to CONFIG, reverting to defaults for unspecified configs."))
 
+(defgeneric get-conf (client)
+  (:documentation
+   "Return an alist describing the client config of CLIENT."))
+
 
 (defun make-configresource (name type)
   (let ((resource-type (find-symbol
@@ -122,3 +126,25 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
     alter-config
     (client (topic string) (config list) &key (timeout-ms 5000))
   (%alter-config pointer topic config timeout-ms))
+
+
+;; TODO debian stable's version of librdkafka doesn't have the
+;; rd-kafka-conf function so figure out a unit-testing approach later
+(def-admin-methods get-conf (client)
+  (let ((conf (cl-rdkafka/ll:rd-kafka-conf pointer))
+        kv-pairs
+        *count)
+    (unwind-protect
+         (cffi:with-foreign-object (count :pointer)
+           (setf kv-pairs (cl-rdkafka/ll:rd-kafka-conf-dump conf count)
+                 *count (cffi:mem-ref count 'cl-rdkafka/ll:size-t))
+           (loop
+              with key
+
+              for i below *count
+              for string = (cffi:mem-aref kv-pairs :string i)
+
+              if (evenp i) do (setf key string)
+              else collect (cons key string)))
+      (when kv-pairs
+        (cl-rdkafka/ll:rd-kafka-conf-dump-free kv-pairs *count)))))

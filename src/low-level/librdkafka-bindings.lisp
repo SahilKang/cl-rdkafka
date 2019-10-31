@@ -298,6 +298,9 @@
 (defcfun "rd_kafka_conf_dup" :pointer
   (conf :pointer))
 
+(defcfun "rd_kafka_conf" :pointer
+  (rk :pointer))
+
 (defcfun "rd_kafka_conf_dup_filter" :pointer
   (conf :pointer)
   (filter-cnt size-t)
