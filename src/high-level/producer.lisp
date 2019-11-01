@@ -94,7 +94,7 @@ sent to kafka cluster."))
                  rd-kafka-producer
                  topic-name
                  (cffi:null-pointer))))
-    (unless handle
+    (when (cffi:null-pointer-p handle)
       (error "~&Failed to allocate topic object: ~A"
              (cl-rdkafka/ll:rd-kafka-err2str
               (cl-rdkafka/ll:rd-kafka-last-error))))
@@ -122,7 +122,7 @@ sent to kafka cluster."))
   (let ((key-pointer (cffi:null-pointer))
         (value-pointer (cffi:null-pointer))
         (msg-flags cl-rdkafka/ll:rd-kafka-msg-f-free)
-        ret-val)
+        (ret-val 0))
     (unwind-protect
          (setf key-pointer (->pointer key-bytes)
                value-pointer (->pointer value-bytes)
