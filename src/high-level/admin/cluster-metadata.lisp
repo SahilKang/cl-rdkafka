@@ -168,7 +168,8 @@ The returned alist looks something like:
          (progn
            (setf topic-handle (make-topic pointer topic))
            (%cluster-metadata pointer 0 topic-handle timeout-ms))
-      (cl-rdkafka/ll:rd-kafka-topic-destroy topic-handle))))
+      (when topic-handle
+        (cl-rdkafka/ll:rd-kafka-topic-destroy topic-handle)))))
 
 (def-admin-methods
     cluster-metadata
