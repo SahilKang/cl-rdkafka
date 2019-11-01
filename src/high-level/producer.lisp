@@ -94,7 +94,7 @@ sent to kafka cluster."))
                  rd-kafka-producer
                  topic-name
                  (cffi:null-pointer))))
-    (unless handle
+    (when (cffi:null-pointer-p handle)
       (error "~&Failed to allocate topic object: ~A"
              (cl-rdkafka/ll:rd-kafka-err2str
               (cl-rdkafka/ll:rd-kafka-last-error))))
