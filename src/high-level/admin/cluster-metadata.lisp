@@ -160,6 +160,17 @@ The returned alist looks something like:
               (cffi:mem-ref *metadata '(:struct cl-rdkafka/ll:rd-kafka-metadata)))
           (cl-rdkafka/ll:rd-kafka-metadata-destroy *metadata))))))
 
+(defun make-topic (rd-kafka-client topic-name)
+  (let ((handle (cl-rdkafka/ll:rd-kafka-topic-new
+                 rd-kafka-client
+                 topic-name
+                 (cffi:null-pointer))))
+    (when (cffi:null-pointer-p handle)
+      (error "~&Failed to allocate topic object: ~A"
+             (cl-rdkafka/ll:rd-kafka-err2str
+              (cl-rdkafka/ll:rd-kafka-last-error))))
+    handle))
+
 (def-admin-methods
     cluster-metadata
     (client (topic string) &key (timeout-ms 5000))

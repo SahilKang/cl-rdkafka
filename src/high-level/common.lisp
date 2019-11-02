@@ -32,3 +32,9 @@ functions.")
        for byte = (cffi:mem-aref pointer :uint8 i)
        do (setf (elt vector i) byte))
     vector))
+
+(defun bytes->pointer (bytes)
+  "Allocates and returns a new uint8 pointer to BYTES."
+  (if (zerop (length bytes))
+      (cffi:null-pointer)
+      (cffi:foreign-alloc :uint8 :initial-contents bytes)))

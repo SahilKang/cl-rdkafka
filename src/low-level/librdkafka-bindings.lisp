@@ -737,8 +737,6 @@
   (keylen size-t)
   (msg-opaque :pointer))
 
-;; read defcfun docs about variadic funcs returning structs by value.
-;; I think I just need to load cffi-libffi along with libffi-dev
 (defcfun "rd_kafka_producev" rd-kafka-resp-err
   (rk :pointer)
   &rest)
