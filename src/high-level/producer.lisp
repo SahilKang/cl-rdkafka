@@ -20,9 +20,6 @@
 (defclass producer ()
   ((rd-kafka-producer
     :documentation "Pointer to rd_kafka_t struct.")
-   (topic-name->handle
-    :initform (make-hash-table :test #'equal)
-    :documentation "Hash-table mapping topic-names to rd-kafka-topic handles.")
    (key-serde
     :initform nil
     :documentation "Function to map object to byte vector, or nil for identity.")
@@ -63,7 +60,6 @@ sent to kafka cluster."))
 (defmethod initialize-instance :after
     ((producer producer) &key conf serde key-serde value-serde)
   (with-slots (rd-kafka-producer
-               topic-name->handle
                (ks key-serde)
                (vs value-serde))
       producer
@@ -82,78 +78,62 @@ sent to kafka cluster."))
      producer
      (lambda ()
        (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer (* 5 1000))
-       (loop
-          for v being the hash-values of topic-name->handle
-          do (cl-rdkafka/ll:rd-kafka-topic-destroy v))
        (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)))))
-
-(defgeneric get-topic-handle (producer topic-name))
-
-(defun make-topic (rd-kafka-producer topic-name)
-  (let ((handle (cl-rdkafka/ll:rd-kafka-topic-new
-                 rd-kafka-producer
-                 topic-name
-                 (cffi:null-pointer))))
-    (when (cffi:null-pointer-p handle)
-      (error "~&Failed to allocate topic object: ~A"
-             (cl-rdkafka/ll:rd-kafka-err2str
-              (cl-rdkafka/ll:rd-kafka-last-error))))
-    handle))
-
-(defmethod get-topic-handle ((producer producer) (topic-name string))
-  (with-slots (topic-name->handle rd-kafka-producer) producer
-    (let ((handle (gethash topic-name topic-name->handle)))
-      (unless handle
-        (setf handle (make-topic rd-kafka-producer topic-name)
-              (gethash topic-name topic-name->handle) handle))
-      handle)))
 
 (defun ->bytes (object serde)
   (if (functionp serde)
       (funcall serde object)
       object))
 
-(defun %produce (topic-handle partition key-bytes value-bytes)
-  (let ((key-pointer (cffi:null-pointer))
-        (value-pointer (cffi:null-pointer))
-        (msg-flags cl-rdkafka/ll:rd-kafka-msg-f-free)
-        (ret-val 0))
+(defun %produce (rd-kafka-producer topic partition key-bytes value-bytes)
+  (let ((msg-flags cl-rdkafka/ll:rd-kafka-msg-f-free)
+        err
+        key-pointer
+        value-pointer)
     (unwind-protect
-         (setf key-pointer (bytes->pointer key-bytes)
-               value-pointer (bytes->pointer value-bytes)
-               ret-val (cl-rdkafka/ll:rd-kafka-produce
-                        topic-handle
-                        partition
-                        msg-flags
-                        value-pointer
-                        (length value-bytes)
-                        key-pointer
-                        (length key-bytes)
-                        (cffi:null-pointer)))
-      (cffi:foreign-free key-pointer)
-      (when (= -1 ret-val)
+         (progn
+           (setf key-pointer (bytes->pointer key-bytes)
+                 value-pointer (bytes->pointer value-bytes)
+                 err (cl-rdkafka/ll:rd-kafka-producev
+                      rd-kafka-producer
+
+                      :int cl-rdkafka/ll:rd-kafka-vtype-topic
+                      :string topic
+
+                      :int cl-rdkafka/ll:rd-kafka-vtype-value
+                      :pointer value-pointer
+                      cl-rdkafka/ll:size-t (length value-bytes)
+
+                      :int cl-rdkafka/ll:rd-kafka-vtype-key
+                      :pointer key-pointer
+                      cl-rdkafka/ll:size-t (length key-bytes)
+
+                      :int cl-rdkafka/ll:rd-kafka-vtype-partition
+                      :int32 partition
+
+                      :int cl-rdkafka/ll:rd-kafka-vtype-msgflags
+                      :int msg-flags
+
+                      :int cl-rdkafka/ll:rd-kafka-vtype-end))
+           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+             (error "~&Failed to produce message to topic: ~S: ~S"
+                    topic
+                    (cl-rdkafka/ll:rd-kafka-err2str err))))
+      (when key-pointer
+        (cffi:foreign-free key-pointer))
+      (when (and value-pointer
+                 (not (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)))
         (cffi:foreign-free value-pointer)))))
 
 (defmethod produce ((producer producer) (topic string) value
                     &key (key nil key-p) partition)
   (with-slots (rd-kafka-producer key-serde value-serde) producer
-    (let* ((topic-handle (get-topic-handle producer topic))
-           (key-bytes (if key-p (->bytes key key-serde) (vector)))
-           (value-bytes (->bytes value value-serde))
-           (partition (if partition
-                          partition
-                          cl-rdkafka/ll:rd-kafka-partition-ua))
-           (ret-val (%produce
-                     topic-handle
-                     partition
-                     key-bytes
-                     value-bytes)))
-      (cl-rdkafka/ll:rd-kafka-poll rd-kafka-producer 0)
-      (when (= -1 ret-val)
-        (error "~&Failed to produce message to topic ~A: ~A"
-               topic
-               (cl-rdkafka/ll:rd-kafka-err2str
-                (cl-rdkafka/ll:rd-kafka-last-error)))))))
+    (let ((key-bytes (if key-p (->bytes key key-serde) (vector)))
+          (value-bytes (->bytes value value-serde))
+          (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
+      (unwind-protect
+           (%produce rd-kafka-producer topic partition key-bytes value-bytes)
+        (cl-rdkafka/ll:rd-kafka-poll rd-kafka-producer 0)))))
 
 (defmethod flush ((producer producer) (timeout-ms integer))
   (with-slots (rd-kafka-producer) producer
