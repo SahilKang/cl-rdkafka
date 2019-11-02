@@ -45,12 +45,14 @@ Example:
 
   (kf:flush producer (* 2 1000)))"))
 
-(defgeneric produce (producer topic value &key key partition)
+(defgeneric produce (producer topic value &key key partition headers)
   (:documentation
    "Asynchronously produce a message to a kafka topic.
 
-If partition is not specified, one is chosen using the topic's partitioner
-function."))
+If PARTITION is not specified, one is chosen using the topic's
+partitioner function.
+
+HEADERS should be an alist of (string . byte-vector) pairs."))
 
 (defgeneric flush (producer timeout-ms)
   (:documentation
@@ -85,15 +87,44 @@ sent to kafka cluster."))
       (funcall serde object)
       object))
 
-(defun %produce (rd-kafka-producer topic partition key-bytes value-bytes)
+(defun add-header (headers name value)
+  (let ((value-pointer (bytes->pointer value)))
+    (unwind-protect
+         (let ((err (cl-rdkafka/ll:rd-kafka-header-add
+                     headers
+                     name
+                     (length name)
+                     value-pointer
+                     (length value))))
+           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+             (error "~&Failed to set header value for ~S: ~S"
+                    name
+                    (cl-rdkafka/ll:rd-kafka-err2str err))))
+      (cffi:foreign-free value-pointer))))
+
+(defun make-headers (alist)
+  (let ((headers (cl-rdkafka/ll:rd-kafka-headers-new (length alist))))
+    (handler-case
+        (loop
+           for (name . value) in alist
+           do (add-header headers name value)
+           finally (return headers))
+      (condition (c)
+        (cl-rdkafka/ll:rd-kafka-headers-destroy headers)
+        (error c)))))
+
+(defun %produce
+    (rd-kafka-producer topic partition key-bytes value-bytes headers)
   (let ((msg-flags cl-rdkafka/ll:rd-kafka-msg-f-free)
         err
         key-pointer
-        value-pointer)
+        value-pointer
+        headers-pointer)
     (unwind-protect
          (progn
            (setf key-pointer (bytes->pointer key-bytes)
                  value-pointer (bytes->pointer value-bytes)
+                 headers-pointer (make-headers headers)
                  err (cl-rdkafka/ll:rd-kafka-producev
                       rd-kafka-producer
 
@@ -114,6 +145,9 @@ sent to kafka cluster."))
                       :int cl-rdkafka/ll:rd-kafka-vtype-msgflags
                       :int msg-flags
 
+                      :int cl-rdkafka/ll:rd-kafka-vtype-headers
+                      :pointer headers-pointer
+
                       :int cl-rdkafka/ll:rd-kafka-vtype-end))
            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
              (error "~&Failed to produce message to topic: ~S: ~S"
@@ -121,18 +155,28 @@ sent to kafka cluster."))
                     (cl-rdkafka/ll:rd-kafka-err2str err))))
       (when key-pointer
         (cffi:foreign-free key-pointer))
-      (when (and value-pointer
-                 (not (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)))
-        (cffi:foreign-free value-pointer)))))
+      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (when value-pointer
+          (cffi:foreign-free value-pointer))
+        (when headers-pointer
+          (cl-rdkafka/ll:rd-kafka-headers-destroy headers-pointer))))))
 
-(defmethod produce ((producer producer) (topic string) value
-                    &key (key nil key-p) partition)
+(defmethod produce
+    ((producer producer)
+     (topic string)
+     value
+     &key (key nil key-p) partition headers)
   (with-slots (rd-kafka-producer key-serde value-serde) producer
     (let ((key-bytes (if key-p (->bytes key key-serde) (vector)))
           (value-bytes (->bytes value value-serde))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
       (unwind-protect
-           (%produce rd-kafka-producer topic partition key-bytes value-bytes)
+           (%produce rd-kafka-producer
+                     topic
+                     partition
+                     key-bytes
+                     value-bytes
+                     headers)
         (cl-rdkafka/ll:rd-kafka-poll rd-kafka-producer 0)))))
 
 (defmethod flush ((producer producer) (timeout-ms integer))

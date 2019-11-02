@@ -81,7 +81,8 @@
              (:file "producer")
              (:file "produce->consume")
              (:file "message")
-             (:file "admin")))))
+             (:file "admin")
+             (:file "headers")))))
 
 
 #+sb-core-compression
