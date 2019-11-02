@@ -49,7 +49,10 @@
     :documentation "Message timestamp.")
    (latency
     :reader latency
-    :documentation "Message latency measured from the message produce call.")))
+    :documentation "Message latency measured from the message produce call.")
+   (headers
+    :reader headers
+    :documentation "Message headers as an alist.")))
 
 (defgeneric key (message)
   (:documentation
@@ -96,6 +99,41 @@
         (len (getf *rd-kafka-message 'cl-rdkafka/ll:len)))
     (pointer->bytes payload len)))
 
+(defun headers->alist (headers)
+  (cffi:with-foreign-objects ((name :pointer)
+                              (value :pointer)
+                              (value-size 'cl-rdkafka/ll:size-t))
+    (loop
+       with count = (cl-rdkafka/ll:rd-kafka-header-cnt headers)
+
+       for i below count
+       for err = (cl-rdkafka/ll:rd-kafka-header-get-all
+                  headers
+                  i
+                  name
+                  value
+                  value-size)
+       unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+       do (error "~&Failed to get header pair: ~S"
+                 (cl-rdkafka/ll:rd-kafka-err2str err))
+
+       collect (cons (cffi:mem-ref name :string)
+                     (pointer->bytes
+                      (cffi:mem-ref value :pointer)
+                      (cffi:mem-ref value-size 'cl-rdkafka/ll:size-t))))))
+
+(defun get-headers (rd-kafka-message)
+  (cffi:with-foreign-object (headers :pointer)
+    (let ((err (cl-rdkafka/ll:rd-kafka-message-headers
+                rd-kafka-message
+                headers)))
+      (unless (or (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                  (eq err cl-rdkafka/ll:rd-kafka-resp-err--noent))
+        (error "~&Failed to get message headers: ~S"
+               (cl-rdkafka/ll:rd-kafka-err2str err)))
+      (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (headers->alist (cffi:mem-ref headers :pointer))))))
+
 (defmethod initialize-instance :after
     ((message message)
      &key
@@ -109,6 +147,7 @@
                offset
                timestamp
                latency
+               headers
                raw-key
                raw-value
                (ks key-serde)
@@ -121,6 +160,7 @@
             offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
             timestamp (get-timestamp rd-kafka-message)
             latency (get-latency rd-kafka-message)
+            headers (get-headers rd-kafka-message)
             ks (or key-serde serde)
             vs (or value-serde serde))
       (unless message-error
