@@ -113,19 +113,14 @@ sent to kafka cluster."))
       (funcall serde object)
       object))
 
-(defun ->pointer (bytes)
-  (if (zerop (length bytes))
-      (cffi:null-pointer)
-      (cffi:foreign-alloc :uint8 :initial-contents bytes)))
-
 (defun %produce (topic-handle partition key-bytes value-bytes)
   (let ((key-pointer (cffi:null-pointer))
         (value-pointer (cffi:null-pointer))
         (msg-flags cl-rdkafka/ll:rd-kafka-msg-f-free)
         (ret-val 0))
     (unwind-protect
-         (setf key-pointer (->pointer key-bytes)
-               value-pointer (->pointer value-bytes)
+         (setf key-pointer (bytes->pointer key-bytes)
+               value-pointer (bytes->pointer value-bytes)
                ret-val (cl-rdkafka/ll:rd-kafka-produce
                         topic-handle
                         partition
