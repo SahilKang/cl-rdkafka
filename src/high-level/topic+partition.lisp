@@ -66,6 +66,8 @@
  cl-rdkafka/ll:rd-kafka-topic-partition-list."
   (let ((rd-list (cl-rdkafka/ll:rd-kafka-topic-partition-list-new
                   (length topic+partitions))))
+    (when (cffi:null-pointer-p rd-list)
+      (error "~&Failed to allocate new rd-kafka-topic-partition-list"))
     (map nil (lambda (t+p) (add-topic+partition rd-list t+p)) topic+partitions)
     rd-list))
 
