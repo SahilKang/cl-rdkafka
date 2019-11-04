@@ -120,25 +120,20 @@ Returns nil on success or a kafka-error on failure."))
        (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
        (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))))
 
-(defun topic-names->topic+partitons (topics)
-  (loop
-     for i below (length topics)
-     for name = (elt topics i)
-     for topic+partition = (make-instance 'topic+partition :topic name)
-     collect topic+partition))
-
 (defmethod subscribe ((consumer consumer) topics)
   (with-slots (rd-kafka-consumer) consumer
-    (let* ((topic+partitions
-            (topic-names->topic+partitons topics))
-           (rd-kafka-list
-            (topic+partitions->rd-kafka-list topic+partitions))
-           (err
-            (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer rd-kafka-list)))
-      (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to subscribe to topics with error: ~A"
-               (error-description err))))))
+    (let ((rd-kafka-list (topic+partitions->rd-kafka-list
+                          (map 'list
+                               (lambda (name)
+                                 (make-instance 'topic+partition :topic name))
+                               topics))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
+                                                        rd-kafka-list)))
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error "~&Failed to subscribe to topics with error: ~S"
+                      (cl-rdkafka/ll:rd-kafka-err2str err))))
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)))))
 
 (defmethod unsubscribe ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
