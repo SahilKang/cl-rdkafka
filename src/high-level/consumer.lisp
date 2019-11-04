@@ -100,6 +100,10 @@ Returns nil on success or a kafka-error on failure."))
   (:documentation
    "Return CONSUMER's broker-assigned group member-id."))
 
+(defgeneric pause (consumer topic+partitions)
+  (:documentation
+   "Pause consumption from the TOPIC+PARTITIONS alist."))
+
 (defmethod initialize-instance :after
     ((consumer consumer) &key conf serde key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
@@ -249,3 +253,49 @@ Returns nil on success or a kafka-error on failure."))
 (defmethod member-id ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
     (cl-rdkafka/ll:rd-kafka-memberid rd-kafka-consumer)))
+
+(defun assert-no-partition-errors (rd-list)
+  (loop
+     with *rd-list = (cffi:mem-ref
+                      rd-list
+                      '(:struct cl-rdkafka/ll:rd-kafka-topic-partition-list))
+     with elems = (getf *rd-list 'cl-rdkafka/ll:elems)
+     with count = (getf *rd-list 'cl-rdkafka/ll:cnt)
+
+     for i below count
+     for elem = (cffi:mem-aref
+                 elems
+                 '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
+                 i)
+
+     for err = (getf elem 'cl-rdkafka/ll:err)
+     for topic = (getf elem 'cl-rdkafka/ll:topic)
+     for partition = (getf elem 'cl-rdkafka/ll:partition)
+
+     unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+     do (error "~&Error pausing topic|partition ~S|~S: ~S"
+               topic
+               partition
+               (cl-rdkafka/ll:rd-kafka-err2str err))))
+
+(defmethod pause ((consumer consumer) (topic+partitions list))
+  (with-slots (rd-kafka-consumer) consumer
+    (let ((rd-list (topic+partitions->rd-kafka-list
+                    (mapcar (lambda (pair)
+                              (destructuring-bind (topic . partition) pair
+                                (make-instance 'topic+partition
+                                               :topic topic
+                                               :partition partition)))
+                            topic+partitions))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-pause-partitions
+                       rd-kafka-consumer
+                       rd-list)))
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error "~&Failed to pause paritions: ~S"
+                      (cl-rdkafka/ll:rd-kafka-err2str err)))
+             ;; rd-kafka-pause-partitions will set the err field of
+             ;; each struct in rd-list, so let's make sure no per
+             ;; topic-partition errors occurred
+             (assert-no-partition-errors rd-list))
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
