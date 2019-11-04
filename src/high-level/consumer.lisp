@@ -100,6 +100,10 @@ Returns nil on success or a kafka-error on failure."))
   (:documentation
    "Return CONSUMER's broker-assigned group member-id."))
 
+(defgeneric pause (consumer topic+partitions)
+  (:documentation
+   "Pause consumption from the TOPIC+PARTITIONS alist."))
+
 (defmethod initialize-instance :after
     ((consumer consumer) &key conf serde key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
@@ -120,25 +124,20 @@ Returns nil on success or a kafka-error on failure."))
        (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
        (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))))
 
-(defun topic-names->topic+partitons (topics)
-  (loop
-     for i below (length topics)
-     for name = (elt topics i)
-     for topic+partition = (make-instance 'topic+partition :topic name)
-     collect topic+partition))
-
 (defmethod subscribe ((consumer consumer) topics)
   (with-slots (rd-kafka-consumer) consumer
-    (let* ((topic+partitions
-            (topic-names->topic+partitons topics))
-           (rd-kafka-list
-            (topic+partitions->rd-kafka-list topic+partitions))
-           (err
-            (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer rd-kafka-list)))
-      (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to subscribe to topics with error: ~A"
-               (error-description err))))))
+    (let ((rd-kafka-list (topic+partitions->rd-kafka-list
+                          (map 'list
+                               (lambda (name)
+                                 (make-instance 'topic+partition :topic name))
+                               topics))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
+                                                        rd-kafka-list)))
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error "~&Failed to subscribe to topics with error: ~S"
+                      (cl-rdkafka/ll:rd-kafka-err2str err))))
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)))))
 
 (defmethod unsubscribe ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
@@ -212,56 +211,91 @@ Returns nil on success or a kafka-error on failure."))
 
 (defun %assignment (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)
-    (let ((err (cl-rdkafka/ll:rd-kafka-assignment
-                rd-kafka-consumer
-                rd-list)))
-      (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (let ((*rd-list (cffi:mem-ref rd-list :pointer)))
-            (values *rd-list t))
-          (values (make-instance 'kafka-error :rd-kafka-resp-err err)
-                  nil)))))
+    (let ((err (cl-rdkafka/ll:rd-kafka-assignment rd-kafka-consumer rd-list)))
+      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (error "~&Failed to get assignment: ~S"
+               (cl-rdkafka/ll:rd-kafka-err2str err)))
+      (cffi:mem-ref rd-list :pointer))))
 
 (defmethod assignment ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
-    (multiple-value-bind (rd-list success?) (%assignment rd-kafka-consumer)
-      (if success?
-          (let ((topic+partitions (rd-kafka-list->topic+partitions rd-list)))
-            (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)
-            topic+partitions)
-          (error "~&Failed to get assignment with error: ~A"
-                 (error-description rd-list))))))
-
-(defun %committed (rd-kafka-consumer rd-list)
-  (let ((err (cl-rdkafka/ll:rd-kafka-committed
-              rd-kafka-consumer
-              rd-list
-              60000)))
-    (let ((topic+partitions (rd-kafka-list->topic+partitions rd-list)))
-      (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to get committed offsets with error: ~A"
-               (error-description err)))
-      topic+partitions)))
+    (let ((rd-list (%assignment rd-kafka-consumer)))
+      (unwind-protect
+           (rd-kafka-list->topic+partitions rd-list)
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
 (defmethod committed ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
-    (if topic+partitions
-        (%committed rd-kafka-consumer
-                    (topic+partitions->rd-kafka-list topic+partitions))
-        (multiple-value-bind (rd-list success?) (%assignment rd-kafka-consumer)
-          (if success?
-              (%committed rd-kafka-consumer rd-list)
-              (error "~&Failed to get committed offsets with error: ~A"
-                     (error-description rd-list)))))))
+    (let ((rd-list (if topic+partitions
+                       (topic+partitions->rd-kafka-list topic+partitions)
+                       (%assignment rd-kafka-consumer))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-committed
+                       rd-kafka-consumer
+                       rd-list
+                       60000)))
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error "~&Failed to get committed offsets with error: ~S"
+                      (cl-rdkafka/ll:rd-kafka-err2str err)))
+             (rd-kafka-list->topic+partitions rd-list))
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
+;; TODO create and signal a condition (get rid of kafka-error class)
 (defmethod assign ((consumer consumer) topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
-    (let* ((rd-list (topic+partitions->rd-kafka-list topic+partitions))
-           (err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
-      (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (make-instance 'kafka-error :rd-kafka-resp-err err)))))
+    (let ((rd-list (topic+partitions->rd-kafka-list topic+partitions)))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (make-instance 'kafka-error :rd-kafka-resp-err err)))
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
 (defmethod member-id ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
     (cl-rdkafka/ll:rd-kafka-memberid rd-kafka-consumer)))
+
+(defun assert-no-partition-errors (rd-list)
+  (loop
+     with *rd-list = (cffi:mem-ref
+                      rd-list
+                      '(:struct cl-rdkafka/ll:rd-kafka-topic-partition-list))
+     with elems = (getf *rd-list 'cl-rdkafka/ll:elems)
+     with count = (getf *rd-list 'cl-rdkafka/ll:cnt)
+
+     for i below count
+     for elem = (cffi:mem-aref
+                 elems
+                 '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
+                 i)
+
+     for err = (getf elem 'cl-rdkafka/ll:err)
+     for topic = (getf elem 'cl-rdkafka/ll:topic)
+     for partition = (getf elem 'cl-rdkafka/ll:partition)
+
+     unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+     do (error "~&Error pausing topic|partition ~S|~S: ~S"
+               topic
+               partition
+               (cl-rdkafka/ll:rd-kafka-err2str err))))
+
+(defmethod pause ((consumer consumer) (topic+partitions list))
+  (with-slots (rd-kafka-consumer) consumer
+    (let ((rd-list (topic+partitions->rd-kafka-list
+                    (mapcar (lambda (pair)
+                              (destructuring-bind (topic . partition) pair
+                                (make-instance 'topic+partition
+                                               :topic topic
+                                               :partition partition)))
+                            topic+partitions))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-pause-partitions
+                       rd-kafka-consumer
+                       rd-list)))
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error "~&Failed to pause paritions: ~S"
+                      (cl-rdkafka/ll:rd-kafka-err2str err)))
+             ;; rd-kafka-pause-partitions will set the err field of
+             ;; each struct in rd-list, so let's make sure no per
+             ;; topic-partition errors occurred
+             (assert-no-partition-errors rd-list))
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
