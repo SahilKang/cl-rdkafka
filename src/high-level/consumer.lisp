@@ -236,13 +236,15 @@ Returns nil on success or a kafka-error on failure."))
              (rd-kafka-list->topic+partitions rd-list))
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
+;; TODO create and signal a condition (get rid of kafka-error class)
 (defmethod assign ((consumer consumer) topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
-    (let* ((rd-list (topic+partitions->rd-kafka-list topic+partitions))
-           (err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
-      (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (make-instance 'kafka-error :rd-kafka-resp-err err)))))
+    (let ((rd-list (topic+partitions->rd-kafka-list topic+partitions)))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (make-instance 'kafka-error :rd-kafka-resp-err err)))
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
 (defmethod member-id ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
