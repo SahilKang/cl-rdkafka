@@ -168,3 +168,54 @@
                   while message
                   collect (kf:value message)
                   do (kf:commit consumer))))))
+
+(test consumer-resume
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (kf:conf
+                          "bootstrap.servers" "kafka:9092"
+                          "group.id" "consumer-resume-group"
+                          "auto.offset.reset" "earliest"
+                          "enable.auto.commit" "false"
+                          "offset.store.method" "broker"
+                          "enable.partition.eof" "false")
+                   :serde (lambda (bytes)
+                            (babel:octets-to-string bytes :encoding :utf-8))))
+        (producer (make-instance
+                   'kf:producer
+                   :conf (kf:conf
+                          "bootstrap.servers" "kafka:9092")
+                   :serde (lambda (string)
+                            (babel:string-to-octets string :encoding :utf-8))))
+        (topic "consumer-resume-topic")
+        (good-partition 1)
+        (bad-partition 0)
+        (goodies '("Here" "are" "some" "messages"))
+        (baddies '("Here" "are" "some" "more" "messages")))
+    (is (string= topic (kf:create-topic producer topic :partitions 2)))
+    (sleep 2)
+    (kf:subscribe consumer (list topic))
+
+    (mapcar (lambda (message)
+              (kf:produce producer topic message :partition good-partition))
+            goodies)
+    (mapcar (lambda (message)
+              (kf:produce producer topic message :partition bad-partition))
+            baddies)
+    (kf:flush producer 2000)
+
+    (kf:pause consumer (list (cons topic bad-partition)))
+    (is (equal goodies
+               (loop
+                  for message = (kf:poll consumer 5000)
+                  while message
+                  collect (kf:value message)
+                  do (kf:commit consumer))))
+
+    (kf:resume consumer (list (cons topic bad-partition)))
+    (is (equal baddies
+               (loop
+                  for message = (kf:poll consumer 5000)
+                  while message
+                  collect (kf:value message)
+                  do (kf:commit consumer))))))

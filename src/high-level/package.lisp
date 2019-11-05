@@ -31,7 +31,7 @@
 
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign #:member-id
-   #:pause
+   #:pause #:resume
 
    #:producer #:produce #:flush
 

@@ -104,6 +104,10 @@ Returns nil on success or a kafka-error on failure."))
   (:documentation
    "Pause consumption from the TOPIC+PARTITIONS alist."))
 
+(defgeneric resume (consumer topic+partitions)
+  (:documentation
+   "Resume consumption from the TOPIC+PARTITIONS alist."))
+
 (defmethod initialize-instance :after
     ((consumer consumer) &key conf serde key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
@@ -297,5 +301,24 @@ Returns nil on success or a kafka-error on failure."))
              ;; rd-kafka-pause-partitions will set the err field of
              ;; each struct in rd-list, so let's make sure no per
              ;; topic-partition errors occurred
+             (assert-no-partition-errors rd-list))
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+
+(defmethod resume ((consumer consumer) (topic+partitions list))
+  (with-slots (rd-kafka-consumer) consumer
+    (let ((rd-list (topic+partitions->rd-kafka-list
+                    (mapcar (lambda (pair)
+                              (destructuring-bind (topic . partition) pair
+                                (make-instance 'topic+partition
+                                               :topic topic
+                                               :partition partition)))
+                            topic+partitions))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-resume-partitions
+                       rd-kafka-consumer
+                       rd-list)))
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error "~&Failed to resume partitions: ~S"
+                      (cl-rdkafka/ll:rd-kafka-err2str err)))
              (assert-no-partition-errors rd-list))
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
