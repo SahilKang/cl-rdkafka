@@ -108,6 +108,12 @@ Returns nil on success or a kafka-error on failure."))
   (:documentation
    "Resume consumption from the TOPIC+PARTITIONS alist."))
 
+(defgeneric query-watermark-offsets (consumer topic partition &key timeout-ms)
+  (:documentation
+   "Query broker for low (oldest/beginning) and high (newest/end) offsets.
+
+A (low high) list is returned."))
+
 (defmethod initialize-instance :after
     ((consumer consumer) &key conf serde key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
@@ -322,3 +328,23 @@ Returns nil on success or a kafka-error on failure."))
                       (cl-rdkafka/ll:rd-kafka-err2str err)))
              (assert-no-partition-errors rd-list))
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+
+(defmethod query-watermark-offsets
+    ((consumer consumer)
+     (topic string)
+     (partition integer)
+     &key (timeout-ms 5000))
+  (cffi:with-foreign-objects ((low :int64) (high :int64))
+    (with-slots (rd-kafka-consumer) consumer
+      (let ((err (cl-rdkafka/ll:rd-kafka-query-watermark-offsets
+                  rd-kafka-consumer
+                  topic
+                  partition
+                  low
+                  high
+                  timeout-ms)))
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error "~&Failed to query offsets: ~S"
+                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (list (cffi:mem-ref low :int64)
+              (cffi:mem-ref high :int64))))))
