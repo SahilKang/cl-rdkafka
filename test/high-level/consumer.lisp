@@ -219,3 +219,27 @@
                   while message
                   collect (kf:value message)
                   do (kf:commit consumer))))))
+
+(test query-watermark-offsets
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (kf:conf
+                          "bootstrap.servers" "kafka:9092")))
+        (producer (make-instance
+                   'kf:producer
+                   :conf (kf:conf
+                          "bootstrap.servers" "kafka:9092")))
+        (topic "query-watermark-offsets-topic"))
+    (is (string= topic (kf:create-topic producer topic :partitions 2)))
+    (sleep 2)
+
+    (is (equal '(0 0) (kf:query-watermark-offsets consumer topic 0)))
+    (is (equal '(0 0) (kf:query-watermark-offsets consumer topic 1)))
+
+    (kf:produce producer topic #(2 4) :partition 0)
+    (kf:produce producer topic #(1 2) :partition 1)
+    (kf:produce producer topic #(3 4) :partition 1)
+    (kf:flush producer 2000)
+
+    (is (equal '(0 1) (kf:query-watermark-offsets consumer topic 0)))
+    (is (equal '(0 2) (kf:query-watermark-offsets consumer topic 1)))))
