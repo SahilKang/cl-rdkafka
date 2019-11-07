@@ -243,3 +243,58 @@
 
     (is (equal '(0 1) (kf:query-watermark-offsets consumer topic 0)))
     (is (equal '(0 2) (kf:query-watermark-offsets consumer topic 1)))))
+
+(test offsets-for-times
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (kf:conf
+                          "bootstrap.servers" "kafka:9092"
+                          "group.id" "offsets-for-times-group"
+                          "auto.offset.reset" "earliest"
+                          "enable.auto.commit" "false"
+                          "offset.store.method" "broker"
+                          "enable.partition.eof" "false")
+                   :serde (lambda (bytes)
+                            (babel:octets-to-string bytes :encoding :utf-8))))
+        (producer (make-instance
+                   'kf:producer
+                   :conf (kf:conf
+                          "bootstrap.servers" "kafka:9092")
+                   :serde (lambda (string)
+                            (babel:string-to-octets string :encoding :utf-8))))
+        (topic "offsets-for-times-topic"))
+    (is (string= topic (kf:create-topic producer topic)))
+    (sleep 2)
+    (kf:subscribe consumer (list topic))
+
+    (mapcar (lambda (message)
+              (kf:produce producer topic message)
+              (sleep 1))
+            '("There" "is" "a" "delay" "between" "these" "messages"))
+    (kf:flush producer 2000)
+
+    (let (delay-offset
+          delay-timestamp)
+      (loop
+         for message = (kf:poll consumer 5000)
+         while message
+         for delay-message-p = (string= (kf:value message) "delay")
+
+         when delay-message-p
+         do (setf delay-offset (kf:offset message)
+                  delay-timestamp (kf:timestamp message))
+
+         until delay-message-p)
+
+      (is (= delay-offset
+             (cdr (assoc (cons topic 0)
+                         (kf:offsets-for-times
+                          consumer
+                          `(((,topic . 0) . ,delay-timestamp)))
+                         :test #'equal))))
+      (is (= (1+ delay-offset)
+             (cdr (assoc (cons topic 0)
+                         (kf:offsets-for-times
+                          consumer
+                          `(((,topic . 0) . ,(1+ delay-timestamp))))
+                         :test #'equal)))))))
