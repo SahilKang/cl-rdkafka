@@ -264,29 +264,42 @@ A (low high) list is returned."))
   (with-slots (rd-kafka-consumer) consumer
     (cl-rdkafka/ll:rd-kafka-memberid rd-kafka-consumer)))
 
-(defun assert-no-partition-errors (rd-list)
-  (loop
-     with *rd-list = (cffi:mem-ref
-                      rd-list
-                      '(:struct cl-rdkafka/ll:rd-kafka-topic-partition-list))
-     with elems = (getf *rd-list 'cl-rdkafka/ll:elems)
-     with count = (getf *rd-list 'cl-rdkafka/ll:cnt)
+(defmacro foreach-toppar (toppar-list (&rest fields) &body body)
+  "For each element in TOPPAR-LIST, BODY is evaluated under FIELDS bindings.
 
-     for i below count
-     for elem = (cffi:mem-aref
-                 elems
-                 '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
-                 i)
+The symbols in FIELDS are bound to the corresponding fields of each
+TOPPAR-LIST element.
 
-     for err = (getf elem 'cl-rdkafka/ll:err)
-     for topic = (getf elem 'cl-rdkafka/ll:topic)
-     for partition = (getf elem 'cl-rdkafka/ll:partition)
+TOPPAR-LIST should be a pointer to a
+cl-rdkafka/ll:rd-kafka-topic-partition-list."
+  (let* ((*toppar-list (gensym))
+         (elems (gensym))
+         (elem (gensym))
+         (count (gensym))
+         (i (gensym))
+         (field-bindings (mapcar
+                          (lambda (symbol)
+                            (let ((field (find-symbol (string symbol)
+                                                      'cl-rdkafka/ll)))
+                              (unless field
+                                (error "~&Could not find symbol for ~S" symbol))
+                              `(,symbol (getf ,elem ',field))))
+                          fields)))
+    `(loop
+        with ,*toppar-list = (cffi:mem-ref
+                              ,toppar-list
+                              '(:struct cl-rdkafka/ll:rd-kafka-topic-partition-list))
+        with ,elems = (getf ,*toppar-list 'cl-rdkafka/ll:elems)
+        with ,count = (getf ,*toppar-list 'cl-rdkafka/ll:cnt)
 
-     unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-     do (error "~&Error pausing topic|partition ~S|~S: ~S"
-               topic
-               partition
-               (cl-rdkafka/ll:rd-kafka-err2str err))))
+        for ,i below ,count
+        for ,elem = (cffi:mem-aref
+                     ,elems
+                     '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
+                     ,i)
+
+        do (let ,field-bindings
+             ,@body))))
 
 (defmethod pause ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
@@ -307,7 +320,12 @@ A (low high) list is returned."))
              ;; rd-kafka-pause-partitions will set the err field of
              ;; each struct in rd-list, so let's make sure no per
              ;; topic-partition errors occurred
-             (assert-no-partition-errors rd-list))
+             (foreach-toppar rd-list (err topic partition)
+               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                 (error "~&Error pausing topic|partition ~S|~S: ~S"
+                        topic
+                        partition
+                        (cl-rdkafka/ll:rd-kafka-err2str err)))))
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
 (defmethod resume ((consumer consumer) (topic+partitions list))
@@ -326,7 +344,12 @@ A (low high) list is returned."))
              (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                (error "~&Failed to resume partitions: ~S"
                       (cl-rdkafka/ll:rd-kafka-err2str err)))
-             (assert-no-partition-errors rd-list))
+             (foreach-toppar rd-list (err topic partition)
+               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                 (error "~&Error resuming topic|partition ~S|~S: ~S"
+                        topic
+                        partition
+                        (cl-rdkafka/ll:rd-kafka-err2str err)))))
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
 (defmethod query-watermark-offsets
