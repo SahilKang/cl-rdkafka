@@ -298,3 +298,43 @@
                           consumer
                           `(((,topic . 0) . ,(1+ delay-timestamp))))
                          :test #'equal)))))))
+
+(test positions
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (kf:conf
+                          "bootstrap.servers" "kafka:9092"
+                          "group.id" "positions-group"
+                          "auto.offset.reset" "earliest"
+                          "enable.auto.commit" "false"
+                          "offset.store.method" "broker"
+                          "enable.partition.eof" "false")
+                   :serde (lambda (bytes)
+                            (babel:octets-to-string bytes :encoding :utf-8))))
+        (producer (make-instance
+                   'kf:producer
+                   :conf (kf:conf
+                          "bootstrap.servers" "kafka:9092")
+                   :serde (lambda (string)
+                            (babel:string-to-octets string :encoding :utf-8))))
+        (topic "positions-topic"))
+    (is (string= topic (kf:create-topic producer topic)))
+    (sleep 2)
+    (kf:subscribe consumer (list topic))
+
+    (mapcar (lambda (message)
+              (kf:produce producer topic message))
+            '("Here" "are" "a" "few" "messages"))
+    (kf:flush producer 2000)
+
+    (loop
+       for i from 0
+       for message = (kf:poll consumer 5000)
+       while message
+
+       do
+         (is (= (1+ i)
+                (cdr (assoc (cons topic 0)
+                            (kf:positions consumer (list (cons topic 0)))
+                            :test #'equal))))
+         (kf:commit consumer))))
