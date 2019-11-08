@@ -128,6 +128,17 @@ TIMESTAMPS is an alist with elements that look like:
 and the returned alist contains elements that look like:
   ((\"topic\" . partition) . offset)"))
 
+(defgeneric positions (consumer topic+partitions)
+  (:documentation
+   "Retrieve current positions (offsets) for TOPIC+PARTITIONS.
+
+TOPIC+PARTITIONS is an alist with elements that look like:
+  (\"topic\" . partition)
+
+and the returned alist contains elements that look like (offset will
+be nil if no previous message existed):
+  ((\"topic\" . partition) . offset)"))
+
 (defmethod initialize-instance :after
     ((consumer consumer) &key conf serde key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
@@ -416,5 +427,36 @@ cl-rdkafka/ll:rd-kafka-topic-partition-list."
                         partition
                         (cl-rdkafka/ll:rd-kafka-err2str err)))
                (push `((,topic . ,partition) . ,offset) alist-to-return))
+             alist-to-return)
+        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+
+(defmethod positions ((consumer consumer) (topic+partitions list))
+  (with-slots (rd-kafka-consumer) consumer
+    (let ((rd-list (topic+partitions->rd-kafka-list
+                    (mapcar (lambda (pair)
+                              (destructuring-bind (topic . partition) pair
+                                (make-instance 'topic+partition
+                                               :topic topic
+                                               :partition partition)))
+                            topic+partitions))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-position
+                       rd-kafka-consumer
+                       rd-list))
+                 alist-to-return)
+             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error "~&Failed to get positions: ~S"
+                      (cl-rdkafka/ll:rd-kafka-err2str err)))
+             (foreach-toppar rd-list (topic partition offset err)
+               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                 (error "~&Error getting position for topic|partition ~S|~S: ~S"
+                        topic
+                        partition
+                        (cl-rdkafka/ll:rd-kafka-err2str err)))
+               (push
+                (cons `(,topic . ,partition)
+                      (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
+                        offset))
+                alist-to-return))
              alist-to-return)
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
