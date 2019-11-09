@@ -216,10 +216,17 @@ be nil if no previous message existed):
              (when (cffi:null-pointer-p rd-kafka-message)
                (setf rd-kafka-message nil))
              (when rd-kafka-message
-               (make-instance 'message
-                              :rd-kafka-message rd-kafka-message
-                              :key-serde key-serde
-                              :value-serde value-serde)))
+               (restart-case
+                   (make-instance 'message
+                                  :rd-kafka-message rd-kafka-message
+                                  :key-serde key-serde
+                                  :value-serde value-serde)
+                 (use-value (value)
+                   :report "Specify a value to return from poll."
+                   :interactive (lambda ()
+                                  (format t "Enter a value to return: ")
+                                  (list (read)))
+                   value))))
         (when rd-kafka-message
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
