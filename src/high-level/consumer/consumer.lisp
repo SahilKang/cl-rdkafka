@@ -92,9 +92,7 @@ assignment is returned."))
 
 (defgeneric assign (consumer topic+partitions)
   (:documentation
-   "Assign partitions to consumer.
-
-Returns nil on success or a kafka-error on failure."))
+   "Assign partitions to consumer."))
 
 (defgeneric member-id (consumer)
   (:documentation
@@ -295,14 +293,25 @@ be nil if no previous message existed):
              (rd-kafka-list->topic+partitions rd-list))
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
-;; TODO create and signal a condition (get rid of kafka-error class)
+(define-condition assign-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description))
+  (:report
+   (lambda (c s)
+     (format s "~&Assign Error: ~S" (description c))))
+  (:documentation
+   "Condition signalled when consumer's assign method fails."))
+
 (defmethod assign ((consumer consumer) topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
     (let ((rd-list (topic+partitions->rd-kafka-list topic+partitions)))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
              (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (make-instance 'kafka-error :rd-kafka-resp-err err)))
+               (error 'assign-error
+                      :description (cl-rdkafka/ll:rd-kafka-err2str err))))
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
 (defmethod member-id ((consumer consumer))
