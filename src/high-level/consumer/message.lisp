@@ -137,11 +137,11 @@
       (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
 
-(define-condition message-error (error)
-  ((message-error
-    :initarg :message-error
-    :initform (error "Must supply message-error.")
-    :reader message-error)
+(define-condition poll-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
    (topic
     :initarg :topic
     :initform (error "Must supply topic.")
@@ -149,22 +149,15 @@
    (partition
     :initarg :partition
     :initform (error "Must supply partition.")
-    :reader partition)
-   (offset
-    :initarg :offset
-    :initform (error "Must supply offset.")
-    :reader offset))
+    :reader partition))
   (:report
    (lambda (c s)
-     (format
-      s
-      "Message Error: desc: '~A' topic: '~A' partition: '~A' offset: '~A'"
-      (message-error c)
-      (topic c)
-      (partition c)
-      (offset c))))
+     (format s "~&Poll Error for topic ~S partition ~S: ~S"
+             (topic c)
+             (partition c)
+             (description c))))
   (:documentation
-   "Condition signalled when message's err field is set by librdkafka."))
+   "Condition signalled when consumer's poll method fails."))
 
 ;; TODO add restarts here when serde signals a condition
 (defun apply-serde (serde bytes)
@@ -178,20 +171,18 @@
                              '(:struct cl-rdkafka/ll:rd-kafka-message)))
          (err (getf *rd-kafka-message 'cl-rdkafka/ll:err))
          (topic (get-topic *rd-kafka-message))
-         (partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition))
-         (offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)))
+         (partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error 'message-error
-             :message-error (cl-rdkafka/ll:rd-kafka-err2str err)
+      (error 'poll-error
+             :description (cl-rdkafka/ll:rd-kafka-err2str err)
              :topic topic
-             :partition partition
-             :offset offset))
+             :partition partition))
     (let ((raw-key (get-key *rd-kafka-message))
           (raw-value (get-payload *rd-kafka-message)))
       (make-instance 'message
                      :topic topic
                      :partition partition
-                     :offset offset
+                     :offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
                      :timestamp (get-timestamp rd-kafka-message)
                      :latency (get-latency rd-kafka-message)
                      :headers (get-headers rd-kafka-message)

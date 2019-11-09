@@ -22,7 +22,7 @@
   (:use #:cl)
   (:export
    #:message #:key #:value #:topic
-   #:partition #:offset #:message-error
+   #:partition #:offset
    #:timestamp #:latency #:headers
 
    #:topic+partition #:topic #:partition #:offset #:metadata
@@ -30,7 +30,7 @@
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign #:member-id
    #:pause #:resume #:query-watermark-offsets #:offsets-for-times
-   #:positions #:commit-error #:assign-error
+   #:positions #:commit-error #:assign-error #:poll-error
 
    #:producer #:produce #:flush
 
