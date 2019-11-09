@@ -25,7 +25,7 @@
 
    #:message #:key #:value #:topic
    #:partition #:offset #:message-error
-   #:raw-key #:raw-value #:timestamp #:latency #:headers
+   #:timestamp #:latency #:headers
 
    #:topic+partition #:topic #:partition #:offset #:metadata
 

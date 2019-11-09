@@ -82,7 +82,6 @@
              (:file "consumer")
              (:file "producer")
              (:file "produce->consume")
-             (:file "message")
              (:file "admin")
              (:file "headers")))))
 

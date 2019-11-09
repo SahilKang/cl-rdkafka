@@ -217,10 +217,9 @@ be nil if no previous message existed):
                (setf rd-kafka-message nil))
              (when rd-kafka-message
                (restart-case
-                   (make-instance 'message
-                                  :rd-kafka-message rd-kafka-message
-                                  :key-serde key-serde
-                                  :value-serde value-serde)
+                   (rd-kafka-message->message rd-kafka-message
+                                              key-serde
+                                              value-serde)
                  (use-value (value)
                    :report "Specify a value to return from poll."
                    :interactive (lambda ()
