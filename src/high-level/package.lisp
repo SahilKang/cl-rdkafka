@@ -21,8 +21,6 @@
   (:nicknames #:kf)
   (:use #:cl)
   (:export
-   #:kafka-error #:error-code #:error-description
-
    #:message #:key #:value #:topic
    #:partition #:offset #:message-error
    #:timestamp #:latency #:headers

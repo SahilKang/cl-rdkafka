@@ -44,8 +44,7 @@
                       :depends-on ("common" "conf")
                       :components
                       ((:file "topic+partition")
-                       (:file "kafka-error")
-                       (:file "message" :depends-on ("kafka-error"))
+                       (:file "message")
                        (:file "consumer" :depends-on ("topic+partition"
                                                       "message"))))
              (:module "admin"
@@ -76,8 +75,7 @@
              (:file "consumer")))
    (:module "high-level"
             :components
-            ((:file "kafka-error")
-             (:file "conf")
+            ((:file "conf")
              (:file "topic+partition")
              (:file "consumer")
              (:file "producer")

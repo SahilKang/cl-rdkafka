@@ -176,8 +176,8 @@ be nil if no previous message existed):
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-unsubscribe rd-kafka-consumer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to unsubscribe consumer with error: ~A"
-               (error-description err))))))
+        (error "~&Failed to unsubscribe consumer with error: ~S"
+               (cl-rdkafka/ll:rd-kafka-err2str err))))))
 
 (defun get-topic+partitions (rd-kafka-consumer)
   (cffi:with-foreign-object (list-pointer :pointer)
@@ -185,8 +185,8 @@ be nil if no previous message existed):
                 rd-kafka-consumer
                 list-pointer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to get subscription with error: ~A"
-               (error-description err)))
+        (error "~&Failed to get subscription with error: ~S"
+               (cl-rdkafka/ll:rd-kafka-err2str err)))
       (let* ((*list-pointer (cffi:mem-ref list-pointer :pointer))
              (topic+partitions (rd-kafka-list->topic+partitions
                                 *list-pointer)))
