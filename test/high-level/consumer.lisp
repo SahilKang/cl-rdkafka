@@ -79,9 +79,9 @@
        do (kf:commit consumer)
        do (setf (elt commits i) (kf:committed consumer)))
 
-    ;; each element of commits is a vector of one element
-    (let ((flattened (map 'list (lambda (v) (elt v 0)) commits)))
-      (setf actual (mapcar (lambda (t+p) (kf:offset t+p)) flattened)))
+    ;; each element of commits is an alist of one element
+    (let ((flattened (map 'list #'first commits)))
+      (setf actual (mapcar #'cadr flattened)))
 
     (is (and
          (= (length expected) (length actual) (length commits))

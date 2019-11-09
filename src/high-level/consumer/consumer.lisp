@@ -76,15 +76,25 @@ Example:
   (:documentation
    "Commit offsets to broker.
 
-If topic+partitions is nil (the default) then the current assignment
+TOPIC+PARTITIONS is an alist with elements that look like one of:
+  * ((topic . partition) . offset)
+  * ((topic . partition) . (offset . metadata))
+
+If TOPIC+PARTITIONS is nil (the default) then the current assignment
 is committed."))
 
 (defgeneric committed (consumer &optional topic+partitions)
   (:documentation
-   "Get a sequence of committed topic+partitions.
+   "Return an alist of committed topic+partitions.
 
-If topic+partitions is nil (the default) then info about the current
-assignment is returned."))
+TOPIC+PARTITIONS is an alist with elements that look like:
+  * (topic . partition)
+
+If TOPIC+PARTITIONS is nil (the default) then info about the current
+assignment is returned.
+
+The returned alist has elements that look like:
+  * ((topic . partition) . (offset . metadata))"))
 
 (defgeneric assignment (consumer)
   (:documentation
@@ -263,7 +273,22 @@ be nil if no previous message existed):
     (restart-case
         (if topic+partitions
             (%commit rd-kafka-consumer
-                     (topic+partitions->rd-kafka-list topic+partitions))
+                     (topic+partitions->rd-kafka-list
+                      (mapcar
+                       (lambda (pair)
+                         (destructuring-bind
+                               ((topic . partition) . maybe-pair) pair
+                           (if (consp maybe-pair)
+                               (make-instance 'topic+partition
+                                              :topic topic
+                                              :partition partition
+                                              :offset (car maybe-pair)
+                                              :metadata (cdr maybe-pair))
+                               (make-instance 'topic+partition
+                                              :topic topic
+                                              :partition partition
+                                              :offset maybe-pair))))
+                       topic+partitions)))
             (%commit rd-kafka-consumer
                      (cffi:null-pointer)))
       (continue ()
@@ -287,17 +312,36 @@ be nil if no previous message existed):
 (defmethod committed ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
     (let ((rd-list (if topic+partitions
-                       (topic+partitions->rd-kafka-list topic+partitions)
+                       (topic+partitions->rd-kafka-list
+                        (mapcar (lambda (pair)
+                                  (destructuring-bind (topic . partition) pair
+                                    (make-instance 'topic+partition
+                                                   :topic topic
+                                                   :partition partition)))
+                                topic+partitions))
                        (%assignment rd-kafka-consumer))))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-committed
                        rd-kafka-consumer
                        rd-list
-                       60000)))
+                       60000))
+                 alist-to-return)
              (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                (error "~&Failed to get committed offsets with error: ~S"
                       (cl-rdkafka/ll:rd-kafka-err2str err)))
-             (rd-kafka-list->topic+partitions rd-list))
+             (foreach-toppar
+                 rd-list
+                 (topic partition offset metadata metadata-size err)
+               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                 (error "~&Error getting committed offset for topic|partition ~S|~S: ~S"
+                        topic
+                        partition
+                        (cl-rdkafka/ll:rd-kafka-err2str err)))
+               (let ((meta (unless (cffi:null-pointer-p metadata)
+                             (pointer->bytes metadata metadata-size))))
+                 (push `((,topic . ,partition) . (,offset . ,meta))
+                       alist-to-return)))
+             alist-to-return)
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
 (define-condition assign-error (error)
