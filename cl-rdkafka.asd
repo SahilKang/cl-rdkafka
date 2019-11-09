@@ -38,14 +38,16 @@
             :components
             ((:file "package")
              (:file "common" :depends-on ("package"))
-             (:file "kafka-error" :depends-on ("package"))
-             (:file "message" :depends-on ("kafka-error" "common"))
              (:file "conf" :depends-on ("common"))
-             (:file "topic+partition" :depends-on ("common"))
-             (:file "consumer" :depends-on ("topic+partition"
-                                            "message"
-                                            "conf"))
              (:file "producer" :depends-on ("conf"))
+             (:module "consumer"
+                      :depends-on ("common" "conf")
+                      :components
+                      ((:file "topic+partition")
+                       (:file "kafka-error")
+                       (:file "message" :depends-on ("kafka-error"))
+                       (:file "consumer" :depends-on ("topic+partition"
+                                                      "message"))))
              (:module "admin"
                       :depends-on ("common" "consumer" "producer")
                       :components
