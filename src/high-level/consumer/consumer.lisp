@@ -74,10 +74,10 @@ Example:
 
 (defgeneric commit (consumer &optional topic+partitions)
   (:documentation
-   "Commit offsets and return either an error or nil.
+   "Commit offsets to broker.
 
-If topic+partitions is nil (the default) then the current assignment is
-committed."))
+If topic+partitions is nil (the default) then the current assignment
+is committed."))
 
 (defgeneric committed (consumer &optional topic+partitions)
   (:documentation
@@ -229,7 +229,17 @@ be nil if no previous message existed):
         (when rd-kafka-message
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
-;; TODO signal a condition instead of returning kafka-error
+(define-condition commit-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description.")
+    :reader description))
+  (:report
+   (lambda (c s)
+     (format s "~&Commit Error: ~S" (description c))))
+  (:documentation
+   "Condition signalled when consumer's commit method fails."))
+
 (defun %commit (rd-kafka-consumer rd-kafka-topic-partition-list)
   (unwind-protect
        (let ((err (cl-rdkafka/ll:rd-kafka-commit
@@ -237,18 +247,22 @@ be nil if no previous message existed):
                    rd-kafka-topic-partition-list
                    0)))
          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-           (make-instance 'kafka-error :rd-kafka-resp-err err)))
+           (error 'commit-error
+                  :description (cl-rdkafka/ll:rd-kafka-err2str err))))
     (unless (cffi:null-pointer-p rd-kafka-topic-partition-list)
       (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy
        rd-kafka-topic-partition-list))))
 
 (defmethod commit ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
-    (if topic+partitions
-        (%commit rd-kafka-consumer
-                 (topic+partitions->rd-kafka-list topic+partitions))
-        (%commit rd-kafka-consumer
-                 (cffi:null-pointer)))))
+    (restart-case
+        (if topic+partitions
+            (%commit rd-kafka-consumer
+                     (topic+partitions->rd-kafka-list topic+partitions))
+            (%commit rd-kafka-consumer
+                     (cffi:null-pointer)))
+      (continue ()
+        :report "Return from commit as if it did not signal a condition."))))
 
 (defun %assignment (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)
