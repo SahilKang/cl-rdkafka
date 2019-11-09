@@ -289,43 +289,6 @@ be nil if no previous message existed):
   (with-slots (rd-kafka-consumer) consumer
     (cl-rdkafka/ll:rd-kafka-memberid rd-kafka-consumer)))
 
-(defmacro foreach-toppar (toppar-list (&rest fields) &body body)
-  "For each element in TOPPAR-LIST, BODY is evaluated under FIELDS bindings.
-
-The symbols in FIELDS are bound to the corresponding fields of each
-TOPPAR-LIST element.
-
-TOPPAR-LIST should be a pointer to a
-cl-rdkafka/ll:rd-kafka-topic-partition-list."
-  (let* ((*toppar-list (gensym))
-         (elems (gensym))
-         (elem (gensym))
-         (count (gensym))
-         (i (gensym))
-         (field-bindings (mapcar
-                          (lambda (symbol)
-                            (let ((field (find-symbol (string symbol)
-                                                      'cl-rdkafka/ll)))
-                              (unless field
-                                (error "~&Could not find symbol for ~S" symbol))
-                              `(,symbol (getf ,elem ',field))))
-                          fields)))
-    `(loop
-        with ,*toppar-list = (cffi:mem-ref
-                              ,toppar-list
-                              '(:struct cl-rdkafka/ll:rd-kafka-topic-partition-list))
-        with ,elems = (getf ,*toppar-list 'cl-rdkafka/ll:elems)
-        with ,count = (getf ,*toppar-list 'cl-rdkafka/ll:cnt)
-
-        for ,i below ,count
-        for ,elem = (cffi:mem-aref
-                     ,elems
-                     '(:struct cl-rdkafka/ll:rd-kafka-topic-partition)
-                     ,i)
-
-        do (let ,field-bindings
-             ,@body))))
-
 (defmethod pause ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
     (let ((rd-list (topic+partitions->rd-kafka-list
