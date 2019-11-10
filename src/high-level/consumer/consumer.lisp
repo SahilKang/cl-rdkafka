@@ -98,11 +98,17 @@ The returned alist has elements that look like:
 
 (defgeneric assignment (consumer)
   (:documentation
-   "Get a sequence of assigned topic+partitions."))
+   "Return an alist of assigned topic+partitions.
+
+Each element of the returned alist will look like:
+  * (topic . partition)"))
 
 (defgeneric assign (consumer topic+partitions)
   (:documentation
-   "Assign partitions to consumer."))
+   "Assign TOPIC+PARTITIONS to CONSUMER.
+
+TOPIC+PARTITIONS is an alist with elements that look like:
+  * (topic . partition)"))
 
 (defgeneric member-id (consumer)
   (:documentation
@@ -306,7 +312,10 @@ be nil if no previous message existed):
   (with-slots (rd-kafka-consumer) consumer
     (let ((rd-list (%assignment rd-kafka-consumer)))
       (unwind-protect
-           (rd-kafka-list->topic+partitions rd-list)
+           (let (alist-to-return)
+             (foreach-toppar rd-list (topic partition)
+               (push (cons topic partition) alist-to-return))
+             alist-to-return)
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
 
 (defmethod committed ((consumer consumer) &optional topic+partitions)
@@ -355,9 +364,15 @@ be nil if no previous message existed):
   (:documentation
    "Condition signalled when consumer's assign method fails."))
 
-(defmethod assign ((consumer consumer) topic+partitions)
+(defmethod assign ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (topic+partitions->rd-kafka-list topic+partitions)))
+    (let ((rd-list (topic+partitions->rd-kafka-list
+                    (mapcar (lambda (pair)
+                              (destructuring-bind (topic . partition) pair
+                                (make-instance 'topic+partition
+                                               :topic topic
+                                               :partition partition)))
+                            topic+partitions))))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
              (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)

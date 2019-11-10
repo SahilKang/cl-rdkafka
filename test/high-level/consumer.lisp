@@ -90,20 +90,13 @@
 
 (test assign
   (let ((consumer (make-instance 'kf:consumer :conf *conf*))
-        assignment)
-    (kf:assign consumer (list (make-instance 'kf:topic+partition
-                                             :topic "foobar"
-                                             :offset 7
-                                             :partition 35
-                                             :metadata #(4 8 12))))
-
-    (setf assignment (elt (kf:assignment consumer) 0))
-
-    (is (and
-         (string= "foobar" (kf:topic assignment))
-         (= 7 (kf:offset assignment))
-         (= 35 (kf:partition assignment))
-         (equalp #(4 8 12) (kf:metadata assignment))))))
+        (topic "foobar")
+        (partition 35))
+    (kf:assign consumer (list (cons topic partition)))
+    (destructuring-bind
+          (actual-topic . actual-partition) (first (kf:assignment consumer))
+      (is (string= topic actual-topic))
+      (is (= partition actual-partition)))))
 
 (test consumer-member-id
   (let* ((group "consumer-member-id-group")
