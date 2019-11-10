@@ -175,11 +175,7 @@ be nil if no previous message existed):
 
 (defmethod subscribe ((consumer consumer) topics)
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-kafka-list (topic+partitions->rd-kafka-list
-                          (map 'list
-                               (lambda (name)
-                                 (make-instance 'topic+partition :topic name))
-                               topics))))
+    (let ((rd-kafka-list (alloc-toppar-list topics)))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
                                                         rd-kafka-list)))
@@ -279,22 +275,16 @@ be nil if no previous message existed):
     (restart-case
         (if topic+partitions
             (%commit rd-kafka-consumer
-                     (topic+partitions->rd-kafka-list
-                      (mapcar
-                       (lambda (pair)
-                         (destructuring-bind
-                               ((topic . partition) . maybe-pair) pair
-                           (if (consp maybe-pair)
-                               (make-instance 'topic+partition
-                                              :topic topic
-                                              :partition partition
-                                              :offset (car maybe-pair)
-                                              :metadata (cdr maybe-pair))
-                               (make-instance 'topic+partition
-                                              :topic topic
-                                              :partition partition
-                                              :offset maybe-pair))))
-                       topic+partitions)))
+                     (alloc-toppar-list topic+partitions
+                                        :topic #'caar
+                                        :partition #'cdar
+                                        :offset (lambda (pair)
+                                                  (if (consp (cdr pair))
+                                                      (cadr pair)
+                                                      (cdr pair)))
+                                        :metadata (lambda (pair)
+                                                    (when (consp (cdr pair))
+                                                      (cddr pair)))))
             (%commit rd-kafka-consumer
                      (cffi:null-pointer)))
       (continue ()
@@ -321,13 +311,9 @@ be nil if no previous message existed):
 (defmethod committed ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
     (let ((rd-list (if topic+partitions
-                       (topic+partitions->rd-kafka-list
-                        (mapcar (lambda (pair)
-                                  (destructuring-bind (topic . partition) pair
-                                    (make-instance 'topic+partition
-                                                   :topic topic
-                                                   :partition partition)))
-                                topic+partitions))
+                       (alloc-toppar-list topic+partitions
+                                          :topic #'car
+                                          :partition #'cdr)
                        (%assignment rd-kafka-consumer))))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-committed
@@ -366,13 +352,9 @@ be nil if no previous message existed):
 
 (defmethod assign ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (topic+partitions->rd-kafka-list
-                    (mapcar (lambda (pair)
-                              (destructuring-bind (topic . partition) pair
-                                (make-instance 'topic+partition
-                                               :topic topic
-                                               :partition partition)))
-                            topic+partitions))))
+    (let ((rd-list (alloc-toppar-list topic+partitions
+                                      :topic #'car
+                                      :partition #'cdr)))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
              (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
@@ -386,13 +368,9 @@ be nil if no previous message existed):
 
 (defmethod pause ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (topic+partitions->rd-kafka-list
-                    (mapcar (lambda (pair)
-                              (destructuring-bind (topic . partition) pair
-                                (make-instance 'topic+partition
-                                               :topic topic
-                                               :partition partition)))
-                            topic+partitions))))
+    (let ((rd-list (alloc-toppar-list topic+partitions
+                                      :topic #'car
+                                      :partition #'cdr)))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-pause-partitions
                        rd-kafka-consumer
@@ -413,13 +391,9 @@ be nil if no previous message existed):
 
 (defmethod resume ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (topic+partitions->rd-kafka-list
-                    (mapcar (lambda (pair)
-                              (destructuring-bind (topic . partition) pair
-                                (make-instance 'topic+partition
-                                               :topic topic
-                                               :partition partition)))
-                            topic+partitions))))
+    (let ((rd-list (alloc-toppar-list topic+partitions
+                                      :topic #'car
+                                      :partition #'cdr)))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-resume-partitions
                        rd-kafka-consumer
@@ -460,15 +434,10 @@ be nil if no previous message existed):
      (timestamps list)
      &key (timeout-ms 5000))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (topic+partitions->rd-kafka-list
-                    (mapcar (lambda (pair)
-                              (destructuring-bind
-                                    ((topic . partition) . timestamp) pair
-                                (make-instance 'topic+partition
-                                               :topic topic
-                                               :partition partition
-                                               :offset timestamp)))
-                            timestamps))))
+    (let ((rd-list (alloc-toppar-list timestamps
+                                      :topic #'caar
+                                      :partition #'cdar
+                                      :offset #'cdr)))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-offsets-for-times
                        rd-kafka-consumer
@@ -490,13 +459,9 @@ be nil if no previous message existed):
 
 (defmethod positions ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (topic+partitions->rd-kafka-list
-                    (mapcar (lambda (pair)
-                              (destructuring-bind (topic . partition) pair
-                                (make-instance 'topic+partition
-                                               :topic topic
-                                               :partition partition)))
-                            topic+partitions))))
+    (let ((rd-list (alloc-toppar-list topic+partitions
+                                      :topic #'car
+                                      :partition #'cdr)))
       (unwind-protect
            (let ((err (cl-rdkafka/ll:rd-kafka-position
                        rd-kafka-consumer
