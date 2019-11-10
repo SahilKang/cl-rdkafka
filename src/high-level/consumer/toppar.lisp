@@ -108,3 +108,12 @@ cl-rdkafka/ll:rd-kafka-topic-partition struct field."
       (condition (c)
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy toppar-list)
         (error c)))))
+
+
+(defmacro with-toppar-list (symbol alloc-form &body body)
+  `(let ((,symbol ,alloc-form))
+     (unwind-protect
+          (progn
+            ,@body)
+       (unless (or (null ,symbol) (cffi:null-pointer-p ,symbol))
+         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy ,symbol)))))

@@ -175,14 +175,12 @@ be nil if no previous message existed):
 
 (defmethod subscribe ((consumer consumer) topics)
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-kafka-list (alloc-toppar-list topics)))
-      (unwind-protect
-           (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
-                                                        rd-kafka-list)))
-             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (error "~&Failed to subscribe to topics with error: ~S"
-                      (cl-rdkafka/ll:rd-kafka-err2str err))))
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-kafka-list)))))
+    (with-toppar-list toppar-list (alloc-toppar-list topics)
+      (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
+                                                   toppar-list)))
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error "~&Failed to subscribe to topics with error: ~S"
+                 (cl-rdkafka/ll:rd-kafka-err2str err)))))))
 
 (defmethod unsubscribe ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
@@ -214,13 +212,11 @@ be nil if no previous message existed):
 
 (defmethod subscription ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (%subscription rd-kafka-consumer)))
-      (unwind-protect
-           (let (return-me)
-             (foreach-toppar rd-list (topic)
-               (push topic return-me))
-             return-me)
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+    (with-toppar-list toppar-list (%subscription rd-kafka-consumer)
+      (let (return-me)
+        (foreach-toppar toppar-list (topic)
+          (push topic return-me))
+        return-me))))
 
 (defmethod poll ((consumer consumer) (timeout-ms integer))
   (with-slots (rd-kafka-consumer key-serde value-serde) consumer
@@ -257,36 +253,30 @@ be nil if no previous message existed):
   (:documentation
    "Condition signalled when consumer's commit method fails."))
 
-(defun %commit (rd-kafka-consumer rd-kafka-topic-partition-list)
-  (unwind-protect
-       (let ((err (cl-rdkafka/ll:rd-kafka-commit
-                   rd-kafka-consumer
-                   rd-kafka-topic-partition-list
-                   0)))
-         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-           (error 'commit-error
-                  :description (cl-rdkafka/ll:rd-kafka-err2str err))))
-    (unless (cffi:null-pointer-p rd-kafka-topic-partition-list)
-      (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy
-       rd-kafka-topic-partition-list))))
-
 (defmethod commit ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
     (restart-case
-        (if topic+partitions
-            (%commit rd-kafka-consumer
-                     (alloc-toppar-list topic+partitions
-                                        :topic #'caar
-                                        :partition #'cdar
-                                        :offset (lambda (pair)
-                                                  (if (consp (cdr pair))
-                                                      (cadr pair)
-                                                      (cdr pair)))
-                                        :metadata (lambda (pair)
-                                                    (when (consp (cdr pair))
-                                                      (cddr pair)))))
-            (%commit rd-kafka-consumer
-                     (cffi:null-pointer)))
+        (with-toppar-list
+            toppar-list
+            (if (null topic+partitions)
+                (cffi:null-pointer)
+                (alloc-toppar-list topic+partitions
+                                   :topic #'caar
+                                   :partition #'cdar
+                                   :offset (lambda (pair)
+                                             (if (consp (cdr pair))
+                                                 (cadr pair)
+                                                 (cdr pair)))
+                                   :metadata (lambda (pair)
+                                               (when (consp (cdr pair))
+                                                 (cddr pair)))))
+          (let ((err (cl-rdkafka/ll:rd-kafka-commit
+                      rd-kafka-consumer
+                      toppar-list
+                      0)))
+            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+              (error 'commit-error
+                     :description (cl-rdkafka/ll:rd-kafka-err2str err)))))
       (continue ()
         :report "Return from commit as if it did not signal a condition."))))
 
@@ -300,44 +290,42 @@ be nil if no previous message existed):
 
 (defmethod assignment ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (%assignment rd-kafka-consumer)))
-      (unwind-protect
-           (let (alist-to-return)
-             (foreach-toppar rd-list (topic partition)
-               (push (cons topic partition) alist-to-return))
-             alist-to-return)
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+    (with-toppar-list toppar-list (%assignment rd-kafka-consumer)
+      (let (alist-to-return)
+        (foreach-toppar toppar-list (topic partition)
+          (push (cons topic partition) alist-to-return))
+        alist-to-return))))
 
 (defmethod committed ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (if topic+partitions
-                       (alloc-toppar-list topic+partitions
-                                          :topic #'car
-                                          :partition #'cdr)
-                       (%assignment rd-kafka-consumer))))
-      (unwind-protect
-           (let ((err (cl-rdkafka/ll:rd-kafka-committed
-                       rd-kafka-consumer
-                       rd-list
-                       60000))
-                 alist-to-return)
-             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (error "~&Failed to get committed offsets with error: ~S"
-                      (cl-rdkafka/ll:rd-kafka-err2str err)))
-             (foreach-toppar
-                 rd-list
-                 (topic partition offset metadata metadata-size err)
-               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                 (error "~&Error getting committed offset for topic|partition ~S|~S: ~S"
-                        topic
-                        partition
-                        (cl-rdkafka/ll:rd-kafka-err2str err)))
-               (let ((meta (unless (cffi:null-pointer-p metadata)
-                             (pointer->bytes metadata metadata-size))))
-                 (push `((,topic . ,partition) . (,offset . ,meta))
-                       alist-to-return)))
-             alist-to-return)
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+    (with-toppar-list
+        toppar-list
+        (if topic+partitions
+            (alloc-toppar-list topic+partitions
+                               :topic #'car
+                               :partition #'cdr)
+            (%assignment rd-kafka-consumer))
+      (let ((err (cl-rdkafka/ll:rd-kafka-committed
+                  rd-kafka-consumer
+                  toppar-list
+                  60000))
+            alist-to-return)
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error "~&Failed to get committed offsets with error: ~S"
+                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (foreach-toppar
+            toppar-list
+            (topic partition offset metadata metadata-size err)
+          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (error "~&Error getting committed offset for topic|partition ~S|~S: ~S"
+                   topic
+                   partition
+                   (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (let ((meta (unless (cffi:null-pointer-p metadata)
+                        (pointer->bytes metadata metadata-size))))
+            (push `((,topic . ,partition) . (,offset . ,meta))
+                  alist-to-return)))
+        alist-to-return))))
 
 (define-condition assign-error (error)
   ((description
@@ -352,15 +340,13 @@ be nil if no previous message existed):
 
 (defmethod assign ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (alloc-toppar-list topic+partitions
-                                      :topic #'car
-                                      :partition #'cdr)))
-      (unwind-protect
-           (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer rd-list)))
-             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (error 'assign-error
-                      :description (cl-rdkafka/ll:rd-kafka-err2str err))))
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+    (with-toppar-list
+        toppar-list
+        (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
+      (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer toppar-list)))
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error 'assign-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
 
 (defmethod member-id ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
@@ -368,46 +354,42 @@ be nil if no previous message existed):
 
 (defmethod pause ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (alloc-toppar-list topic+partitions
-                                      :topic #'car
-                                      :partition #'cdr)))
-      (unwind-protect
-           (let ((err (cl-rdkafka/ll:rd-kafka-pause-partitions
-                       rd-kafka-consumer
-                       rd-list)))
-             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (error "~&Failed to pause paritions: ~S"
-                      (cl-rdkafka/ll:rd-kafka-err2str err)))
-             ;; rd-kafka-pause-partitions will set the err field of
-             ;; each struct in rd-list, so let's make sure no per
-             ;; topic-partition errors occurred
-             (foreach-toppar rd-list (err topic partition)
-               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                 (error "~&Error pausing topic|partition ~S|~S: ~S"
-                        topic
-                        partition
-                        (cl-rdkafka/ll:rd-kafka-err2str err)))))
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+    (with-toppar-list
+        toppar-list
+        (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
+      (let ((err (cl-rdkafka/ll:rd-kafka-pause-partitions
+                  rd-kafka-consumer
+                  toppar-list)))
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error "~&Failed to pause paritions: ~S"
+                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+        ;; rd-kafka-pause-partitions will set the err field of
+        ;; each struct in rd-list, so let's make sure no per
+        ;; topic-partition errors occurred
+        (foreach-toppar toppar-list (err topic partition)
+          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (error "~&Error pausing topic|partition ~S|~S: ~S"
+                   topic
+                   partition
+                   (cl-rdkafka/ll:rd-kafka-err2str err))))))))
 
 (defmethod resume ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (alloc-toppar-list topic+partitions
-                                      :topic #'car
-                                      :partition #'cdr)))
-      (unwind-protect
-           (let ((err (cl-rdkafka/ll:rd-kafka-resume-partitions
-                       rd-kafka-consumer
-                       rd-list)))
-             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (error "~&Failed to resume partitions: ~S"
-                      (cl-rdkafka/ll:rd-kafka-err2str err)))
-             (foreach-toppar rd-list (err topic partition)
-               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                 (error "~&Error resuming topic|partition ~S|~S: ~S"
-                        topic
-                        partition
-                        (cl-rdkafka/ll:rd-kafka-err2str err)))))
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+    (with-toppar-list
+        toppar-list
+        (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
+      (let ((err (cl-rdkafka/ll:rd-kafka-resume-partitions
+                  rd-kafka-consumer
+                  toppar-list)))
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error "~&Failed to resume partitions: ~S"
+                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (foreach-toppar toppar-list (err topic partition)
+          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (error "~&Error resuming topic|partition ~S|~S: ~S"
+                   topic
+                   partition
+                   (cl-rdkafka/ll:rd-kafka-err2str err))))))))
 
 (defmethod query-watermark-offsets
     ((consumer consumer)
@@ -434,52 +416,47 @@ be nil if no previous message existed):
      (timestamps list)
      &key (timeout-ms 5000))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (alloc-toppar-list timestamps
-                                      :topic #'caar
-                                      :partition #'cdar
-                                      :offset #'cdr)))
-      (unwind-protect
-           (let ((err (cl-rdkafka/ll:rd-kafka-offsets-for-times
-                       rd-kafka-consumer
-                       rd-list
-                       timeout-ms))
-                 alist-to-return)
-             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (error "~&Failed to get offsets for times: ~S"
-                      (cl-rdkafka/ll:rd-kafka-err2str err)))
-             (foreach-toppar rd-list (topic partition offset err)
-               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                 (error "~&Error getting offset for topic|partition ~S|~S: ~S"
-                        topic
-                        partition
-                        (cl-rdkafka/ll:rd-kafka-err2str err)))
-               (push `((,topic . ,partition) . ,offset) alist-to-return))
-             alist-to-return)
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+    (with-toppar-list
+        toppar-list
+        (alloc-toppar-list timestamps :topic #'caar :partition #'cdar :offset #'cdr)
+      (let ((err (cl-rdkafka/ll:rd-kafka-offsets-for-times
+                  rd-kafka-consumer
+                  toppar-list
+                  timeout-ms))
+            alist-to-return)
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error "~&Failed to get offsets for times: ~S"
+                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (foreach-toppar toppar-list (topic partition offset err)
+          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (error "~&Error getting offset for topic|partition ~S|~S: ~S"
+                   topic
+                   partition
+                   (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (push `((,topic . ,partition) . ,offset) alist-to-return))
+        alist-to-return))))
 
 (defmethod positions ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
-    (let ((rd-list (alloc-toppar-list topic+partitions
-                                      :topic #'car
-                                      :partition #'cdr)))
-      (unwind-protect
-           (let ((err (cl-rdkafka/ll:rd-kafka-position
-                       rd-kafka-consumer
-                       rd-list))
-                 alist-to-return)
-             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (error "~&Failed to get positions: ~S"
-                      (cl-rdkafka/ll:rd-kafka-err2str err)))
-             (foreach-toppar rd-list (topic partition offset err)
-               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                 (error "~&Error getting position for topic|partition ~S|~S: ~S"
-                        topic
-                        partition
-                        (cl-rdkafka/ll:rd-kafka-err2str err)))
-               (push
-                (cons `(,topic . ,partition)
-                      (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
-                        offset))
-                alist-to-return))
-             alist-to-return)
-        (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy rd-list)))))
+    (with-toppar-list
+        toppar-list
+        (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
+      (let ((err (cl-rdkafka/ll:rd-kafka-position
+                  rd-kafka-consumer
+                  toppar-list))
+            alist-to-return)
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error "~&Failed to get positions: ~S"
+                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (foreach-toppar toppar-list (topic partition offset err)
+          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (error "~&Error getting position for topic|partition ~S|~S: ~S"
+                   topic
+                   partition
+                   (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (push
+           (cons `(,topic . ,partition)
+                 (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
+                   offset))
+           alist-to-return))
+        alist-to-return))))
