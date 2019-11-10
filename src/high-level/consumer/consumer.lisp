@@ -220,26 +220,22 @@ be nil if no previous message existed):
 
 (defmethod poll ((consumer consumer) (timeout-ms integer))
   (with-slots (rd-kafka-consumer key-serde value-serde) consumer
-    (let (rd-kafka-message)
+    (let ((rd-kafka-message (cl-rdkafka/ll:rd-kafka-consumer-poll
+                             rd-kafka-consumer
+                             timeout-ms)))
       (unwind-protect
-           (progn
-             (setf rd-kafka-message (cl-rdkafka/ll:rd-kafka-consumer-poll
-                                     rd-kafka-consumer
-                                     timeout-ms))
-             (when (cffi:null-pointer-p rd-kafka-message)
-               (setf rd-kafka-message nil))
-             (when rd-kafka-message
-               (restart-case
-                   (rd-kafka-message->message rd-kafka-message
-                                              key-serde
-                                              value-serde)
-                 (use-value (value)
-                   :report "Specify a value to return from poll."
-                   :interactive (lambda ()
-                                  (format t "Enter a value to return: ")
-                                  (list (read)))
-                   value))))
-        (when rd-kafka-message
+           (unless (cffi:null-pointer-p rd-kafka-message)
+             (restart-case
+                 (rd-kafka-message->message rd-kafka-message
+                                            key-serde
+                                            value-serde)
+               (use-value (value)
+                 :report "Specify a value to return from poll."
+                 :interactive (lambda ()
+                                (format t "Enter a value to return: ")
+                                (list (read)))
+                 value)))
+        (unless (cffi:null-pointer-p rd-kafka-message)
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
 (define-condition commit-error (error)
