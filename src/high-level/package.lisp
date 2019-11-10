@@ -21,22 +21,17 @@
   (:nicknames #:kf)
   (:use #:cl)
   (:export
-   #:kafka-error #:error-code #:error-description
-
    #:message #:key #:value #:topic
-   #:partition #:offset #:message-error
-   #:raw-key #:raw-value #:timestamp #:latency #:headers
-
-   #:topic+partition #:topic #:partition #:offset #:metadata
+   #:partition #:offset
+   #:timestamp #:latency #:headers
 
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign #:member-id
    #:pause #:resume #:query-watermark-offsets #:offsets-for-times
-   #:positions
+   #:positions #:commit-error #:assign-error #:poll-error
+   #:subscription-error
 
    #:producer #:produce #:flush
-
-   #:conf
 
    #:create-topic
    #:delete-topic

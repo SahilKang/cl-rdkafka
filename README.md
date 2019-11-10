@@ -34,19 +34,18 @@ Here are a few examples for the `kf` package:
 ```lisp
 (ql:quickload '(cl-rdkafka babel))
 
-(let* ((serde (lambda (string)
-                (babel:string-to-octets string :encoding :utf-8)))
-       (messages '(("key-1" "value-1") ("key-2" "value-2")))
-       (producer (make-instance
-                  'kf:producer
-                  :conf (kf:conf
-                         "bootstrap.servers" "127.0.0.1:9092")
-                  :serde serde)))
+(let ((producer (make-instance
+                 'kf:producer
+                 :conf '("bootstrap.servers" "127.0.0.1:9092")
+                 :serde (lambda (string)
+                          (babel:string-to-octets string :encoding :utf-8))))
+      (messages '(("key-1" "value-1")
+                  ("key-2" "value-2"))))
   (loop
      for (k v) in messages
      do (kf:produce producer "topic-name" v :key k))
 
-  (kf:flush producer (* 2 1000)))
+  (kf:flush producer 2000))
 ```
 
 ## Consumer
@@ -56,23 +55,20 @@ Here are a few examples for the `kf` package:
 
 ;; see librdkafka and kafka docs for config info
 
-(let* ((string-serde (lambda (bytes)
-                       (babel:octets-to-string bytes :encoding :utf-8)))
-       (conf (kf:conf
-              "bootstrap.servers" "127.0.0.1:9092"
-              "group.id" "consumer-group-id"
-              "enable.auto.commit" "false"
-              "auto.offset.reset" "earliest"
-              "offset.store.method" "broker"
-              "enable.partition.eof"  "false"))
-       (consumer (make-instance
-                  'kf:consumer
-                  :conf conf
-                  :serde string-serde)))
+(let ((consumer (make-instance
+                 'kf:consumer
+                 :conf '("bootstrap.servers" "127.0.0.1:9092"
+                         "group.id" "consumer-group-id"
+                         "enable.auto.commit" "false"
+                         "auto.offset.reset" "earliest"
+                         "offset.store.method" "broker"
+                         "enable.partition.eof"  "false")
+                 :serde (lambda (bytes)
+                          (babel:octets-to-string bytes :encoding :utf-8)))))
   (kf:subscribe consumer '("topic-name"))
 
   (loop
-     for message = (kf:poll consumer (* 2 1000))
+     for message = (kf:poll consumer 2000)
      while message
 
      for key = (kf:key message)
@@ -94,8 +90,7 @@ Here are a few examples for the `kf` package:
 
 (let ((client (make-instance
                'kf:consumer
-               :conf (kf:conf
-                      "bootstrap.servers" "127.0.0.1:9092"))))
+               :conf '("bootstrap.servers" "127.0.0.1:9092"))))
   (kf:create-topic client "your-favorite-topic-name" :partitions 7))
 
 ;; => "your-favorite-topic-name"
@@ -106,8 +101,7 @@ Here are a few examples for the `kf` package:
 ```lisp
 (let ((client (make-instance
                'kf:consumer
-               :conf (kf:conf
-                      "bootstrap.servers" "127.0.0.1:9092"))))
+               :conf '("bootstrap.servers" "127.0.0.1:9092"))))
   (kf:delete-topic consumer "your-least-favorite-topic-name"))
 
 ;; => "your-least-favorite-topic-name"
@@ -118,8 +112,7 @@ Here are a few examples for the `kf` package:
 ```lisp
 (let ((client (make-instance
                'kf:consumer
-               :conf (kf:conf
-                      "bootstrap.servers" "127.0.0.1:9092"))))
+               :conf '("bootstrap.servers" "127.0.0.1:9092"))))
   (kf:create-partitions client "needs-moar-partitions-topic-name" 6))
 
 ;; => 6
@@ -130,8 +123,7 @@ Here are a few examples for the `kf` package:
 ```lisp
 (let ((client (make-instance
                'kf:producer
-               :conf (kf:conf
-                      "bootstrap.servers" "127.0.0.1:9092"))))
+               :conf '("bootstrap.servers" "127.0.0.1:9092"))))
   (kf:describe-config client "mysterious-topic" :topic))
 
 ;; => '(("compression.type" . "producer")
@@ -150,8 +142,7 @@ Here are a few examples for the `kf` package:
 ```lisp
 (let ((client (make-instance
                'kf:consumer
-               :conf (kf:conf
-                      "bootstrap.servers" "127.0.0.1:9092"))))
+               :conf '("bootstrap.servers" "127.0.0.1:9092"))))
   (kf:describe-config client "1001" :broker))
 
 ;; => '(("advertised.host.name" . "127.0.0.1")
@@ -178,8 +169,7 @@ Here are a few examples for the `kf` package:
 ```lisp
 (let ((consumer (make-instance
                  'kf:consumer
-                 :conf (kf:conf
-                        "bootstrap.servers" "127.0.0.1:9092"))))
+                 :conf '("bootstrap.servers" "127.0.0.1:9092"))))
   (kf:alter-config consumer
                    "topic-to-alter"
                    '(("message.timestamp.type" . "LogAppendTime")
@@ -191,8 +181,7 @@ Here are a few examples for the `kf` package:
 ```lisp
 (let ((consumer (make-instance
                  'kf:consumer
-                 :conf (kf:conf
-                        "bootstrap.servers" "127.0.0.1:9092"))))
+                 :conf '("bootstrap.servers" "127.0.0.1:9092"))))
   (kf:cluster-metadata consumer "interesting-topic-name"))
 
 ;; => ((:originating-broker . ((:id . 1001)
@@ -214,8 +203,7 @@ Here are a few examples for the `kf` package:
 ```lisp
 (let ((producer (make-instance
                  'kf:producer
-                 :conf (kf:conf
-                        "bootstrap.servers" "127.0.0.1:9092"))))
+                 :conf '("bootstrap.servers" "127.0.0.1:9092"))))
   (sleep 1)
   (kf:group-info producer
                  "clever-group-name-to-showcase-my-creative-personality"))

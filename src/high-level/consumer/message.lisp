@@ -18,57 +18,60 @@
 (in-package #:cl-rdkafka)
 
 (defclass message ()
-  ((key-serde
-    :initform nil
-    :documentation "Function to map byte vector to object, or nil for bytes.")
-   (value-serde
-    :initform nil
-    :documentation "Function to map byte vector to object, or nil for bytes.")
-   (raw-key
-    :reader raw-key
+  ((raw-key
+    :initarg :raw-key
     :initform nil
     :documentation "Message's raw key in a byte vector.")
    (raw-value
-    :reader raw-value
+    :initarg :raw-value
     :initform nil
     :documentation "Message's raw value in a byte vector.")
+   (key
+    :initarg :key
+    :initform nil
+    :documentation "Message's deserialized key.")
+   (value
+    :initarg :value
+    :initform nil
+    :documentation "Message's deserialized value.")
    (topic
+    :initarg :topic
+    :initform nil
     :reader topic
     :documentation "The topic this message originated from.")
    (partition
+    :initarg :partition
+    :initform nil
     :reader partition
     :documentation "The partition this message originated from.")
    (offset
+    :initarg :offset
+    :initform nil
     :reader offset
     :documentation "Message offset.")
-   (message-error
-    :reader message-error
-    :documentation "Message error, if any.")
    (timestamp
+    :initarg :timestamp
+    :initform nil
     :reader timestamp
     :documentation "Message timestamp.")
    (latency
+    :initarg :latency
+    :initform nil
     :reader latency
     :documentation "Message latency measured from the message produce call.")
    (headers
+    :initarg :headers
+    :initform nil
     :reader headers
     :documentation "Message headers as an alist.")))
 
 (defgeneric key (message)
   (:documentation
-   "Return message key after applying key-serde, if available."))
+   "Return (values deserialized-key serialized-key)."))
 
 (defgeneric value (message)
   (:documentation
-   "Return message value after applying value-serde, if available."))
-
-(defun deref (rd-kafka-message)
-  (cffi:mem-ref rd-kafka-message '(:struct cl-rdkafka/ll:rd-kafka-message)))
-
-(defun get-error (*rd-kafka-message)
-  (let ((err (getf *rd-kafka-message 'cl-rdkafka/ll:err)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (make-instance 'kafka-error :rd-kafka-resp-err err))))
+   "Return (values deserialized-value serialized-value)."))
 
 (defun get-timestamp (rd-kafka-message)
   (cffi:with-foreign-object (ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-type)
@@ -134,44 +137,11 @@
       (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
 
-(defmethod initialize-instance :after
-    ((message message)
-     &key
-       (rd-kafka-message (error "Must supply pointer to rd-kafka-message."))
-       serde
-       key-serde
-       value-serde)
-  (with-slots (message-error
-               topic
-               partition
-               offset
-               timestamp
-               latency
-               headers
-               raw-key
-               raw-value
-               (ks key-serde)
-               (vs value-serde))
-      message
-    (let ((*rd-kafka-message (deref rd-kafka-message)))
-      (setf message-error (get-error *rd-kafka-message)
-            topic (get-topic *rd-kafka-message)
-            partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)
-            offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
-            timestamp (get-timestamp rd-kafka-message)
-            latency (get-latency rd-kafka-message)
-            headers (get-headers rd-kafka-message)
-            ks (or key-serde serde)
-            vs (or value-serde serde))
-      (unless message-error
-        (setf raw-key (get-key *rd-kafka-message)
-              raw-value (get-payload *rd-kafka-message))))))
-
-(define-condition message-error (error)
-  ((message-error
-    :initarg :message-error
-    :initform (error "Must supply message-error.")
-    :reader message-error)
+(define-condition poll-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
    (topic
     :initarg :topic
     :initform (error "Must supply topic.")
@@ -179,45 +149,52 @@
    (partition
     :initarg :partition
     :initform (error "Must supply partition.")
-    :reader partition)
-   (offset
-    :initarg :offset
-    :initform (error "Must supply offset.")
-    :reader offset))
+    :reader partition))
   (:report
    (lambda (c s)
-     (format
-      s
-      "Message Error: desc: '~A' topic: '~A' partition: '~A' offset: '~A'"
-      (error-description (message-error c))
-      (topic c)
-      (partition c)
-      (offset c))))
+     (format s "~&Poll Error for topic ~S partition ~S: ~S"
+             (topic c)
+             (partition c)
+             (description c))))
   (:documentation
-   "Condition signalled while retrieving key/value from message."))
+   "Condition signalled when consumer's poll method fails."))
 
-(defun %key-val-helper (raw serde message)
-  (restart-case
-      (progn
-        (unless raw
-          (error 'message-error
-                 :message-error (message-error message)
-                 :topic (topic message)
-                 :partition (partition message)
-                 :offset (offset message)))
-        (if (functionp serde)
-            (funcall serde raw)
-            raw))
-    (use-value (value)
-      :report "Specify a value to return from message."
-      :interactive (lambda ()
-                     (format t "Enter a value to return: ") (list (read)))
-      value)))
+;; TODO add restarts here when serde signals a condition
+(defun apply-serde (serde bytes)
+  (if (functionp serde)
+      (funcall serde bytes)
+      bytes))
+
+(defun rd-kafka-message->message (rd-kafka-message key-serde value-serde)
+  (let* ((*rd-kafka-message (cffi:mem-ref
+                             rd-kafka-message
+                             '(:struct cl-rdkafka/ll:rd-kafka-message)))
+         (err (getf *rd-kafka-message 'cl-rdkafka/ll:err))
+         (topic (get-topic *rd-kafka-message))
+         (partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)))
+    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (error 'poll-error
+             :description (cl-rdkafka/ll:rd-kafka-err2str err)
+             :topic topic
+             :partition partition))
+    (let ((raw-key (get-key *rd-kafka-message))
+          (raw-value (get-payload *rd-kafka-message)))
+      (make-instance 'message
+                     :topic topic
+                     :partition partition
+                     :offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
+                     :timestamp (get-timestamp rd-kafka-message)
+                     :latency (get-latency rd-kafka-message)
+                     :headers (get-headers rd-kafka-message)
+                     :raw-key raw-key
+                     :raw-value raw-value
+                     :key (apply-serde key-serde raw-key)
+                     :value (apply-serde value-serde raw-value)))))
 
 (defmethod key ((message message))
-  (with-slots (raw-key key-serde) message
-    (%key-val-helper raw-key key-serde message)))
+  (with-slots (key raw-key) message
+    (values key raw-key)))
 
 (defmethod value ((message message))
-  (with-slots (raw-value value-serde) message
-    (%key-val-helper raw-value value-serde message)))
+  (with-slots (value raw-value) message
+    (values value raw-value)))

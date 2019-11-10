@@ -31,19 +31,18 @@
 
 Example:
 
-(ql:quickload :cl-rdkafka)
-
-(let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
-       (messages '((\"key-1\" \"value-1\") (\"key-2\" \"value-2\")))
-       (producer (make-instance 'kf:producer
-                                :conf (kf:conf
-                                       \"bootstrap.servers\" \"127.0.0.1:9092\")
-                                :serde serde)))
+(let ((producer (make-instance
+                 'kf:producer
+                 :conf '(\"bootstrap.servers\" \"127.0.0.1:9092\")
+                 :serde (lambda (string)
+                          (babel:string-to-octets string :encoding :utf-8))))
+      (messages '((\"key-1\" \"value-1\")
+                  (\"key-2\" \"value-2\"))))
   (loop
      for (k v) in messages
      do (kf:produce producer \"topic-name\" v :key k))
 
-  (kf:flush producer (* 2 1000)))"))
+  (kf:flush producer 2000))"))
 
 (defgeneric produce (producer topic value &key key partition headers)
   (:documentation

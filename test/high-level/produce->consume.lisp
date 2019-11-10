@@ -28,8 +28,7 @@
   (let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
          (messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
          (producer (make-instance 'kf:producer
-                                  :conf (kf:conf
-                                         "bootstrap.servers" "kafka:9092")
+                                  :conf '("bootstrap.servers" "kafka:9092")
                                   :serde serde)))
     (loop
        for (k v) in messages
@@ -40,13 +39,12 @@
 
 (defun consume-messages ()
   (let* ((serde (lambda (x) (babel:octets-to-string x :encoding :utf-8)))
-         (conf (kf:conf
-                "bootstrap.servers" "kafka:9092"
-                "group.id" (write-to-string (get-universal-time))
-                "enable.auto.commit" "false"
-                "auto.offset.reset" "earliest"
-                "offset.store.method" "broker"
-                "enable.partition.eof" "false"))
+         (conf (list "bootstrap.servers" "kafka:9092"
+                     "group.id" (write-to-string (get-universal-time))
+                     "enable.auto.commit" "false"
+                     "auto.offset.reset" "earliest"
+                     "offset.store.method" "broker"
+                     "enable.partition.eof" "false"))
          (consumer (make-instance 'kf:consumer
                                   :conf conf
                                   :key-serde serde

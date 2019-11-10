@@ -22,9 +22,6 @@
 
 (in-package #:test/high-level/producer)
 
-(defvar *conf* (kf:conf
-                "bootstrap.servers" "kafka:9092"))
-
 (defun parse-kafkacat (output-lines)
   (flet ((parse (partition-key-value)
            (cdr (uiop:split-string partition-key-value :separator "|"))))
@@ -33,28 +30,20 @@
        by #'cddr
        collect (parse x))))
 
-(defun same-pairs-p (lhs rhs)
-  (flet ((same-pair-p (lhs rhs)
-           (and
-            (= 2 (length lhs) (length rhs))
-            (every #'string= lhs rhs))))
-    (and
-     (= (length lhs) (length rhs))
-     (every #'same-pair-p lhs rhs))))
-
 (test producer-produce
   (let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
-         (bootstrap-servers (gethash "bootstrap.servers" *conf*))
+         (bootstrap-servers "kafka:9092")
          (topic "test-producer-produce")
          (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
          (producer (make-instance 'kf:producer
-                                  :conf *conf*
+                                  :conf (list "bootstrap.servers" bootstrap-servers)
                                   :serde serde)))
     (loop
        for (k v) in expected
        do (kf:produce producer topic v :key k)) ; TODO test partition here, too
 
     (kf:flush producer (* 2 1000))
+    (sleep 2)
 
     (let* ((kafkacat-output-lines
             (uiop:run-program
@@ -67,4 +56,4 @@
              :error-output t
              :ignore-error-status t))
            (actual (parse-kafkacat kafkacat-output-lines)))
-      (is (same-pairs-p expected actual)))))
+      (is (equal expected actual)))))
