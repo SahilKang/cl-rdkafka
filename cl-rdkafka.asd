@@ -43,10 +43,9 @@
              (:module "consumer"
                       :depends-on ("common" "conf")
                       :components
-                      ((:file "topic+partition")
+                      ((:file "toppar")
                        (:file "message")
-                       (:file "consumer" :depends-on ("topic+partition"
-                                                      "message"))))
+                       (:file "consumer" :depends-on ("toppar" "message"))))
              (:module "admin"
                       :depends-on ("common" "consumer" "producer")
                       :components
