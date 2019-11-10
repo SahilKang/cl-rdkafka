@@ -34,18 +34,6 @@
                'cl-rdkafka/ll:rd-kafka-topic-conf-new)
         handle)))
 
-;; TODO add use-value condition handler
-(defun conf (&rest key-vals)
-  "Construct a hash-table from the strings in key-vals."
-  (let ((h (make-hash-table :test #'equal)))
-    (loop
-       for (k v) on key-vals
-       by #'cddr
-       unless v
-       do (error "~&Odd number of key-val pairs: missing value for key `~A`" k)
-       else do (setf (gethash k h) v))
-    h))
-
 (defclass conf ()
   ((rd-kafka-conf
     :initform (new-conf)
@@ -65,12 +53,38 @@ This is set to true only when the fall-through function is needed.")))
 
 (defgeneric rd-kafka-conf (conf))
 
-(defun make-conf (hash-table)
-  (if hash-table
-      (let ((conf (make-instance 'conf)))
-        (maphash (lambda (k v) (setf (prop conf k) v)) hash-table)
-        (rd-kafka-conf conf))
-      (cffi:null-pointer)))
+
+(defgeneric make-conf (map))
+
+(defmethod make-conf ((map hash-table))
+  (let ((conf (make-instance 'conf)))
+    (maphash (lambda (k v) (setf (prop conf k) v)) map)
+    (rd-kafka-conf conf)))
+
+(defun make-conf-from-alist (alist)
+  (loop
+     with conf = (make-instance 'conf)
+
+     for (k . v) in alist
+     do (setf (prop conf k) v)
+
+     finally (return (rd-kafka-conf conf))))
+
+(defun make-conf-from-plist (plist)
+  (loop
+     with alist = nil
+
+     for (k v) on plist by #'cddr
+     unless v
+     do (error "~&Odd number of key-val pairs: missing value for key ~S" k)
+     else do (push (cons k v) alist)
+
+     finally (return (make-conf-from-alist alist))))
+
+(defmethod make-conf ((map list))
+  (etypecase (first map)
+    (cons (make-conf-from-alist map))
+    (string (make-conf-from-plist map))))
 
 ;; newer versions of librdkafka allow topic configs to be set through
 ;; the same rd_kafka_conf_set function, but older versions do not. So

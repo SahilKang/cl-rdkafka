@@ -31,22 +31,20 @@
 
 Example:
 
-(let* ((string-serde (lambda (x)
-                       (babel:octets-to-string x :encoding :utf-8)))
-       (conf (kf:conf
-              \"bootstrap.servers\" \"127.0.0.1:9092\"
-              \"group.id\" \"consumer-group-id\"
-              \"enable.auto.commit\" \"false\"
-              \"auto.offset.reset\" \"earliest\"
-              \"offset.store.method\" \"broker\"
-              \"enable.partition.eof\"  \"false\"))
-       (consumer (make-instance 'kf:consumer
-                                :conf conf
-                                :serde string-serde)))
+(let ((consumer (make-instance
+                 'kf:consumer
+                 :conf '(\"bootstrap.servers\" \"127.0.0.1:9092\"
+                         \"group.id\" \"consumer-group-id\"
+                         \"enable.auto.commit\" \"false\"
+                         \"auto.offset.reset\" \"earliest\"
+                         \"offset.store.method\" \"broker\"
+                         \"enable.partition.eof\"  \"false\")
+                 :serde (lambda (bytes)
+                          (babel:octets-to-string bytes :encoding :utf-8)))))
   (kf:subscribe consumer '(\"topic-name\"))
 
   (loop
-     for message = (kf:poll consumer (* 2 1000))
+     for message = (kf:poll consumer 2000)
      while message
 
      for key = (kf:key message)

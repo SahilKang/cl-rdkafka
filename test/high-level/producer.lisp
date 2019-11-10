@@ -22,9 +22,6 @@
 
 (in-package #:test/high-level/producer)
 
-(defvar *conf* (kf:conf
-                "bootstrap.servers" "kafka:9092"))
-
 (defun parse-kafkacat (output-lines)
   (flet ((parse (partition-key-value)
            (cdr (uiop:split-string partition-key-value :separator "|"))))
@@ -35,11 +32,11 @@
 
 (test producer-produce
   (let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
-         (bootstrap-servers (gethash "bootstrap.servers" *conf*))
+         (bootstrap-servers "kafka:9092")
          (topic "test-producer-produce")
          (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
          (producer (make-instance 'kf:producer
-                                  :conf *conf*
+                                  :conf (list "bootstrap.servers" bootstrap-servers)
                                   :serde serde)))
     (loop
        for (k v) in expected

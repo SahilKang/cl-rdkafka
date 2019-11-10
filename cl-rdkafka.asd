@@ -74,8 +74,7 @@
              (:file "consumer")))
    (:module "high-level"
             :components
-            ((:file "conf")
-             (:file "consumer")
+            ((:file "consumer")
              (:file "producer")
              (:file "produce->consume")
              (:file "admin")

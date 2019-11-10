@@ -40,7 +40,7 @@
 (test create-topic-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "create-topic-with-consumer")
         (partitions 3))
     (is (string= topic (kf:create-topic consumer
@@ -53,7 +53,7 @@
 (test create-topic-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "create-topic-with-producer")
         (partitions 7))
     (is (string= topic (kf:create-topic producer
@@ -66,7 +66,7 @@
 (test create-topic-validatep
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "create-topic-with-validate-only")
         (partitions 4))
     (is (string= topic (kf:create-topic consumer
@@ -81,7 +81,7 @@
 (test delete-topic-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "delete-topic-with-consumer")
         (partitions 7))
     (is (string= topic (kf:create-topic consumer
@@ -98,7 +98,7 @@
 (test delete-topic-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "delete-topic-with-producer")
         (partitions 4))
     (is (string= topic (kf:create-topic producer
@@ -116,7 +116,7 @@
 (test create-partitions-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "create-partitions-with-consumer")
         (old-partitions 7)
         (new-partitions 10))
@@ -133,7 +133,7 @@
 (test create-partitions-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "create-partitions-with-producer")
         (old-partitions 11)
         (new-partitions 20))
@@ -151,7 +151,7 @@
 (test describe-topic-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "describe-topic-with-consumer"))
     (is (string= topic (kf:create-topic consumer topic)))
     (sleep 2)
@@ -164,7 +164,7 @@
 (test describe-topic-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "describe-topic-with-producer"))
     (is (string= topic (kf:create-topic producer topic)))
     (sleep 2)
@@ -177,7 +177,7 @@
 (test describe-broker-with-consumer
   (let* ((consumer (make-instance
                     'kf:consumer
-                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                    :conf '("bootstrap.servers" "kafka:9092")))
          (config (kf:describe-config consumer "1001" :broker)))
     (is (string= "kafka"
                  (cdr (assoc "advertised.host.name" config :test #'string=))))
@@ -187,7 +187,7 @@
 (test describe-broker-with-producer
   (let* ((producer (make-instance
                     'kf:producer
-                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                    :conf '("bootstrap.servers" "kafka:9092")))
          (config (kf:describe-config producer "1001" :broker)))
     (is (string= "kafka"
                  (cdr (assoc "advertised.host.name" config :test #'string=))))
@@ -198,7 +198,7 @@
 (test alter-topic-with-consumer
   (let* ((consumer (make-instance
                     'kf:consumer
-                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                    :conf '("bootstrap.servers" "kafka:9092")))
          (topic "alter-topic-with-consumer")
          (get-actual (lambda ()
                        (cdr (assoc "message.timestamp.type"
@@ -217,7 +217,7 @@
 (test alter-topic-with-producer
   (let* ((producer (make-instance
                     'kf:producer
-                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                    :conf '("bootstrap.servers" "kafka:9092")))
          (topic "alter-topic-with-producer")
          (get-actual (lambda ()
                        (cdr (assoc "message.timestamp.type"
@@ -237,7 +237,7 @@
 (test cluster-metadata-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "cluster-metadata-with-consumer"))
     (is (string= topic (kf:create-topic consumer topic)))
     (sleep 2)
@@ -258,7 +258,7 @@
 (test cluster-metadata-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                   :conf '("bootstrap.servers" "kafka:9092")))
         (topic "cluster-metadata-with-producer"))
     (is (string= topic (kf:create-topic producer topic)))
     (sleep 2)
@@ -282,14 +282,12 @@
          (group-2 "group-info-with-consumer-group-2")
          (consumer-1 (make-instance
                       'kf:consumer
-                      :conf (kf:conf
-                             "bootstrap.servers" "kafka:9092"
-                             "group.id" group-1)))
+                      :conf (list "bootstrap.servers" "kafka:9092"
+                                  "group.id" group-1)))
          (consumer-2 (make-instance
                       'kf:consumer
-                      :conf (kf:conf
-                             "bootstrap.servers" "kafka:9092"
-                             "group.id" group-2)))
+                      :conf (list "bootstrap.servers" "kafka:9092"
+                                  "group.id" group-2)))
          (topic "group-info-with-consumer"))
     (is (string= topic (kf:create-topic consumer-1 topic)))
     (sleep 2)
@@ -319,17 +317,15 @@
          (group-2 "group-info-with-producer-group-2")
          (consumer-1 (make-instance
                       'kf:consumer
-                      :conf (kf:conf
-                             "bootstrap.servers" "kafka:9092"
-                             "group.id" group-1)))
+                      :conf (list "bootstrap.servers" "kafka:9092"
+                                  "group.id" group-1)))
          (consumer-2 (make-instance
                       'kf:consumer
-                      :conf (kf:conf
-                             "bootstrap.servers" "kafka:9092"
-                             "group.id" group-2)))
+                      :conf (list "bootstrap.servers" "kafka:9092"
+                                  "group.id" group-2)))
          (producer (make-instance
                     'kf:producer
-                    :conf (kf:conf "bootstrap.servers" "kafka:9092")))
+                    :conf '("bootstrap.servers" "kafka:9092")))
          (topic "group-info-with-producer"))
     (is (string= topic (kf:create-topic producer topic)))
     (sleep 2)
@@ -356,7 +352,7 @@
 
 
 (test cluster-id
-  (let* ((conf (kf:conf "bootstrap.servers" "kafka:9092"))
+  (let* ((conf '("bootstrap.servers" "kafka:9092"))
          (consumer (make-instance 'kf:consumer :conf conf))
          (producer (make-instance 'kf:producer :conf conf))
          (lhs (kf:cluster-id consumer))
@@ -366,7 +362,7 @@
 
 
 (test controller-id
-  (let* ((conf (kf:conf "bootstrap.servers" "kafka:9092"))
+  (let* ((conf '("bootstrap.servers" "kafka:9092"))
          (consumer (make-instance 'kf:consumer :conf conf))
          (producer (make-instance 'kf:producer :conf conf))
          (lhs (kf:controller-id consumer))

@@ -33,8 +33,6 @@
 
    #:producer #:produce #:flush
 
-   #:conf
-
    #:create-topic
    #:delete-topic
    #:create-partitions

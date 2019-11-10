@@ -25,17 +25,15 @@
 (test headers
   (let ((producer (make-instance
                    'kf:producer
-                   :conf (kf:conf
-                          "bootstrap.servers" "kafka:9092")
+                   :conf '("bootstrap.servers" "kafka:9092")
                    :serde (lambda (string)
                             (babel:string-to-octets string :encoding :utf-8))))
         (consumer (make-instance
                    'kf:consumer
-                   :conf (kf:conf
-                          "bootstrap.servers" "kafka:9092"
-                          "group.id" "headers-group-id"
-                          "auto.offset.reset" "earliest"
-                          "enable.partition.eof" "false")
+                   :conf '("bootstrap.servers" "kafka:9092"
+                           "group.id" "headers-group-id"
+                           "auto.offset.reset" "earliest"
+                           "enable.partition.eof" "false")
                    :serde (lambda (bytes)
                             (babel:octets-to-string bytes :encoding :utf-8))))
         (topic "headers-topic")
