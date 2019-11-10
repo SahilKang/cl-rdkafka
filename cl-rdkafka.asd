@@ -76,7 +76,6 @@
    (:module "high-level"
             :components
             ((:file "conf")
-             (:file "topic+partition")
              (:file "consumer")
              (:file "producer")
              (:file "produce->consume")
