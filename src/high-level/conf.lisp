@@ -17,200 +17,127 @@
 
 (in-package #:cl-rdkafka)
 
-(defconstant +prop-value-len+ 512
-  "The maximum byte length of strings returned by (prop conf prop-key).")
-
-(defclass conf ()
-  ((rd-kafka-conf
-    :initform nil
-    :documentation "Pointer to rd_kafka_conf_t struct.")
-   (rd-kafka-topic-conf
-    :initform nil
-    :documentation "Pointer to rd_kafka_topic_conf_t struct.")
-   (merge-confs-p
-    :initform nil
-    :documentation
-    "Determines if the two confs should be merged.
-This is set to true only when the fall-through function is needed.")))
-
-(defgeneric (setf prop) (prop-value conf prop-key))
-
-(defgeneric prop (conf prop-key))
-
-(defgeneric rd-kafka-conf (conf))
-
-(defgeneric destroy-conf (conf))
-
-(defun new-conf ()
+(defun alloc-rd-kafka-conf ()
   (let ((handle (cl-rdkafka/ll:rd-kafka-conf-new)))
     (when (cffi:null-pointer-p handle)
       (error "~&Failed to allocate new rd-kafka-conf"))
     handle))
 
-(defun new-topic-conf ()
+(defun alloc-rd-kafka-topic-conf ()
   (let ((handle (cl-rdkafka/ll:rd-kafka-topic-conf-new)))
     (when (cffi:null-pointer-p handle)
       (error "~&Failed to allocate new rd-kafka-topic-conf"))
     handle))
 
-(defmethod initialize-instance :after ((conf conf) &key)
-  (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
-    (handler-case
-        (setf rd-kafka-conf (new-conf)
-              rd-kafka-topic-conf (new-topic-conf))
-      (condition (c)
-        (when rd-kafka-conf
-          (cl-rdkafka/ll:rd-kafka-conf-destroy rd-kafka-conf))
-        (when rd-kafka-topic-conf
-          (cl-rdkafka/ll:rd-kafka-topic-conf-destroy rd-kafka-topic-conf))
-        (error c)))))
+(defun set-rd-kafka-conf (rd-kafka-conf key value errstr errstr-len)
+  (let ((result (cl-rdkafka/ll:rd-kafka-conf-set
+                 rd-kafka-conf
+                 key
+                 value
+                 errstr
+                 errstr-len)))
+    (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)))
 
+(defun set-rd-kafka-topic-conf
+    (rd-kafka-topic-conf key value errstr errstr-len)
+  (let ((result (cl-rdkafka/ll:rd-kafka-topic-conf-set
+                 rd-kafka-topic-conf
+                 key
+                 value
+                 errstr
+                 errstr-len)))
+    (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)))
 
-(defgeneric make-conf (map))
-
-(defmethod make-conf ((map hash-table))
-  (let ((conf (make-instance 'conf)))
-    (handler-case
-        (progn
-          (maphash (lambda (k v) (setf (prop conf k) v)) map)
-          (rd-kafka-conf conf))
-      (condition (c)
-        (destroy-conf conf)
-        (error c)))))
-
-(defun make-conf-from-alist (alist)
-  (let ((conf (make-instance 'conf)))
-    (handler-case
-        (loop
-           for (k . v) in alist
-           do (setf (prop conf k) v)
-
-           finally (return (rd-kafka-conf conf)))
-      (condition (c)
-        (destroy-conf conf)
-        (error c)))))
-
-(defun make-conf-from-plist (plist)
-  (loop
-     with alist = nil
-
-     for (k v) on plist by #'cddr
-     unless v
-     do (error "~&Odd number of key-val pairs: missing value for key ~S" k)
-     else do (push (cons k v) alist)
-
-     finally (return (make-conf-from-alist alist))))
-
-(defmethod make-conf ((map list))
-  (etypecase (first map)
-    (cons (make-conf-from-alist map))
-    (string (make-conf-from-plist map))))
+(defmacro make-set-keyval (old-version-p)
+  `(lambda
+       (rd-kafka-conf
+        ,@(when old-version-p
+            '(rd-kafka-topic-conf))
+        key
+        value
+        errstr
+        errstr-len)
+     (unless (set-rd-kafka-conf rd-kafka-conf key value errstr errstr-len)
+       ,(let ((error-form
+               '(error "~&Failed to set conf name ~S to ~S: ~S"
+                 key
+                 value
+                 (cffi:foreign-string-to-lisp errstr :max-chars errstr-len))))
+          (if old-version-p
+              `(unless (set-rd-kafka-topic-conf rd-kafka-topic-conf
+                                                key
+                                                value
+                                                errstr
+                                                errstr-len)
+                 ,error-form)
+              error-form)))))
 
 ;; newer versions of librdkafka allow topic configs to be set through
 ;; the same rd_kafka_conf_set function, but older versions do not. So
 ;; we'll implement this config fall-through ourselves.
 
-(defun fall-through (rd-kafka-topic-conf prop-key prop-value errstr errstr-len)
-  (let ((result (cl-rdkafka/ll:rd-kafka-topic-conf-set
-                 rd-kafka-topic-conf
-                 prop-key
-                 prop-value
-                 errstr
-                 errstr-len)))
-    (unless (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-      (error "~&Failed to set conf name ~S to ~S: ~S"
-             prop-key
-             prop-value
-             (cffi:foreign-string-to-lisp errstr :max-chars errstr-len)))
-    prop-value))
+(defmacro with-set-keyval (set-keyval &body body)
+  (let* ((rd-kafka-conf (gensym))
+         (rd-kafka-topic-conf (gensym))
+         (errstr (gensym))
+         (old-version-p (< (cl-rdkafka/ll:rd-kafka-version) #x00090500)))
+    `(let (,rd-kafka-conf
+           ,@(when old-version-p
+               (list rd-kafka-topic-conf)))
+       (handler-case
+           (cffi:with-foreign-object (,errstr :char +errstr-len+)
+             (flet ((,set-keyval (key value)
+                      (funcall (make-set-keyval ,old-version-p)
+                               ,rd-kafka-conf
+                               ,@(when old-version-p
+                                   (list rd-kafka-topic-conf))
+                               key
+                               value
+                               ,errstr
+                               +errstr-len+)))
+               (setf ,rd-kafka-conf (alloc-rd-kafka-conf)
+                     ,@(when old-version-p
+                         `(,rd-kafka-topic-conf (alloc-rd-kafka-topic-conf))))
+               ,@body
+               ,@(when old-version-p
+                   `((cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf
+                      ,rd-kafka-conf
+                      ,rd-kafka-topic-conf)
+                     ;; rd-kafka-topic-conf is unusable at this point
+                     (setf ,rd-kafka-topic-conf nil)))
+               ,rd-kafka-conf))
+         (condition (c)
+           ,@(when old-version-p
+               `((when ,rd-kafka-topic-conf
+                   (cl-rdkafka/ll:rd-kafka-topic-conf-destroy ,rd-kafka-topic-conf))))
+           (when ,rd-kafka-conf
+             (cl-rdkafka/ll:rd-kafka-conf-destroy ,rd-kafka-conf))
+           (error c))))))
 
-(defmethod (setf prop) ((prop-value string) (conf conf) (prop-key string))
-  (with-slots (rd-kafka-conf rd-kafka-topic-conf merge-confs-p) conf
-    (cffi:with-foreign-object (errstr :char +errstr-len+)
-      (let ((result (cl-rdkafka/ll:rd-kafka-conf-set
-                     rd-kafka-conf
-                     prop-key
-                     prop-value
-                     errstr
-                     +errstr-len+)))
-        (unless (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-          (fall-through rd-kafka-topic-conf
-                        prop-key
-                        prop-value
-                        errstr
-                        +errstr-len+)
-          ;; fall-through was successful so we're running an older
-          ;; version of librdkafka and need to merge the two confs
-          ;; during the rd-kafka-conf call
-          (setf merge-confs-p t)))))
-  prop-value)
+(defgeneric make-conf (map))
 
-(defun rise-through (rd-kafka-topic-conf prop-key prop-value len)
-  (let ((result (cl-rdkafka/ll:rd-kafka-topic-conf-get
-                 rd-kafka-topic-conf
-                 prop-key
-                 prop-value
-                 len)))
-    (cond
-      ((eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-       (cffi:foreign-string-to-lisp
-        prop-value
-        :max-chars (cffi:mem-ref len 'cl-rdkafka/ll:size-t)))
-      ((eq result 'cl-rdkafka/ll:rd-kafka-conf-unknown)
-       (error "~&Unknown conf name: ~S" prop-key))
-      (t
-       (error "~&Unexpected result when getting prop-key ~S: ~S"
-              prop-key
-              result)))))
+(defmethod make-conf ((map hash-table))
+  (with-set-keyval set-keyval
+    (maphash (lambda (k v) (set-keyval k v)) map)))
 
-(defmethod prop ((conf conf) (prop-key string))
-  (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
-    (cffi:with-foreign-objects
-        ((prop-value :char +prop-value-len+)
-         (len 'cl-rdkafka/ll:size-t))
+(defun make-conf-from-alist (alist)
+  (with-set-keyval set-keyval
+    (loop
+       for (k . v) in alist
+       do (set-keyval k v))))
 
-      (setf (cffi:mem-ref len 'cl-rdkafka/ll:size-t) +prop-value-len+)
+(defun make-conf-from-plist (plist)
+  (with-set-keyval set-keyval
+    (loop
+       for (k v) on plist by #'cddr
+       unless v
+       do (error "~&Odd number of key-val pairs: missing value for key ~S" k)
+       else do (set-keyval k v))))
 
-      (let ((result (cl-rdkafka/ll:rd-kafka-conf-get
-                     rd-kafka-conf
-                     prop-key
-                     prop-value
-                     len)))
-        (cond
-          ((eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-           (cffi:foreign-string-to-lisp
-            prop-value
-            :max-chars (cffi:mem-ref len 'cl-rdkafka/ll:size-t)))
-
-          ((eq result 'cl-rdkafka/ll:rd-kafka-conf-unknown)
-           (rise-through rd-kafka-topic-conf prop-key prop-value len))
-
-          (t
-           (error "~&Unexpected result when getting prop-key ~S: ~S"
-                  prop-key
-                  result)))))))
-
-(defmethod rd-kafka-conf ((conf conf))
-  (with-slots (rd-kafka-conf rd-kafka-topic-conf merge-confs-p) conf
-    ;; merge the two confs if needed, or destroy the topic-conf if
-    ;; not.  rd-kafka-topic-conf is unusable after either one of these
-    ;; calls so it's set to nil afterwards.
-    (if merge-confs-p
-        (cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf
-         rd-kafka-conf
-         rd-kafka-topic-conf)
-        (cl-rdkafka/ll:rd-kafka-topic-conf-destroy rd-kafka-topic-conf))
-    (setf rd-kafka-topic-conf nil)
-    rd-kafka-conf))
-
-(defmethod destroy-conf ((conf conf))
-  (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
-    (when rd-kafka-conf
-      (cl-rdkafka/ll:rd-kafka-conf-destroy rd-kafka-conf)
-      (setf rd-kafka-conf nil))
-    (when rd-kafka-topic-conf
-      (cl-rdkafka/ll:rd-kafka-topic-conf-destroy rd-kafka-topic-conf)
-      (setf rd-kafka-topic-conf nil))))
+(defmethod make-conf ((map list))
+  (etypecase (first map)
+    (cons (make-conf-from-alist map))
+    (string (make-conf-from-plist map))))
 
 
 (defmacro with-conf (conf-pointer conf-mapping &body body)
