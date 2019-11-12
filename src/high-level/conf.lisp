@@ -117,8 +117,12 @@ This is set to true only when the fall-through function is needed.")))
                  prop-value
                  errstr
                  errstr-len)))
-    (when (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-      prop-value)))
+    (unless (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
+      (error "~&Failed to set conf name ~S to ~S: ~S"
+             prop-key
+             prop-value
+             (cffi:foreign-string-to-lisp errstr :max-chars errstr-len)))
+    prop-value))
 
 (defmethod (setf prop) ((prop-value string) (conf conf) (prop-key string))
   (with-slots (rd-kafka-conf rd-kafka-topic-conf merge-confs-p) conf
@@ -129,19 +133,17 @@ This is set to true only when the fall-through function is needed.")))
                      prop-value
                      errstr
                      +errstr-len+)))
-        (if (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-            prop-value
-            (let ((value (fall-through rd-kafka-topic-conf
-                                       prop-key
-                                       prop-value
-                                       errstr
-                                       +errstr-len+)))
-              (when value
-                ;; fall-through was successful so we're running an
-                ;; older version of librdkafka and need to merge the
-                ;; two confs during the rd-kafka-conf call
-                (setf merge-confs-p t))
-              value))))))
+        (unless (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
+          (fall-through rd-kafka-topic-conf
+                        prop-key
+                        prop-value
+                        errstr
+                        +errstr-len+)
+          ;; fall-through was successful so we're running an older
+          ;; version of librdkafka and need to merge the two confs
+          ;; during the rd-kafka-conf call
+          (setf merge-confs-p t)))))
+  prop-value)
 
 (defun rise-through (rd-kafka-topic-conf prop-key prop-value len)
   (let ((result (cl-rdkafka/ll:rd-kafka-topic-conf-get
@@ -149,10 +151,17 @@ This is set to true only when the fall-through function is needed.")))
                  prop-key
                  prop-value
                  len)))
-    (when (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
-      (cffi:foreign-string-to-lisp
-       prop-value
-       :max-chars (cffi:mem-ref len 'cl-rdkafka/ll:size-t)))))
+    (cond
+      ((eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
+       (cffi:foreign-string-to-lisp
+        prop-value
+        :max-chars (cffi:mem-ref len 'cl-rdkafka/ll:size-t)))
+      ((eq result 'cl-rdkafka/ll:rd-kafka-conf-unknown)
+       (error "~&Unknown conf name: ~S" prop-key))
+      (t
+       (error "~&Unexpected result when getting prop-key ~S: ~S"
+              prop-key
+              result)))))
 
 (defmethod prop ((conf conf) (prop-key string))
   (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
@@ -177,7 +186,7 @@ This is set to true only when the fall-through function is needed.")))
            (rise-through rd-kafka-topic-conf prop-key prop-value len))
 
           (t
-           (error "~&Unexpected result when getting prop-key ~A: ~A"
+           (error "~&Unexpected result when getting prop-key ~S: ~S"
                   prop-key
                   result)))))))
 
