@@ -20,26 +20,12 @@
 (defconstant +prop-value-len+ 512
   "The maximum byte length of strings returned by (prop conf prop-key).")
 
-(defun new-conf ()
-  (let ((handle (cl-rdkafka/ll:rd-kafka-conf-new)))
-    (if (cffi:null-pointer-p handle)
-        (error "~&Function ~A failed to allocate new rd-kafka-conf"
-               'cl-rdkafka/ll:rd-kafka-conf-new)
-        handle)))
-
-(defun new-topic-conf ()
-  (let ((handle (cl-rdkafka/ll:rd-kafka-topic-conf-new)))
-    (if (cffi:null-pointer-p handle)
-        (error "~&Function ~A failed to allocate new rd-kafka-topic-conf"
-               'cl-rdkafka/ll:rd-kafka-topic-conf-new)
-        handle)))
-
 (defclass conf ()
   ((rd-kafka-conf
-    :initform (new-conf)
+    :initform nil
     :documentation "Pointer to rd_kafka_conf_t struct.")
    (rd-kafka-topic-conf
-    :initform (new-topic-conf)
+    :initform nil
     :documentation "Pointer to rd_kafka_topic_conf_t struct.")
    (merge-confs-p
     :initform nil
@@ -53,22 +39,56 @@ This is set to true only when the fall-through function is needed.")))
 
 (defgeneric rd-kafka-conf (conf))
 
+(defgeneric destroy-conf (conf))
+
+(defun new-conf ()
+  (let ((handle (cl-rdkafka/ll:rd-kafka-conf-new)))
+    (when (cffi:null-pointer-p handle)
+      (error "~&Failed to allocate new rd-kafka-conf"))
+    handle))
+
+(defun new-topic-conf ()
+  (let ((handle (cl-rdkafka/ll:rd-kafka-topic-conf-new)))
+    (when (cffi:null-pointer-p handle)
+      (error "~&Failed to allocate new rd-kafka-topic-conf"))
+    handle))
+
+(defmethod initialize-instance :after ((conf conf) &key)
+  (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
+    (handler-case
+        (setf rd-kafka-conf (new-conf)
+              rd-kafka-topic-conf (new-topic-conf))
+      (condition (c)
+        (when rd-kafka-conf
+          (cl-rdkafka/ll:rd-kafka-conf-destroy rd-kafka-conf))
+        (when rd-kafka-topic-conf
+          (cl-rdkafka/ll:rd-kafka-topic-conf-destroy rd-kafka-topic-conf))
+        (error c)))))
+
 
 (defgeneric make-conf (map))
 
 (defmethod make-conf ((map hash-table))
   (let ((conf (make-instance 'conf)))
-    (maphash (lambda (k v) (setf (prop conf k) v)) map)
-    (rd-kafka-conf conf)))
+    (handler-case
+        (progn
+          (maphash (lambda (k v) (setf (prop conf k) v)) map)
+          (rd-kafka-conf conf))
+      (condition (c)
+        (destroy-conf conf)
+        (error c)))))
 
 (defun make-conf-from-alist (alist)
-  (loop
-     with conf = (make-instance 'conf)
+  (let ((conf (make-instance 'conf)))
+    (handler-case
+        (loop
+           for (k . v) in alist
+           do (setf (prop conf k) v)
 
-     for (k . v) in alist
-     do (setf (prop conf k) v)
-
-     finally (return (rd-kafka-conf conf))))
+           finally (return (rd-kafka-conf conf)))
+      (condition (c)
+        (destroy-conf conf)
+        (error c)))))
 
 (defun make-conf-from-plist (plist)
   (loop
@@ -163,13 +183,37 @@ This is set to true only when the fall-through function is needed.")))
 
 (defmethod rd-kafka-conf ((conf conf))
   (with-slots (rd-kafka-conf rd-kafka-topic-conf merge-confs-p) conf
-    ;; merge the two confs if needed, or destroy the topic-conf if not
+    ;; merge the two confs if needed, or destroy the topic-conf if
+    ;; not.  rd-kafka-topic-conf is unusable after either one of these
+    ;; calls so it's set to nil afterwards.
     (if merge-confs-p
-        (progn
-          (cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf
-           rd-kafka-conf
-           rd-kafka-topic-conf)
-          ;; rd-kafka-topic-conf is unusable after set-default-topic-conf call
-          (setf rd-kafka-topic-conf nil))
+        (cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf
+         rd-kafka-conf
+         rd-kafka-topic-conf)
         (cl-rdkafka/ll:rd-kafka-topic-conf-destroy rd-kafka-topic-conf))
+    (setf rd-kafka-topic-conf nil)
     rd-kafka-conf))
+
+(defmethod destroy-conf ((conf conf))
+  (with-slots (rd-kafka-conf rd-kafka-topic-conf) conf
+    (when rd-kafka-conf
+      (cl-rdkafka/ll:rd-kafka-conf-destroy rd-kafka-conf)
+      (setf rd-kafka-conf nil))
+    (when rd-kafka-topic-conf
+      (cl-rdkafka/ll:rd-kafka-topic-conf-destroy rd-kafka-topic-conf)
+      (setf rd-kafka-topic-conf nil))))
+
+
+(defmacro with-conf (conf-pointer conf-mapping &body body)
+  "Binds CONF-POINTER to output of CONF-MAPPING during BODY.
+
+If BODY evaluates without signalling a condition, then it is expected
+to take ownership of CONF-POINTER. If a condition is signalled by
+BODY, however, then CONF-POINTER will be freed by this macro."
+  `(let ((,conf-pointer (make-conf ,conf-mapping)))
+     (handler-case
+         (progn
+           ,@body)
+       (condition (c)
+         (cl-rdkafka/ll:rd-kafka-conf-destroy ,conf-pointer)
+         (error c)))))

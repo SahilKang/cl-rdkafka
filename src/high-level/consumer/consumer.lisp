@@ -154,15 +154,16 @@ be nil if no previous message existed):
 (defmethod initialize-instance :after
     ((consumer consumer) &key conf serde key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
-    (cffi:with-foreign-object (errstr :char +errstr-len+)
-      (setf rd-kafka-consumer (cl-rdkafka/ll:rd-kafka-new
-                               cl-rdkafka/ll:rd-kafka-consumer
-                               (make-conf conf)
-                               errstr
-                               +errstr-len+))
-      (when (cffi:null-pointer-p rd-kafka-consumer)
-        (error "~&Failed to allocate new consumer: ~A"
-               (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+))))
+    (with-conf rd-kafka-conf conf
+      (cffi:with-foreign-object (errstr :char +errstr-len+)
+        (setf rd-kafka-consumer (cl-rdkafka/ll:rd-kafka-new
+                                 cl-rdkafka/ll:rd-kafka-consumer
+                                 rd-kafka-conf
+                                 errstr
+                                 +errstr-len+))
+        (when (cffi:null-pointer-p rd-kafka-consumer)
+          (error "~&Failed to allocate new consumer: ~S"
+                 (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+)))))
     (setf ks (or key-serde serde)
           vs (or value-serde serde))
     (tg:finalize
