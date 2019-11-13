@@ -36,26 +36,9 @@
       (let ((message (foreign-string-to-lisp payload :max-chars len)))
         (vector-push-extend message *messages*)))))
 
-(defcallback rebalance-callback :void
-    ((rk :pointer)
-     (err rd-kafka-resp-err)
-     (partitions :pointer)
-     (opaque :pointer))
-  (cond
-    ((eq err cl-rdkafka/ll:rd-kafka-resp-err--assign-partitions)
-     (rd-kafka-assign rk partitions))
-
-    ((eq err cl-rdkafka/ll:rd-kafka-resp-err--revoke-partitions)
-     (rd-kafka-assign rk (null-pointer)))
-
-    (t
-     (error (format nil "failed: ~A~%" (rd-kafka-err2str err)))
-     (rd-kafka-assign rk (null-pointer)))))
-
 (defun make-conf (group-id errstr errstr-len)
   (let ((conf (rd-kafka-conf-new)))
     (rd-kafka-conf-set conf "group.id" group-id errstr errstr-len)
-    (rd-kafka-conf-set-rebalance-cb conf (callback rebalance-callback))
     (rd-kafka-conf-set conf "enable.partition.eof" "true" (null-pointer) 0)
     conf))
 
