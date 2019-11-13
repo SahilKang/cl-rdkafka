@@ -85,9 +85,7 @@
                                  conf
                                  errstr
                                  errstr-len))
-         (topic+partitions (make-topic+partition-list topics))
-         (*topic+partitions (mem-ref topic+partitions
-                                     '(:struct rd-kafka-topic-partition-list))))
+         (topic+partitions (make-topic+partition-list topics)))
     (unless consumer
       (error (format nil "Failed to create new consumer: ~A~%" errstr)))
     (rd-kafka-brokers-add consumer brokers)
