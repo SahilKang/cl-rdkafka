@@ -98,14 +98,22 @@
   (rd-kafka-destroy consumer))
 
 (test consumer
-  (destructuring-bind
-        (consumer topic+partitions) (init (write-to-string (get-universal-time))
-                                          "kafka:9092"
-                                          (list "consumer-test-topic"))
-    (consume consumer)
-    (consume consumer)
-    (consume consumer)
-    (destroy consumer topic+partitions))
-  (let ((expected '("Hello" "World" "!")))
-    (is (and (= (length expected) (length *messages*))
-             (every #'string= expected *messages*)))))
+  (let ((bootstrap-servers "kafka:9092")
+        (topic "consumer-test-topic")
+        (expected '("Hello" "World" "!")))
+    (uiop:run-program
+     (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
+             (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
+             bootstrap-servers
+             topic)
+     :force-shell t
+     :output nil
+     :error-output nil)
+    (sleep 2)
+
+    (destructuring-bind
+          (consumer topic+partitions)
+        (init "consumer-group-id" bootstrap-servers (list topic))
+      (loop repeat (length expected) do (consume consumer))
+      (destroy consumer topic+partitions))
+    (is (equal expected (coerce *messages* 'list)))))
