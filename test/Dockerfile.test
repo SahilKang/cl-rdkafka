@@ -18,9 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
             --eval '(sb-ext:save-lisp-and-die \
                       "test-image" \
                       :toplevel (lambda () \
+                                  (sleep 5) \
                                   (asdf:operate :test-op :cl-rdkafka)))' \
             --end-toplevel-options \
     && mkdir /app \
     && mv ./test-image /app/test-image
 
-CMD ["./test/run-tests.bash"]
+CMD ["sbcl", "--noinform", "--core", "/app/test-image"]

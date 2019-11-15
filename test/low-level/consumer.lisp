@@ -36,26 +36,9 @@
       (let ((message (foreign-string-to-lisp payload :max-chars len)))
         (vector-push-extend message *messages*)))))
 
-(defcallback rebalance-callback :void
-    ((rk :pointer)
-     (err rd-kafka-resp-err)
-     (partitions :pointer)
-     (opaque :pointer))
-  (cond
-    ((eq err cl-rdkafka/ll:rd-kafka-resp-err--assign-partitions)
-     (rd-kafka-assign rk partitions))
-
-    ((eq err cl-rdkafka/ll:rd-kafka-resp-err--revoke-partitions)
-     (rd-kafka-assign rk (null-pointer)))
-
-    (t
-     (error (format nil "failed: ~A~%" (rd-kafka-err2str err)))
-     (rd-kafka-assign rk (null-pointer)))))
-
 (defun make-conf (group-id errstr errstr-len)
   (let ((conf (rd-kafka-conf-new)))
     (rd-kafka-conf-set conf "group.id" group-id errstr errstr-len)
-    (rd-kafka-conf-set-rebalance-cb conf (callback rebalance-callback))
     (rd-kafka-conf-set conf "enable.partition.eof" "true" (null-pointer) 0)
     conf))
 
@@ -85,9 +68,7 @@
                                  conf
                                  errstr
                                  errstr-len))
-         (topic+partitions (make-topic+partition-list topics))
-         (*topic+partitions (mem-ref topic+partitions
-                                     '(:struct rd-kafka-topic-partition-list))))
+         (topic+partitions (make-topic+partition-list topics)))
     (unless consumer
       (error (format nil "Failed to create new consumer: ~A~%" errstr)))
     (rd-kafka-brokers-add consumer brokers)
@@ -117,14 +98,22 @@
   (rd-kafka-destroy consumer))
 
 (test consumer
-  (destructuring-bind
-        (consumer topic+partitions) (init (write-to-string (get-universal-time))
-                                          "kafka:9092"
-                                          (list "consumer-test-topic"))
-    (consume consumer)
-    (consume consumer)
-    (consume consumer)
-    (destroy consumer topic+partitions))
-  (let ((expected '("Hello" "World" "!")))
-    (is (and (= (length expected) (length *messages*))
-             (every #'string= expected *messages*)))))
+  (let ((bootstrap-servers "kafka:9092")
+        (topic "consumer-test-topic")
+        (expected '("Hello" "World" "!")))
+    (uiop:run-program
+     (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
+             (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
+             bootstrap-servers
+             topic)
+     :force-shell t
+     :output nil
+     :error-output nil)
+    (sleep 2)
+
+    (destructuring-bind
+          (consumer topic+partitions)
+        (init "consumer-group-id" bootstrap-servers (list topic))
+      (loop repeat (length expected) do (consume consumer))
+      (destroy consumer topic+partitions))
+    (is (equal expected (coerce *messages* 'list)))))

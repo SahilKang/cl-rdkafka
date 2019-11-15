@@ -22,26 +22,6 @@
 
 (in-package #:test/low-level/producer)
 
-(defparameter *messages* (make-array 0
-                                     :element-type 'string
-                                     :adjustable t
-                                     :fill-pointer 0))
-
-(defcallback message-delivery-report-callback :void
-    ((rk :pointer)
-     (rk-message :pointer)
-     (opaque :pointer))
-  (let* ((*rk-message (mem-ref rk-message '(:struct rd-kafka-message)))
-         (err (getf *rk-message 'cl-rdkafka/ll:err)))
-    (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (let* ((payload (getf *rk-message 'cl-rdkafka/ll:payload))
-               (len (getf *rk-message 'cl-rdkafka/ll:len))
-               (message (foreign-string-to-lisp payload :max-chars (- len 1))))
-          (vector-push-extend message *messages*))
-        (error (format nil
-                       "Message delivery failed: ~A~%"
-                       (rd-kafka-err2str err))))))
-
 (defun make-conf (brokers errstr errstr-len)
   (let ((conf (rd-kafka-conf-new)))
     (if (eq 'cl-rdkafka/ll:rd-kafka-conf-ok
@@ -50,11 +30,7 @@
                                brokers
                                errstr
                                errstr-len))
-        (progn
-          (rd-kafka-conf-set-dr-msg-cb
-           conf
-           (callback message-delivery-report-callback))
-          conf)
+        conf
         (error (format nil
                        "make-conf failed with: ~A~%"
                        (foreign-string-to-lisp
@@ -100,27 +76,30 @@
                     (null-pointer)))
 
 (defun produce (producer topic message)
-  (let ((len (+ 1 (length message))))
-    (with-foreign-pointer-as-string (buf len)
-      (lisp-string-to-foreign message buf len)
-      (when (= -1 (produce-buf topic buf len))
-        (error (format nil
-                       "Failed to produce message ~A to topic ~A: ~A~%"
-                       message
-                       (rd-kafka-topic-name topic)
-                       (rd-kafka-err2str (rd-kafka-last-error)))))))
+  (with-foreign-string (buf message)
+    (when (= -1 (produce-buf topic buf (length message)))
+      (error (format nil
+                     "Failed to produce message ~A to topic ~A: ~A~%"
+                     message
+                     (rd-kafka-topic-name topic)
+                     (rd-kafka-err2str (rd-kafka-last-error))))))
   (rd-kafka-poll producer 0))
 
 (test producer
   (let ((topic-name "producer-test-topic")
+        (bootstrap-servers "kafka:9092")
         (expected '("Hello" "World" "!")))
-    (destructuring-bind (producer topic) (init "kafka:9092" topic-name)
-      (produce producer topic "Hello")
-      (produce producer topic "World")
-      (produce producer topic "!")
-
-      (rd-kafka-flush producer (* 10 1000))
+    (destructuring-bind (producer topic) (init bootstrap-servers topic-name)
+      (mapcar (lambda (message)
+                (produce producer topic message))
+              expected)
+      (rd-kafka-flush producer 5000)
       (rd-kafka-topic-destroy topic)
       (rd-kafka-destroy producer))
-    (is (and (= (length expected) (length *messages*))
-             (every #'string= expected *messages*)))))
+    (is (equal expected (uiop:run-program
+                         (format nil "kafkacat -Ce -b '~A' -t '~A'"
+                                 bootstrap-servers
+                                 topic-name)
+                         :force-shell t
+                         :output :lines
+                         :error-output nil)))))

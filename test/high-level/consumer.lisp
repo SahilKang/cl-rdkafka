@@ -41,56 +41,61 @@
          (= 0 (length (kf:subscription consumer)))))))
 
 (test poll
-  (let ((consumer (make-instance
-                   'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "consumer-poll-group"
-                           "enable.auto.commit" "true"
-                           "auto.offset.reset" "earliest"
-                           "offset.store.method" "broker")
-                   :value-serde (lambda (x)
-                                  (babel:octets-to-string x :encoding :utf-8))))
-        (expected '("Hello" "World" "!"))
-        (actual (make-array 3 :element-type 'string :initial-element "")))
-    (kf:subscribe consumer '("consumer-test-topic"))
+  (let* ((bootstrap-servers "kafka:9092")
+         (consumer (make-instance
+                    'kf:consumer
+                    :conf (list "bootstrap.servers" bootstrap-servers
+                                "group.id" "consumer-poll-group"
+                                "enable.auto.commit" "true"
+                                "auto.offset.reset" "earliest"
+                                "offset.store.method" "broker")
+                    :value-serde (lambda (x)
+                                   (babel:octets-to-string x :encoding :utf-8))))
+         (expected '("Hello" "World" "!"))
+         (topic "consumer-poll-topic"))
+    (uiop:run-program
+     (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
+             (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
+             bootstrap-servers
+             topic)
+     :force-shell t
+     :output nil
+     :error-output nil)
+    (sleep 2)
 
-    (loop
-       for i below 3
-       for message = (kf:poll consumer 5000)
-       for value = (kf:value message)
-       do (setf (elt actual i) value))
-
-    (is (and
-         (= (length expected) (length actual))
-         (every #'string= expected actual)))))
+    (kf:subscribe consumer (list topic))
+    (is (equal expected (loop
+                           repeat (length expected)
+                           for message = (kf:poll consumer 5000)
+                           collect (kf:value message))))))
 
 (test commit
-  (let ((consumer (make-instance
-                   'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "consumer-commit-group"
-                           "enable.auto.commit" "false"
-                           "auto.offset.reset" "earliest"
-                           "offset.store.method" "broker")))
-        (expected '(1 2 3))
-        actual
-        (commits (make-array 3)))
-    (kf:subscribe consumer '("consumer-test-topic"))
+  (let* ((bootstrap-servers "kafka:9092")
+         (consumer (make-instance
+                    'kf:consumer
+                    :conf (list "bootstrap.servers" bootstrap-servers
+                                "group.id" "consumer-commit-group"
+                                "enable.auto.commit" "false"
+                                "auto.offset.reset" "earliest"
+                                "offset.store.method" "broker")))
+         (expected '(1 2 3))
+         (topic "consumer-commit-topic"))
+    (uiop:run-program
+     (format nil "echo -n 'Live|Laugh|Hack' | kafkacat -P -D '|' -b '~A' -t '~A'"
+             bootstrap-servers
+             topic)
+     :force-shell t
+     :output nil
+     :error-output nil)
+    (sleep 2)
 
-    (loop
-       for i below 3
-       do (kf:poll consumer 5000)
-       do (kf:commit consumer)
-       do (setf (elt commits i) (kf:committed consumer)))
-
-    ;; each element of commits is an alist of one element
-    (let ((flattened (map 'list #'first commits)))
-      (setf actual (mapcar #'cadr flattened)))
-
-    (is (and
-         (= (length expected) (length actual) (length commits))
-         (every #'= expected actual)
-         (apply #'= (map 'list #'length commits))))))
+    (kf:subscribe consumer (list topic))
+    (is (equal expected (loop
+                           repeat (length expected)
+                           do
+                             (kf:poll consumer 5000)
+                             (kf:commit consumer)
+                           collect (cadar (kf:committed consumer)))))))
 
 (test assign
   (let ((consumer (make-instance
