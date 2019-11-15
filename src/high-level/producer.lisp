@@ -64,21 +64,22 @@ sent to kafka cluster."))
                (ks key-serde)
                (vs value-serde))
       producer
-    (cffi:with-foreign-object (errstr :char +errstr-len+)
-      (setf rd-kafka-producer (cl-rdkafka/ll:rd-kafka-new
-                               cl-rdkafka/ll:rd-kafka-producer
-                               (make-conf conf)
-                               errstr
-                               +errstr-len+))
-      (when (cffi:null-pointer-p rd-kafka-producer)
-        (error "~&Failed to allocate new producer: ~A"
-               (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+))))
+    (with-conf rd-kafka-conf conf
+      (cffi:with-foreign-object (errstr :char +errstr-len+)
+        (setf rd-kafka-producer (cl-rdkafka/ll:rd-kafka-new
+                                 cl-rdkafka/ll:rd-kafka-producer
+                                 rd-kafka-conf
+                                 errstr
+                                 +errstr-len+))
+        (when (cffi:null-pointer-p rd-kafka-producer)
+          (error "~&Failed to allocate new producer: ~S"
+                 (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+)))))
     (setf ks (or key-serde serde)
           vs (or value-serde serde))
     (tg:finalize
      producer
      (lambda ()
-       (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer (* 5 1000))
+       (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer 5000)
        (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)))))
 
 (defun ->bytes (object serde)
