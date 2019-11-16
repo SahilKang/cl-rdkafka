@@ -113,6 +113,42 @@ sent to kafka cluster."))
         (cl-rdkafka/ll:rd-kafka-headers-destroy headers)
         (error c)))))
 
+(define-condition produce-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic
+    :initarg :topic
+    :initform (error "Must supply topic")
+    :reader topic)
+   (partition
+    :initarg :partition
+    :initform nil
+    :reader partition)
+   (key
+    :initarg :key
+    :initform nil
+    :reader key)
+   (value
+    :initarg :value
+    :initform (error "Must supply value")
+    :reader value)
+   (headers
+    :initarg :headers
+    :initform nil
+    :reader headers))
+  (:report
+   (lambda (c s)
+     (format s "~&Produce Error for message ~@[~S:~]~S on ~S~@[:~S~] :: ~S"
+             (key c)
+             (value c)
+             (topic c)
+             (partition c)
+             (description c))))
+  (:documentation
+   "Condition signalled when producer's produce method fails."))
+
 (defun %produce
     (rd-kafka-producer topic partition key-bytes value-bytes headers)
   (let ((msg-flags cl-rdkafka/ll:rd-kafka-msg-f-free)
@@ -150,9 +186,10 @@ sent to kafka cluster."))
 
                       :int cl-rdkafka/ll:rd-kafka-vtype-end))
            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-             (error "~&Failed to produce message to topic: ~S: ~S"
-                    topic
-                    (cl-rdkafka/ll:rd-kafka-err2str err))))
+             (error 'produce-error
+                    :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                    :topic nil
+                    :value nil)))
       (when key-pointer
         (cffi:foreign-free key-pointer))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
@@ -171,12 +208,21 @@ sent to kafka cluster."))
           (value-bytes (->bytes value value-serde))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
       (unwind-protect
-           (%produce rd-kafka-producer
-                     topic
-                     partition
-                     key-bytes
-                     value-bytes
-                     headers)
+           (handler-case
+               (%produce rd-kafka-producer
+                         topic
+                         partition
+                         key-bytes
+                         value-bytes
+                         headers)
+             (produce-error (c)
+               (error 'produce-error
+                      :description (description c)
+                      :topic topic
+                      :partition partition
+                      :key key
+                      :value value
+                      :headers headers)))
         (cl-rdkafka/ll:rd-kafka-poll rd-kafka-producer 0)))))
 
 (defmethod flush ((producer producer) (timeout-ms integer))

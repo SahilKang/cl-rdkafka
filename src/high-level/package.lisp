@@ -31,7 +31,7 @@
    #:positions #:commit-error #:assign-error #:poll-error
    #:subscription-error
 
-   #:producer #:produce #:flush
+   #:producer #:produce #:flush #:produce-error
 
    #:create-topic
    #:delete-topic
