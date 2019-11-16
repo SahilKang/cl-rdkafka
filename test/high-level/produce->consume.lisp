@@ -34,7 +34,7 @@
        for (k v) in messages
        do (kf:produce producer +topic+ v :key k))
 
-    (kf:flush producer (* 2 1000))
+    (kf:flush producer 5000)
     messages))
 
 (defun consume-messages ()

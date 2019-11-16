@@ -42,7 +42,7 @@
        for (k v) in expected
        do (kf:produce producer topic v :key k)) ; TODO test partition here, too
 
-    (kf:flush producer (* 2 1000))
+    (kf:flush producer 5000)
     (sleep 2)
 
     (let* ((kafkacat-output-lines

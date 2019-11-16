@@ -225,6 +225,26 @@ sent to kafka cluster."))
                       :headers headers)))
         (cl-rdkafka/ll:rd-kafka-poll rd-kafka-producer 0)))))
 
+(define-condition flush-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description))
+  (:report
+   (lambda (c s)
+     (format s (description c))))
+  (:documentation
+   "Condition signalled when producer's flush method fails."))
+
 (defmethod flush ((producer producer) (timeout-ms integer))
   (with-slots (rd-kafka-producer) producer
-    (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer timeout-ms)))
+    (let ((err (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer timeout-ms)))
+      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (if (eq err cl-rdkafka/ll:rd-kafka-resp-err--timed-out)
+            (cerror "Blissfully return from flush as if no condition was signalled."
+                    'flush-error
+                    :description "Flush timed out before finishing.")
+            (error 'flush-error
+                   :description
+                   (format nil "Unknown error in flush: ~S"
+                           (cl-rdkafka/ll:rd-kafka-err2str err))))))))
