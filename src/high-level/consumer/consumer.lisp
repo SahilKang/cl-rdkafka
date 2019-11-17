@@ -172,21 +172,50 @@ be nil if no previous message existed):
        (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
        (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))))
 
+(define-condition subscribe-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topics
+    :initarg :topics
+    :initform (error "Must supply topics")
+    :reader topics))
+  (:report
+   (lambda (c s)
+     (format s "~&Encountered error ~S when subscribing to topics ~S"
+             (description c)
+             (topics c))))
+  (:documentation
+   "Condition signalled when consumer's subscribe method fails."))
+
 (defmethod subscribe ((consumer consumer) topics)
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list toppar-list (alloc-toppar-list topics)
       (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
                                                    toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to subscribe to topics with error: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+          (error 'subscribe-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topics topics))))))
+
+(define-condition unsubscribe-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description))
+  (:report
+   (lambda (c s)
+     (format s "~&Encountered error ~S when unsubscribing." (description c))))
+  (:documentation
+   "Condition signalled when consumer's unsubscribe method fails."))
 
 (defmethod unsubscribe ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-unsubscribe rd-kafka-consumer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to unsubscribe consumer with error: ~S"
-               (cl-rdkafka/ll:rd-kafka-err2str err))))))
+        (error 'unsubscribe-error
+               :description (cl-rdkafka/ll:rd-kafka-err2str err))))))
 
 (define-condition subscription-error (error)
   ((description
@@ -275,12 +304,23 @@ be nil if no previous message existed):
       (continue ()
         :report "Return from commit as if it did not signal a condition."))))
 
+(define-condition assignment-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description))
+  (:report
+   (lambda (c s)
+     (format s "~&Assignment Error: ~S" (description c))))
+  (:documentation
+   "Condition signalled when consumer's assignment method fails."))
+
 (defun %assignment (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)
     (let ((err (cl-rdkafka/ll:rd-kafka-assignment rd-kafka-consumer rd-list)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to get assignment: ~S"
-               (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (error 'assignment-error
+               :description (cl-rdkafka/ll:rd-kafka-err2str err)))
       (cffi:mem-ref rd-list :pointer))))
 
 (defmethod assignment ((consumer consumer))
@@ -291,14 +331,38 @@ be nil if no previous message existed):
           (push (cons topic partition) alist-to-return))
         alist-to-return))))
 
+(define-condition committed-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic
+    :initarg :topic
+    :initform nil
+    :reader topic
+    :documentation
+    "This is set only when the error is specific to a topic+partition.")
+   (partition
+    :initarg :partition
+    :initform nil
+    :reader partition
+    :documentation
+    "This is set only when the error is specific to a topic+partition."))
+  (:report
+   (lambda (c s)
+     (format s "~&Committed Error~@[ for ~S:~]~@[~S~] :: ~S"
+             (topic c)
+             (partition c)
+             (description c))))
+  (:documentation
+   "Condition signalled when consumer's committed method fails."))
+
 (defmethod committed ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
         (if topic+partitions
-            (alloc-toppar-list topic+partitions
-                               :topic #'car
-                               :partition #'cdr)
+            (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
             (%assignment rd-kafka-consumer))
       (let ((err (cl-rdkafka/ll:rd-kafka-committed
                   rd-kafka-consumer
@@ -306,20 +370,30 @@ be nil if no previous message existed):
                   60000))
             alist-to-return)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to get committed offsets with error: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'committed-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
         (foreach-toppar
             toppar-list
             (topic partition offset metadata metadata-size err)
-          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-            (error "~&Error getting committed offset for topic|partition ~S|~S: ~S"
-                   topic
-                   partition
-                   (cl-rdkafka/ll:rd-kafka-err2str err)))
-          (let ((meta (unless (cffi:null-pointer-p metadata)
-                        (pointer->bytes metadata metadata-size))))
-            (push `((,topic . ,partition) . (,offset . ,meta))
-                  alist-to-return)))
+          (restart-case
+              (progn
+                (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                  (error 'committed-error
+                         :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                         :topic topic
+                         :partition partition))
+                (let ((meta (unless (cffi:null-pointer-p metadata)
+                              (pointer->bytes metadata metadata-size))))
+                  (push `((,topic . ,partition) . (,offset . ,meta))
+                        alist-to-return)))
+            (skip ()
+              :report (lambda (s)
+                        (format s "Skip this bad topic:partition ~A:~A"
+                                topic
+                                partition))
+              :test (lambda (c)
+                      (typep c 'committed-error))
+              nil)))
         alist-to-return))))
 
 (define-condition assign-error (error)
