@@ -275,12 +275,23 @@ be nil if no previous message existed):
       (continue ()
         :report "Return from commit as if it did not signal a condition."))))
 
+(define-condition assignment-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description))
+  (:report
+   (lambda (c s)
+     (format s "~&Assignment Error: ~S" (description c))))
+  (:documentation
+   "Condition signalled when consumer's assignment method fails."))
+
 (defun %assignment (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)
     (let ((err (cl-rdkafka/ll:rd-kafka-assignment rd-kafka-consumer rd-list)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to get assignment: ~S"
-               (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (error 'assignment-error
+               :description (cl-rdkafka/ll:rd-kafka-err2str err)))
       (cffi:mem-ref rd-list :pointer))))
 
 (defmethod assignment ((consumer consumer))
