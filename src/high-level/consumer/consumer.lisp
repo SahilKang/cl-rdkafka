@@ -199,12 +199,23 @@ be nil if no previous message existed):
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)
                  :topics topics))))))
 
+(define-condition unsubscribe-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description))
+  (:report
+   (lambda (c s)
+     (format s "~&Encountered error ~S when unsubscribing." (description c))))
+  (:documentation
+   "Condition signalled when consumer's unsubscribe method fails."))
+
 (defmethod unsubscribe ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-unsubscribe rd-kafka-consumer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to unsubscribe consumer with error: ~S"
-               (cl-rdkafka/ll:rd-kafka-err2str err))))))
+        (error 'unsubscribe-error
+               :description (cl-rdkafka/ll:rd-kafka-err2str err))))))
 
 (define-condition subscription-error (error)
   ((description
