@@ -253,18 +253,7 @@ be nil if no previous message existed):
                              timeout-ms)))
       (unwind-protect
            (unless (cffi:null-pointer-p rd-kafka-message)
-             (restart-case
-                 (rd-kafka-message->message rd-kafka-message
-                                            key-serde
-                                            value-serde)
-               (use-value (value)
-                 :report "Specify a value to return from poll."
-                 :test (lambda (c)
-                         (typep c 'poll-error))
-                 :interactive (lambda ()
-                                (format t "Enter a value to return: ")
-                                (list (read)))
-                 value)))
+             (rd-kafka-message->message rd-kafka-message key-serde value-serde))
         (unless (cffi:null-pointer-p rd-kafka-message)
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
