@@ -524,6 +524,28 @@ be nil if no previous message existed):
                     :topic topic
                     :partition partition)))))))
 
+(define-condition query-watermark-offsets-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic
+    :initarg :topic
+    :initform (error "Must supply topic")
+    :reader topic)
+   (partition
+    :initarg :partition
+    :initform (error "Must supply partition")
+    :reader partition))
+  (:report
+   (lambda (c s)
+     (format s "~&Encountered error ~S when querying ~A:~A for watermark offsets."
+             (description c)
+             (topic c)
+             (partition c))))
+  (:documentation
+   "Condition signalled when consumer's query-watermark-offsets method fails."))
+
 (defmethod query-watermark-offsets
     ((consumer consumer)
      (topic string)
@@ -539,8 +561,10 @@ be nil if no previous message existed):
                   high
                   timeout-ms)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to query offsets: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'query-watermark-offsets-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic topic
+                 :partition partition))
         (list (cffi:mem-ref low :int64)
               (cffi:mem-ref high :int64))))))
 

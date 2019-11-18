@@ -31,6 +31,7 @@
    #:positions #:commit-error #:assign-error #:poll-error
    #:subscription-error #:assignment-error #:committed-error
    #:subscribe-error #:unsubscribe-error #:pause-error #:resume-error
+   #:query-watermark-offsets-error
 
    #:producer #:produce #:flush #:produce-error #:flush-error
 
