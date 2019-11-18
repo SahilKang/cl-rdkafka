@@ -481,6 +481,39 @@ be nil if no previous message existed):
                     :topic topic
                     :partition partition)))))))
 
+(define-condition resume-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions
+    :documentation "Only set when error is not specific to a topic+partition.")
+   (topic
+    :initarg :topic
+    :initform nil
+    :reader topic
+    :documentation "Only set when error is specific to a topic+partition.")
+   (partition
+    :initarg :partition
+    :initform nil
+    :reader partition
+    :documentation "Only set when error is specific to a topic+partition."))
+  (:report
+   (lambda (c s)
+     (if (topic c)
+         (format s "~&Encountered error ~S when resuming ~A:~A"
+                 (description c)
+                 (topic c)
+                 (partition c))
+         (format s "~&Encountered error ~S when resuming ~S"
+                 (description c)
+                 (topic+partitions c)))))
+  (:documentation
+   "Condition signalled when consumer's resume method fails."))
+
 (defmethod resume ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
@@ -490,14 +523,17 @@ be nil if no previous message existed):
                   rd-kafka-consumer
                   toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to resume partitions: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'resume-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))
         (foreach-toppar toppar-list (err topic partition)
           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-            (error "~&Error resuming topic|partition ~S|~S: ~S"
-                   topic
-                   partition
-                   (cl-rdkafka/ll:rd-kafka-err2str err))))))))
+            (cerror "Continue checking resume status of other topic+partitions."
+                    'resume-error
+                    :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                    :topic+partitions topic+partitions
+                    :topic topic
+                    :partition partition)))))))
 
 (defmethod query-watermark-offsets
     ((consumer consumer)
