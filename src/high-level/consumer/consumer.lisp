@@ -259,6 +259,8 @@ be nil if no previous message existed):
                                             value-serde)
                (use-value (value)
                  :report "Specify a value to return from poll."
+                 :test (lambda (c)
+                         (typep c 'poll-error))
                  :interactive (lambda ()
                                 (format t "Enter a value to return: ")
                                 (list (read)))
