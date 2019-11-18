@@ -372,25 +372,21 @@ be nil if no previous message existed):
         (foreach-toppar
             toppar-list
             (topic partition offset metadata metadata-size err)
-          (restart-case
-              (progn
-                (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                  (error 'committed-error
-                         :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                         :topic topic
-                         :partition partition))
-                (let ((meta (unless (cffi:null-pointer-p metadata)
-                              (pointer->bytes metadata metadata-size))))
-                  (push `((,topic . ,partition) . (,offset . ,meta))
-                        alist-to-return)))
-            (skip ()
-              :report (lambda (s)
-                        (format s "Skip this bad topic:partition ~A:~A"
-                                topic
-                                partition))
-              :test (lambda (c)
-                      (typep c 'committed-error))
-              nil)))
+          (let (skip-p)
+            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+              (cerror (format nil "Skip ~A:~A and continue with other topic:partitions."
+                              topic
+                              partition)
+                      'committed-error
+                      :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                      :topic topic
+                      :partition partition)
+              (setf skip-p t))
+            (unless skip-p
+              (let ((meta (unless (cffi:null-pointer-p metadata)
+                            (pointer->bytes metadata metadata-size))))
+                (push `((,topic . ,partition) . (,offset . ,meta))
+                      alist-to-return)))))
         alist-to-return))))
 
 (define-condition assign-error (error)
