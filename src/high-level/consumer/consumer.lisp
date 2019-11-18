@@ -279,30 +279,27 @@ be nil if no previous message existed):
 
 (defmethod commit ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
-    (restart-case
-        (with-toppar-list
-            toppar-list
-            (if (null topic+partitions)
-                (cffi:null-pointer)
-                (alloc-toppar-list topic+partitions
-                                   :topic #'caar
-                                   :partition #'cdar
-                                   :offset (lambda (pair)
-                                             (if (consp (cdr pair))
-                                                 (cadr pair)
-                                                 (cdr pair)))
-                                   :metadata (lambda (pair)
-                                               (when (consp (cdr pair))
-                                                 (cddr pair)))))
-          (let ((err (cl-rdkafka/ll:rd-kafka-commit
-                      rd-kafka-consumer
-                      toppar-list
-                      0)))
-            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-              (error 'commit-error
-                     :description (cl-rdkafka/ll:rd-kafka-err2str err)))))
-      (continue ()
-        :report "Return from commit as if it did not signal a condition."))))
+    (with-toppar-list
+        toppar-list
+        (if (null topic+partitions)
+            (cffi:null-pointer)
+            (alloc-toppar-list topic+partitions
+                               :topic #'caar
+                               :partition #'cdar
+                               :offset (lambda (pair)
+                                         (if (consp (cdr pair))
+                                             (cadr pair)
+                                             (cdr pair)))
+                               :metadata (lambda (pair)
+                                           (when (consp (cdr pair))
+                                             (cddr pair)))))
+      (let ((err (cl-rdkafka/ll:rd-kafka-commit
+                  rd-kafka-consumer
+                  toppar-list
+                  0)))
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error 'commit-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
 
 (define-condition assignment-error (error)
   ((description
