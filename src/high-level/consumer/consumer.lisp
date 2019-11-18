@@ -644,6 +644,37 @@ be nil if no previous message existed):
               (push `((,topic . ,partition) . ,offset) alist-to-return))))
         alist-to-return))))
 
+(define-condition positions-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions)
+   (topic
+    :initarg :topic
+    :initform nil
+    :reader topic
+    :documentation "Set only when the error is specific to a topic+partition.")
+   (partition
+    :initarg :partition
+    :initform nil
+    :reader partition
+    :documentation "Set only when the error is specific to a topic+partition."))
+  (:report
+   (lambda (c s)
+     (if (topic c)
+         (format s "~&Encountered error ~S when querying position for ~A:~A"
+                 (description c)
+                 (topic c)
+                 (partition c))
+         (format s "~&Encountered error ~S when querying for positions"
+                 (description c)))))
+  (:documentation
+   "Condition signalled when consumer's positions method fails."))
+
 (defmethod positions ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
@@ -654,17 +685,25 @@ be nil if no previous message existed):
                   toppar-list))
             alist-to-return)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to get positions: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'positions-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))
         (foreach-toppar toppar-list (topic partition offset err)
-          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-            (error "~&Error getting position for topic|partition ~S|~S: ~S"
-                   topic
-                   partition
-                   (cl-rdkafka/ll:rd-kafka-err2str err)))
-          (push
-           (cons `(,topic . ,partition)
-                 (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
-                   offset))
-           alist-to-return))
+          (let (skip-p)
+            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+              (cerror (format nil "Skip ~A:~A and continue with other topic:partitions."
+                              topic
+                              partition)
+                      'positions-error
+                      :topic+partitions topic+partitions
+                      :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                      :topic topic
+                      :partition partition)
+              (setf skip-p t))
+            (unless skip-p
+              (push
+               (cons `(,topic . ,partition)
+                     (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
+                       offset))
+               alist-to-return))))
         alist-to-return))))
