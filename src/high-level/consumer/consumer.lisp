@@ -369,46 +369,6 @@ be nil if no previous message existed):
         (list (cffi:mem-ref low :int64)
               (cffi:mem-ref high :int64))))))
 
-(define-condition offsets-for-times-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description")
-    :reader description)
-   (timestamps
-    :initarg :timestamps
-    :initform (error "Must supply timestamps")
-    :reader timestamps
-    :documentation
-    "An alist of all ((topic . partition) . timestamp) pairs queried for.")
-   (topic
-    :initarg :topic
-    :initform nil
-    :reader topic
-    :documentation "Set only when the error is specific to a topic+partition.")
-   (partition
-    :initarg :partition
-    :initform nil
-    :reader partition
-    :documentation "Set only when the error is specific to a topic+partition.")
-   (timestamp
-    :initarg :timestamp
-    :initform nil
-    :reader timestamp
-    :documentation "Set only when the error is specific to a topic+partition."))
-  (:report
-   (lambda (c s)
-     (if (topic c)
-         (format s "~&Encountered error ~S when searching ~A:~A for an offset with timestamp >= ~A"
-                 (description c)
-                 (topic c)
-                 (partition c)
-                 (timestamp c))
-         (format s "~&Encountered error ~S when querying offsets for ~S"
-                 (description c)
-                 (timestamps c)))))
-  (:documentation
-   "Condition signalled when consumer's offsets-for-times method fails."))
-
 (defmethod offsets-for-times
     ((consumer consumer)
      (timestamps list)
@@ -423,23 +383,18 @@ be nil if no previous message existed):
                   timeout-ms))
             alist-to-return)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'offsets-for-times-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                 :timestamps timestamps))
+          (error 'kafka-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
         (foreach-toppar toppar-list (topic partition offset err)
           (let (skip-p)
             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-              (cerror (format nil "Skip ~A:~A and continue with other topic:partitions."
+              (cerror (format nil "Don't include `~A:~A` in the returned alist."
                               topic
                               partition)
-                      'offsets-for-times-error
+                      'topic+partition-error
                       :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                      :timestamps timestamps
                       :topic topic
-                      :partition partition
-                      :timestamp (cdr (assoc (cons topic partition)
-                                             timestamps
-                                             :test #'equal)))
+                      :partition partition)
               (setf skip-p t))
             (unless skip-p
               (push `((,topic . ,partition) . ,offset) alist-to-return))))

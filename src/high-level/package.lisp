@@ -29,7 +29,6 @@
    #:poll #:commit #:committed #:assignment #:assign #:member-id
    #:pause #:resume #:query-watermark-offsets #:offsets-for-times
    #:positions
-   #:offsets-for-times-error
    #:positions-error
 
    #:producer #:produce #:flush
