@@ -324,23 +324,6 @@ be nil if no previous message existed):
                       alist-to-return)))))
         alist-to-return))))
 
-(define-condition assign-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description")
-    :reader description)
-   (topic+partitions
-    :initarg :topic+partitions
-    :initform (error "Must supply topic+partitions")
-    :reader topic+partitions))
-  (:report
-   (lambda (c s)
-     (format s "~&Encountered error ~S when assigning ~S"
-             (description c)
-             (topic+partitions c))))
-  (:documentation
-   "Condition signalled when consumer's assign method fails."))
-
 (defmethod assign ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
@@ -348,9 +331,8 @@ be nil if no previous message existed):
         (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
       (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'assign-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                 :topic+partitions topic+partitions))))))
+          (error 'kafka-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
 
 (defmethod member-id ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
