@@ -152,8 +152,8 @@ The returned alist looks something like:
                 metadata
                 timeout-ms)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to get cluster metadata: ~S"
-               (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (error 'kafka-error
+               :description (cl-rdkafka/ll:rd-kafka-err2str err)))
       (let ((*metadata (cffi:mem-ref metadata :pointer)))
         (unwind-protect
              (parse-cluster-metadata
