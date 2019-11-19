@@ -55,7 +55,7 @@
 (defun make-queue (rd-kafka-client)
   (let ((queue (cl-rdkafka/ll:rd-kafka-queue-new rd-kafka-client)))
     (when (cffi:null-pointer-p queue)
-      (error "~&Failed to create new queue"))
+      (error 'allocation-error :name "queue"))
     queue))
 
 
