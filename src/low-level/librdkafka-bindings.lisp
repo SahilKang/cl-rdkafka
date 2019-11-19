@@ -917,7 +917,7 @@
   (rkev :pointer))
 
 (defctype rd-kafka-create-topics-result rd-kafka-event-type)
-(defctype rd-kafka-delelte-topics-result rd-kafka-event-type)
+(defctype rd-kafka-delete-topics-result rd-kafka-event-type)
 (defctype rd-kafka-create-partitions-result rd-kafka-event-type)
 (defctype rd-kafka-alter-configs-result rd-kafka-event-type)
 (defctype rd-kafka-describe-configs-result rd-kafka-event-type)

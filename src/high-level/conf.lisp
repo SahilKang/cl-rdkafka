@@ -20,13 +20,13 @@
 (defun alloc-rd-kafka-conf ()
   (let ((handle (cl-rdkafka/ll:rd-kafka-conf-new)))
     (when (cffi:null-pointer-p handle)
-      (error "~&Failed to allocate new rd-kafka-conf"))
+      (error 'allocation-error :name "rd-kafka-conf"))
     handle))
 
 (defun alloc-rd-kafka-topic-conf ()
   (let ((handle (cl-rdkafka/ll:rd-kafka-topic-conf-new)))
     (when (cffi:null-pointer-p handle)
-      (error "~&Failed to allocate new rd-kafka-topic-conf"))
+      (error 'allocation-error :name "rd-kafka-topic-conf"))
     handle))
 
 (defun set-rd-kafka-conf (rd-kafka-conf key value errstr errstr-len)
@@ -59,10 +59,13 @@
         errstr-len)
      (unless (set-rd-kafka-conf rd-kafka-conf key value errstr errstr-len)
        ,(let ((error-form
-               '(error "~&Failed to set conf name ~S to ~S: ~S"
-                 key
-                 value
-                 (cffi:foreign-string-to-lisp errstr :max-chars errstr-len))))
+               '(error 'kafka-error
+                       :description
+                       (format nil "Failed to set conf name `~A` to `~A`: `~A`"
+                               key
+                               value
+                               (cffi:foreign-string-to-lisp
+                                errstr :max-chars errstr-len)))))
           (if old-version-p
               `(unless (set-rd-kafka-topic-conf rd-kafka-topic-conf
                                                 key
@@ -131,7 +134,10 @@
     (loop
        for (k v) on plist by #'cddr
        unless v
-       do (error "~&Odd number of key-val pairs: missing value for key ~S" k)
+       do (error 'kafka-error
+                 :description
+                 (format nil "Odd number of key-val pairs: missing value for key `~A`"
+                         k))
        else do (set-keyval k v))))
 
 (defmethod make-conf ((map list))

@@ -117,8 +117,10 @@
                   value
                   value-size)
        unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error "~&Failed to get header pair: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err))
+       do (error 'kafka-error
+                 :description
+                 (format nil "Failed to get header pair: `~A`"
+                         (cl-rdkafka/ll:rd-kafka-err2str err)))
 
        collect (cons (cffi:mem-ref name :string)
                      (pointer->bytes
@@ -132,32 +134,12 @@
                 headers)))
       (unless (or (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                   (eq err cl-rdkafka/ll:rd-kafka-resp-err--noent))
-        (error "~&Failed to get message headers: ~S"
-               (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (error 'kafka-error
+               :description
+               (format nil "Failed to get message headers: `~A`"
+                       (cl-rdkafka/ll:rd-kafka-err2str err))))
       (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
-
-(define-condition poll-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description")
-    :reader description)
-   (topic
-    :initarg :topic
-    :initform (error "Must supply topic.")
-    :reader topic)
-   (partition
-    :initarg :partition
-    :initform (error "Must supply partition.")
-    :reader partition))
-  (:report
-   (lambda (c s)
-     (format s "~&Poll Error for topic ~S partition ~S: ~S"
-             (topic c)
-             (partition c)
-             (description c))))
-  (:documentation
-   "Condition signalled when consumer's poll method fails."))
 
 ;; TODO add restarts here when serde signals a condition
 (defun apply-serde (serde bytes)
@@ -173,7 +155,7 @@
          (topic (get-topic *rd-kafka-message))
          (partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error 'poll-error
+      (error 'topic+partition-error
              :description (cl-rdkafka/ll:rd-kafka-err2str err)
              :topic topic
              :partition partition))

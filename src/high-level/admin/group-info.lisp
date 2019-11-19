@@ -146,8 +146,8 @@ The alists look something like:
                    (eq err cl-rdkafka/ll:rd-kafka-resp-err--partial))
              (unless (or (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                          partial-errors-p)
-               (error "~&Failed to get group-info: ~S"
-                      (cl-rdkafka/ll:rd-kafka-err2str err)))
+               (error 'kafka-error
+                      :description (cl-rdkafka/ll:rd-kafka-err2str err)))
              (setf *group-list (cffi:mem-ref group-list :pointer))
              (values
               (parse-group-list

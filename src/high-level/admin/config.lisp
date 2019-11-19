@@ -43,13 +43,14 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
                         (format nil "RD-KAFKA-RESOURCE-~A" type)
                         'cl-rdkafka/ll)))
     (unless resource-type
+      ;; TODO do this at compile-time
       (error "~&Could not find enum for ~S" type))
     (cffi:with-foreign-string (buf name)
       (let ((configresource (cl-rdkafka/ll:rd-kafka-configresource-new
                              (symbol-value resource-type)
                              buf)))
         (when (cffi:null-pointer-p configresource)
-          (error "~&Failed to allocate a new configresource pointer"))
+          (error 'allocation-error :name "configresource"))
         configresource))))
 
 (defun giant-alist->decent-alist (giant-alist)
@@ -100,8 +101,10 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
                          name
                          value)))
                (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                 (error "~&Failed to set config: ~S"
-                        (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+                 (error 'kafka-error
+                        :description
+                        (format nil "Failed to set config: `~A`"
+                                (cl-rdkafka/ll:rd-kafka-err2str err))))))))
        alist))
 
 (defun %alter-config (rd-kafka-client name config timeout-ms)

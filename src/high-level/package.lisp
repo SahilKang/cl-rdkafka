@@ -28,13 +28,9 @@
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign #:member-id
    #:pause #:resume #:query-watermark-offsets #:offsets-for-times
-   #:positions #:commit-error #:assign-error #:poll-error
-   #:subscription-error #:assignment-error #:committed-error
-   #:subscribe-error #:unsubscribe-error #:pause-error #:resume-error
-   #:query-watermark-offsets-error #:offsets-for-times-error
-   #:positions-error
+   #:positions
 
-   #:producer #:produce #:flush #:produce-error #:flush-error
+   #:producer #:produce #:flush
 
    #:create-topic
    #:delete-topic
@@ -45,4 +41,10 @@
    #:group-info
    #:cluster-id
    #:controller-id
-   #:get-conf))
+   #:get-conf
+
+   #:kafka-error
+   #:description
+   #:topic+partition-error
+   #:allocation-error
+   #:name))

@@ -22,7 +22,7 @@
                         rd-kafka-client
                         cl-rdkafka/ll:rd-kafka-admin-op-any)))
     (when (cffi:null-pointer-p admin-options)
-      (error "~&Failed to allocate new admin-options pointer"))
+      (error 'allocation-error :name "admin-options"))
     admin-options))
 
 (defun set-timeout (admin-options timeout-ms errstr errstr-len)
@@ -32,8 +32,11 @@
               errstr
               errstr-len)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error "~&Failed to set request timeout of admin-options: ~S"
-             (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))))
+      (error 'kafka-error
+             :description
+             (format nil "Failed to set request timeout of admin-options: `~A`"
+                     (cffi:foreign-string-to-lisp
+                      errstr :max-chars (1- errstr-len)))))))
 
 (defun set-validate (admin-options validatep errstr errstr-len)
   (let ((err (cl-rdkafka/ll:rd-kafka-adminoptions-set-validate-only
@@ -42,14 +45,17 @@
               errstr
               errstr-len)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error "~&Failed to set validate-only to true/false: ~S"
-             (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))))
+      (error 'kafka-error
+             :description
+             (format nil "Failed to set validate-only of admin-options: `~A`"
+                     (cffi:foreign-string-to-lisp
+                      errstr :max-chars (1- errstr-len)))))))
 
 
 (defun make-queue (rd-kafka-client)
   (let ((queue (cl-rdkafka/ll:rd-kafka-queue-new rd-kafka-client)))
     (when (cffi:null-pointer-p queue)
-      (error "~&Failed to create new queue"))
+      (error 'allocation-error :name "queue"))
     queue))
 
 
@@ -65,7 +71,10 @@
          (function (find-function "RD-KAFKA-EVENT-~A-RESULT" ,result)))
      `(let ((,res (,function ,,event)))
         (when (cffi:null-pointer-p ,res)
-          (error "~&Unexpected result type, expected: ~S" ',,result))
+          (error 'kafka-error
+                 :description
+                 (format nil "Unexpected result type, expected: `~A`"
+                         ',,result)))
         ,res)))
 
 (defun config-op-p (op)
@@ -141,7 +150,12 @@ POINTER symbol is bound to each array elem for BODY to use."
        for name = (,get-name pointer)
 
        unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error "~&Failed to perform ~S on ~S: ~S" ',result name errstr)
+       do (error 'kafka-error
+                 :description
+                 (format nil "Failed to perform `~A` on `~A`: `~A`"
+                         ',result
+                         name
+                         errstr))
 
        when (config-op-p ',result)
        collect (get-config-data pointer))))
@@ -165,7 +179,8 @@ POINTER symbol is bound to each array elem for BODY to use."
                 (setf ,event (cl-rdkafka/ll:rd-kafka-queue-poll ,queue 2000))
                 (when (cffi:null-pointer-p ,event)
                   (setf ,event nil)
-                  (error "~&Failed to get event from queue"))
+                  (error 'kafka-error
+                         :description "Failed to get event from queue"))
                 (assert-successful-event ,event ,op))
            (when ,event
              (cl-rdkafka/ll:rd-kafka-event-destroy ,event))

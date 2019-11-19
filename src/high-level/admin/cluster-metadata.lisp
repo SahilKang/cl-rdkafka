@@ -152,8 +152,8 @@ The returned alist looks something like:
                 metadata
                 timeout-ms)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error "~&Failed to get cluster metadata: ~S"
-               (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (error 'kafka-error
+               :description (cl-rdkafka/ll:rd-kafka-err2str err)))
       (let ((*metadata (cffi:mem-ref metadata :pointer)))
         (unwind-protect
              (parse-cluster-metadata
@@ -166,9 +166,10 @@ The returned alist looks something like:
                  topic-name
                  (cffi:null-pointer))))
     (when (cffi:null-pointer-p handle)
-      (error "~&Failed to allocate topic object: ~A"
-             (cl-rdkafka/ll:rd-kafka-err2str
-              (cl-rdkafka/ll:rd-kafka-last-error))))
+      (error 'allocation-error
+             :name "topic"
+             :description (cl-rdkafka/ll:rd-kafka-err2str
+                           (cl-rdkafka/ll:rd-kafka-last-error))))
     handle))
 
 (def-admin-methods

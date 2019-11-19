@@ -37,8 +37,10 @@ validated by the broker without the topic actually being created."))
                      errstr
                      errstr-len)))
       (when (cffi:null-pointer-p newtopic)
-        (error "~&Failed to allocate newtopic pointer: ~S"
-               (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))
+        (error 'allocation-error
+               :name "newtopic"
+               :description (cffi:foreign-string-to-lisp
+                             errstr :max-chars (1- errstr-len))))
       newtopic)))
 
 (defun set-conf (newtopic conf)
@@ -48,14 +50,19 @@ validated by the broker without the topic actually being created."))
                        k
                        v)))
              (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-               (error "~&Error ~S when setting config for key-val: ~S => ~S"
-                      (cl-rdkafka/ll:rd-kafka-err2str err)
-                      k
-                      v)))))
+               (error 'kafka-error
+                      :description
+                      (format nil "Failed to set config name `~A` to `~A`: `~A`"
+                              k
+                              v
+                              (cl-rdkafka/ll:rd-kafka-err2str err)))))))
     (loop
        for (k v) on conf by #'cddr
        unless v
-       do (error "~&Odd number of key-val pairs: missing value for key: ~S" k)
+       do (error 'kafka-error
+                 :description
+                 (format nil "Odd number of key-val pairs: missing value for key: `~A`"
+                         k))
        else do (set-kv k v))))
 
 (defun %create-topic

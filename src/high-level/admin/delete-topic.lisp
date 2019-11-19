@@ -26,7 +26,7 @@
   (cffi:with-foreign-string (buf topic)
     (let ((deletetopic (cl-rdkafka/ll:rd-kafka-deletetopic-new buf)))
       (when (cffi:null-pointer-p deletetopic)
-        (error "~&Failed to allocate deletetopic pointer"))
+        (error 'allocation-error :name "deletetopic"))
       deletetopic)))
 
 (defun %delete-topic (rd-kafka-client topic timeout-ms)

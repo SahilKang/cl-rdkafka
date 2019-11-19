@@ -72,8 +72,10 @@ sent to kafka cluster."))
                                  errstr
                                  +errstr-len+))
         (when (cffi:null-pointer-p rd-kafka-producer)
-          (error "~&Failed to allocate new producer: ~S"
-                 (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+)))))
+          (error 'allocation-error
+                 :name "producer"
+                 :description (cffi:foreign-string-to-lisp
+                               errstr :max-chars +errstr-len+)))))
     (setf ks (or key-serde serde)
           vs (or value-serde serde))
     (tg:finalize
@@ -96,10 +98,15 @@ sent to kafka cluster."))
                      (length name)
                      value-pointer
                      (length value))))
+           ;; this should never return an error...however, those are
+           ;; famous last words, so let's check the return value
+           ;; anyway like the good engineers that we are
            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-             (error "~&Failed to set header value for ~S: ~S"
-                    name
-                    (cl-rdkafka/ll:rd-kafka-err2str err))))
+             (error 'kafka-error
+                    :description
+                    (format nil "Failed to set header value for `~A`: `~A`"
+                            name
+                            (cl-rdkafka/ll:rd-kafka-err2str err)))))
       (cffi:foreign-free value-pointer))))
 
 (defun make-headers (alist)
@@ -112,42 +119,6 @@ sent to kafka cluster."))
       (condition (c)
         (cl-rdkafka/ll:rd-kafka-headers-destroy headers)
         (error c)))))
-
-(define-condition produce-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description")
-    :reader description)
-   (topic
-    :initarg :topic
-    :initform (error "Must supply topic")
-    :reader topic)
-   (partition
-    :initarg :partition
-    :initform nil
-    :reader partition)
-   (key
-    :initarg :key
-    :initform nil
-    :reader key)
-   (value
-    :initarg :value
-    :initform (error "Must supply value")
-    :reader value)
-   (headers
-    :initarg :headers
-    :initform nil
-    :reader headers))
-  (:report
-   (lambda (c s)
-     (format s "~&Produce Error for message ~@[~S:~]~S on ~S~@[:~S~] :: ~S"
-             (key c)
-             (value c)
-             (topic c)
-             (partition c)
-             (description c))))
-  (:documentation
-   "Condition signalled when producer's produce method fails."))
 
 (defun %produce
     (rd-kafka-producer topic partition key-bytes value-bytes headers)
@@ -186,10 +157,10 @@ sent to kafka cluster."))
 
                       :int cl-rdkafka/ll:rd-kafka-vtype-end))
            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-             (error 'produce-error
+             (error 'topic+partition-error
                     :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                    :topic nil
-                    :value nil)))
+                    :topic topic
+                    :partition partition)))
       (when key-pointer
         (cffi:foreign-free key-pointer))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
@@ -208,43 +179,21 @@ sent to kafka cluster."))
           (value-bytes (->bytes value value-serde))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
       (unwind-protect
-           (handler-case
-               (%produce rd-kafka-producer
-                         topic
-                         partition
-                         key-bytes
-                         value-bytes
-                         headers)
-             (produce-error (c)
-               (error 'produce-error
-                      :description (description c)
-                      :topic topic
-                      :partition partition
-                      :key key
-                      :value value
-                      :headers headers)))
+           (%produce rd-kafka-producer
+                     topic
+                     partition
+                     key-bytes
+                     value-bytes
+                     headers)
         (cl-rdkafka/ll:rd-kafka-poll rd-kafka-producer 0)))))
-
-(define-condition flush-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description")
-    :reader description))
-  (:report
-   (lambda (c s)
-     (format s (description c))))
-  (:documentation
-   "Condition signalled when producer's flush method fails."))
 
 (defmethod flush ((producer producer) (timeout-ms integer))
   (with-slots (rd-kafka-producer) producer
     (let ((err (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer timeout-ms)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (if (eq err cl-rdkafka/ll:rd-kafka-resp-err--timed-out)
-            (cerror "Blissfully return from flush as if no condition was signalled."
-                    'flush-error
+            (cerror "Ignore timeout and return from flush."
+                    'kafka-error
                     :description "Flush timed out before finishing.")
-            (error 'flush-error
-                   :description
-                   (format nil "Unknown error in flush: ~S"
-                           (cl-rdkafka/ll:rd-kafka-err2str err))))))))
+            (error 'kafka-error
+                   :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
