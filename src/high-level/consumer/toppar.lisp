@@ -95,7 +95,7 @@ cl-rdkafka/ll:rd-kafka-topic-partition struct field."
   (let ((toppar-list (cl-rdkafka/ll:rd-kafka-topic-partition-list-new
                       (length seq))))
     (when (cffi:null-pointer-p toppar-list)
-      (error "~&Failed to allocate new rd-kafka-topic-partition-list"))
+      (error 'allocation-error :name "rd-kafka-topic-partition-list"))
     (handler-case
         (flet ((add-toppar (x)
                  (add-toppar toppar-list
