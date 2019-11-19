@@ -261,7 +261,11 @@ be nil if no previous message existed):
   ((description
     :initarg :description
     :initform (error "Must supply description.")
-    :reader description))
+    :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions))
   (:report
    (lambda (c s)
      (format s "~&Commit Error: ~S" (description c))))
@@ -290,7 +294,8 @@ be nil if no previous message existed):
                   0)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'commit-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))))))
 
 (define-condition assignment-error (error)
   ((description
