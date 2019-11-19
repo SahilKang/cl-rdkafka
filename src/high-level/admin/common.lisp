@@ -71,7 +71,10 @@
          (function (find-function "RD-KAFKA-EVENT-~A-RESULT" ,result)))
      `(let ((,res (,function ,,event)))
         (when (cffi:null-pointer-p ,res)
-          (error "~&Unexpected result type, expected: ~S" ',,result))
+          (error 'kafka-error
+                 :description
+                 (format nil "Unexpected result type, expected: `~A`"
+                         ',,result)))
         ,res)))
 
 (defun config-op-p (op)
