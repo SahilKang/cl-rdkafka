@@ -30,3 +30,25 @@
      (format stream (description condition))))
   (:documentation
    "Generic condition signalled by cl-rdkafka for expected errors."))
+
+(define-condition topic+partition-error (kafka-error)
+  ((topic
+    :initarg :topic
+    :initform (error "Must supply topic")
+    :reader topic
+    :type string
+    :documentation "Topic name.")
+   (partition
+    :initarg :partition
+    :initform (error "Must supply partition")
+    :reader partition
+    :type integer
+    :documentation "Topic partition."))
+  (:report
+   (lambda (condition stream)
+     (format stream "Encountered error `~A` for topic:partition `~A:~A`"
+             (description condition)
+             (topic condition)
+             (partition condition))))
+  (:documentation
+   "Condition signalled for errors specific to a topic's partition."))

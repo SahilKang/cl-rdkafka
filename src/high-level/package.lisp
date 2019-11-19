@@ -48,4 +48,5 @@
    #:get-conf
 
    #:kafka-error
-   #:description))
+   #:description
+   #:topic+partition-error))
