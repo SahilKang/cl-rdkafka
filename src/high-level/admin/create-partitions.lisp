@@ -31,8 +31,10 @@
                     errstr
                     errstr-len)))
       (when (cffi:null-pointer-p newpart)
-        (error "~&Failed to allocated newpart pointer: ~S"
-               (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))
+        (error 'allocation-error
+               :name "newpart"
+               :description (cffi:foreign-string-to-lisp
+                             errstr :max-chars (1- errstr-len))))
       newpart)))
 
 (defun %create-partitions
