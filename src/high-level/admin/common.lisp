@@ -32,8 +32,11 @@
               errstr
               errstr-len)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error "~&Failed to set request timeout of admin-options: ~S"
-             (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))))
+      (error 'kafka-error
+             :description
+             (format nil "Failed to set request timeout of admin-options: `~A`"
+                     (cffi:foreign-string-to-lisp
+                      errstr :max-chars (1- errstr-len)))))))
 
 (defun set-validate (admin-options validatep errstr errstr-len)
   (let ((err (cl-rdkafka/ll:rd-kafka-adminoptions-set-validate-only
