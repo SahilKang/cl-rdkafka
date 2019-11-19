@@ -162,8 +162,10 @@ be nil if no previous message existed):
                                  errstr
                                  +errstr-len+))
         (when (cffi:null-pointer-p rd-kafka-consumer)
-          (error "~&Failed to allocate new consumer: ~S"
-                 (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+)))))
+          (error 'allocation-error
+                 :name "consumer"
+                 :description (cffi:foreign-string-to-lisp
+                               errstr :max-chars +errstr-len+)))))
     (setf ks (or key-serde serde)
           vs (or value-serde serde))
     (tg:finalize
