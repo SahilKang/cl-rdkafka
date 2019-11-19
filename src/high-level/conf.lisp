@@ -59,10 +59,13 @@
         errstr-len)
      (unless (set-rd-kafka-conf rd-kafka-conf key value errstr errstr-len)
        ,(let ((error-form
-               '(error "~&Failed to set conf name ~S to ~S: ~S"
-                 key
-                 value
-                 (cffi:foreign-string-to-lisp errstr :max-chars errstr-len))))
+               '(error 'kafka-error
+                       :description
+                       (format nil "Failed to set conf name `~A` to `~A`: `~A`"
+                               key
+                               value
+                               (cffi:foreign-string-to-lisp
+                                errstr :max-chars errstr-len)))))
           (if old-version-p
               `(unless (set-rd-kafka-topic-conf rd-kafka-topic-conf
                                                 key
