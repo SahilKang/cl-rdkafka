@@ -26,7 +26,7 @@
 (defun alloc-rd-kafka-topic-conf ()
   (let ((handle (cl-rdkafka/ll:rd-kafka-topic-conf-new)))
     (when (cffi:null-pointer-p handle)
-      (error "~&Failed to allocate new rd-kafka-topic-conf"))
+      (error 'allocation-error :name "rd-kafka-topic-conf"))
     handle))
 
 (defun set-rd-kafka-conf (rd-kafka-conf key value errstr errstr-len)
