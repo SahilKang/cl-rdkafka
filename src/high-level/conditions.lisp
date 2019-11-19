@@ -52,3 +52,26 @@
              (partition condition))))
   (:documentation
    "Condition signalled for errors specific to a topic's partition."))
+
+(define-condition allocation-error (storage-condition)
+  ((name
+    :initarg :name
+    :initform (error "Must supply name")
+    :reader name
+    :type string
+    :documentation
+    "Name of the object that failed to be allocated.")
+   (description
+    :initarg :description
+    :initform nil
+    :reader description
+    :type string
+    :documentation
+    "Details about why the allocation may have failed."))
+  (:report
+   (lambda (condition stream)
+     (format stream "Failed to allocate new `~A`~@[: `~A`~]"
+             (name condition)
+             (description condition))))
+  (:documentation
+   "Condition signalled when librdkafka functions fail to allocate pointers."))

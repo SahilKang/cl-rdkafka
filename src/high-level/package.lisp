@@ -45,4 +45,6 @@
 
    #:kafka-error
    #:description
-   #:topic+partition-error))
+   #:topic+partition-error
+   #:allocation-error
+   #:name))
