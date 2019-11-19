@@ -257,36 +257,6 @@ be nil if no previous message existed):
           (push (cons topic partition) alist-to-return))
         alist-to-return))))
 
-(define-condition committed-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description")
-    :reader description)
-   (topic+partitions
-    :initarg :topic+partitions
-    :initform (error "Must supply topic+partitions")
-    :reader topic+partitions)
-   (topic
-    :initarg :topic
-    :initform nil
-    :reader topic
-    :documentation
-    "This is set only when the error is specific to a topic+partition.")
-   (partition
-    :initarg :partition
-    :initform nil
-    :reader partition
-    :documentation
-    "This is set only when the error is specific to a topic+partition."))
-  (:report
-   (lambda (c s)
-     (format s "~&Committed Error~@[ for ~S:~]~@[~S~] :: ~S"
-             (topic c)
-             (partition c)
-             (description c))))
-  (:documentation
-   "Condition signalled when consumer's committed method fails."))
-
 (defmethod committed ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
@@ -300,20 +270,18 @@ be nil if no previous message existed):
                   60000))
             alist-to-return)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'committed-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                 :topic+partitions topic+partitions))
+          (error 'kafka-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
         (foreach-toppar
             toppar-list
             (topic partition offset metadata metadata-size err)
           (let (skip-p)
             (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-              (cerror (format nil "Skip ~A:~A and continue with other topic:partitions."
+              (cerror (format nil "Don't include `~A:~A` in the returned alist."
                               topic
                               partition)
-                      'committed-error
+                      'topic+partition-error
                       :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                      :topic+partitions topic+partitions
                       :topic topic
                       :partition partition)
               (setf skip-p t))
