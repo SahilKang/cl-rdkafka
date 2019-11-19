@@ -134,7 +134,10 @@
     (loop
        for (k v) on plist by #'cddr
        unless v
-       do (error "~&Odd number of key-val pairs: missing value for key ~S" k)
+       do (error 'kafka-error
+                 :description
+                 (format nil "Odd number of key-val pairs: missing value for key `~A`"
+                         k))
        else do (set-keyval k v))))
 
 (defmethod make-conf ((map list))
