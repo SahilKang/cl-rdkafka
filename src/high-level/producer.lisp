@@ -72,8 +72,10 @@ sent to kafka cluster."))
                                  errstr
                                  +errstr-len+))
         (when (cffi:null-pointer-p rd-kafka-producer)
-          (error "~&Failed to allocate new producer: ~S"
-                 (cffi:foreign-string-to-lisp errstr :max-chars +errstr-len+)))))
+          (error 'allocation-error
+                 :name "producer"
+                 :description (cffi:foreign-string-to-lisp
+                               errstr :max-chars +errstr-len+)))))
     (setf ks (or key-serde serde)
           vs (or value-serde serde))
     (tg:finalize
