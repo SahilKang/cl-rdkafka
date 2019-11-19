@@ -329,6 +329,10 @@ be nil if no previous message existed):
     :initarg :description
     :initform (error "Must supply description")
     :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions)
    (topic
     :initarg :topic
     :initform nil
@@ -364,7 +368,8 @@ be nil if no previous message existed):
             alist-to-return)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'committed-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))
         (foreach-toppar
             toppar-list
             (topic partition offset metadata metadata-size err)
@@ -375,6 +380,7 @@ be nil if no previous message existed):
                               partition)
                       'committed-error
                       :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                      :topic+partitions topic+partitions
                       :topic topic
                       :partition partition)
               (setf skip-p t))
