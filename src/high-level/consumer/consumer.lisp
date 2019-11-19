@@ -253,16 +253,7 @@ be nil if no previous message existed):
                              timeout-ms)))
       (unwind-protect
            (unless (cffi:null-pointer-p rd-kafka-message)
-             (restart-case
-                 (rd-kafka-message->message rd-kafka-message
-                                            key-serde
-                                            value-serde)
-               (use-value (value)
-                 :report "Specify a value to return from poll."
-                 :interactive (lambda ()
-                                (format t "Enter a value to return: ")
-                                (list (read)))
-                 value)))
+             (rd-kafka-message->message rd-kafka-message key-serde value-serde))
         (unless (cffi:null-pointer-p rd-kafka-message)
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
@@ -270,7 +261,11 @@ be nil if no previous message existed):
   ((description
     :initarg :description
     :initform (error "Must supply description.")
-    :reader description))
+    :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions))
   (:report
    (lambda (c s)
      (format s "~&Commit Error: ~S" (description c))))
@@ -279,30 +274,28 @@ be nil if no previous message existed):
 
 (defmethod commit ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
-    (restart-case
-        (with-toppar-list
-            toppar-list
-            (if (null topic+partitions)
-                (cffi:null-pointer)
-                (alloc-toppar-list topic+partitions
-                                   :topic #'caar
-                                   :partition #'cdar
-                                   :offset (lambda (pair)
-                                             (if (consp (cdr pair))
-                                                 (cadr pair)
-                                                 (cdr pair)))
-                                   :metadata (lambda (pair)
-                                               (when (consp (cdr pair))
-                                                 (cddr pair)))))
-          (let ((err (cl-rdkafka/ll:rd-kafka-commit
-                      rd-kafka-consumer
-                      toppar-list
-                      0)))
-            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-              (error 'commit-error
-                     :description (cl-rdkafka/ll:rd-kafka-err2str err)))))
-      (continue ()
-        :report "Return from commit as if it did not signal a condition."))))
+    (with-toppar-list
+        toppar-list
+        (if (null topic+partitions)
+            (cffi:null-pointer)
+            (alloc-toppar-list topic+partitions
+                               :topic #'caar
+                               :partition #'cdar
+                               :offset (lambda (pair)
+                                         (if (consp (cdr pair))
+                                             (cadr pair)
+                                             (cdr pair)))
+                               :metadata (lambda (pair)
+                                           (when (consp (cdr pair))
+                                             (cddr pair)))))
+      (let ((err (cl-rdkafka/ll:rd-kafka-commit
+                  rd-kafka-consumer
+                  toppar-list
+                  0)))
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (error 'commit-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))))))
 
 (define-condition assignment-error (error)
   ((description
@@ -336,6 +329,10 @@ be nil if no previous message existed):
     :initarg :description
     :initform (error "Must supply description")
     :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions)
    (topic
     :initarg :topic
     :initform nil
@@ -371,39 +368,43 @@ be nil if no previous message existed):
             alist-to-return)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'committed-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))
         (foreach-toppar
             toppar-list
             (topic partition offset metadata metadata-size err)
-          (restart-case
-              (progn
-                (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                  (error 'committed-error
-                         :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                         :topic topic
-                         :partition partition))
-                (let ((meta (unless (cffi:null-pointer-p metadata)
-                              (pointer->bytes metadata metadata-size))))
-                  (push `((,topic . ,partition) . (,offset . ,meta))
-                        alist-to-return)))
-            (skip ()
-              :report (lambda (s)
-                        (format s "Skip this bad topic:partition ~A:~A"
-                                topic
-                                partition))
-              :test (lambda (c)
-                      (typep c 'committed-error))
-              nil)))
+          (let (skip-p)
+            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+              (cerror (format nil "Skip ~A:~A and continue with other topic:partitions."
+                              topic
+                              partition)
+                      'committed-error
+                      :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                      :topic+partitions topic+partitions
+                      :topic topic
+                      :partition partition)
+              (setf skip-p t))
+            (unless skip-p
+              (let ((meta (unless (cffi:null-pointer-p metadata)
+                            (pointer->bytes metadata metadata-size))))
+                (push `((,topic . ,partition) . (,offset . ,meta))
+                      alist-to-return)))))
         alist-to-return))))
 
 (define-condition assign-error (error)
   ((description
     :initarg :description
     :initform (error "Must supply description")
-    :reader description))
+    :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions))
   (:report
    (lambda (c s)
-     (format s "~&Assign Error: ~S" (description c))))
+     (format s "~&Encountered error ~S when assigning ~S"
+             (description c)
+             (topic+partitions c))))
   (:documentation
    "Condition signalled when consumer's assign method fails."))
 
@@ -415,11 +416,46 @@ be nil if no previous message existed):
       (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'assign-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))))))
 
 (defmethod member-id ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
     (cl-rdkafka/ll:rd-kafka-memberid rd-kafka-consumer)))
+
+(define-condition pause-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions)
+   (topic
+    :initarg :topic
+    :initform nil
+    :reader topic
+    :documentation
+    "This is set only when the error is specific to a topic+partition.")
+   (partition
+    :initarg :partition
+    :initform nil
+    :reader partition
+    :documentation
+    "This is set only when the error is specific to a topic+partition."))
+  (:report
+   (lambda (c s)
+     (if (topic c)
+         (format s "~&Encountered error ~S when pausing ~A:~A"
+                 (description c)
+                 (topic c)
+                 (partition c))
+         (format s "~&Encountered error ~S when pausing ~S"
+                 (description c)
+                 (topic+partitions c)))))
+  (:documentation
+   "Condition signalled when consumer's pause method fails."))
 
 (defmethod pause ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
@@ -430,17 +466,53 @@ be nil if no previous message existed):
                   rd-kafka-consumer
                   toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to pause paritions: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'pause-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))
         ;; rd-kafka-pause-partitions will set the err field of
         ;; each struct in rd-list, so let's make sure no per
         ;; topic-partition errors occurred
         (foreach-toppar toppar-list (err topic partition)
           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-            (error "~&Error pausing topic|partition ~S|~S: ~S"
-                   topic
-                   partition
-                   (cl-rdkafka/ll:rd-kafka-err2str err))))))))
+            (cerror "Continue checking pause status of other topic+partitions."
+                    'pause-error
+                    :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                    :topic+partitions topic+partitions
+                    :topic topic
+                    :partition partition)))))))
+
+(define-condition resume-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions
+    :documentation "Only set when error is not specific to a topic+partition.")
+   (topic
+    :initarg :topic
+    :initform nil
+    :reader topic
+    :documentation "Only set when error is specific to a topic+partition.")
+   (partition
+    :initarg :partition
+    :initform nil
+    :reader partition
+    :documentation "Only set when error is specific to a topic+partition."))
+  (:report
+   (lambda (c s)
+     (if (topic c)
+         (format s "~&Encountered error ~S when resuming ~A:~A"
+                 (description c)
+                 (topic c)
+                 (partition c))
+         (format s "~&Encountered error ~S when resuming ~S"
+                 (description c)
+                 (topic+partitions c)))))
+  (:documentation
+   "Condition signalled when consumer's resume method fails."))
 
 (defmethod resume ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
@@ -451,14 +523,39 @@ be nil if no previous message existed):
                   rd-kafka-consumer
                   toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to resume partitions: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'resume-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))
         (foreach-toppar toppar-list (err topic partition)
           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-            (error "~&Error resuming topic|partition ~S|~S: ~S"
-                   topic
-                   partition
-                   (cl-rdkafka/ll:rd-kafka-err2str err))))))))
+            (cerror "Continue checking resume status of other topic+partitions."
+                    'resume-error
+                    :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                    :topic+partitions topic+partitions
+                    :topic topic
+                    :partition partition)))))))
+
+(define-condition query-watermark-offsets-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic
+    :initarg :topic
+    :initform (error "Must supply topic")
+    :reader topic)
+   (partition
+    :initarg :partition
+    :initform (error "Must supply partition")
+    :reader partition))
+  (:report
+   (lambda (c s)
+     (format s "~&Encountered error ~S when querying ~A:~A for watermark offsets."
+             (description c)
+             (topic c)
+             (partition c))))
+  (:documentation
+   "Condition signalled when consumer's query-watermark-offsets method fails."))
 
 (defmethod query-watermark-offsets
     ((consumer consumer)
@@ -475,10 +572,52 @@ be nil if no previous message existed):
                   high
                   timeout-ms)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to query offsets: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'query-watermark-offsets-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic topic
+                 :partition partition))
         (list (cffi:mem-ref low :int64)
               (cffi:mem-ref high :int64))))))
+
+(define-condition offsets-for-times-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (timestamps
+    :initarg :timestamps
+    :initform (error "Must supply timestamps")
+    :reader timestamps
+    :documentation
+    "An alist of all ((topic . partition) . timestamp) pairs queried for.")
+   (topic
+    :initarg :topic
+    :initform nil
+    :reader topic
+    :documentation "Set only when the error is specific to a topic+partition.")
+   (partition
+    :initarg :partition
+    :initform nil
+    :reader partition
+    :documentation "Set only when the error is specific to a topic+partition.")
+   (timestamp
+    :initarg :timestamp
+    :initform nil
+    :reader timestamp
+    :documentation "Set only when the error is specific to a topic+partition."))
+  (:report
+   (lambda (c s)
+     (if (topic c)
+         (format s "~&Encountered error ~S when searching ~A:~A for an offset with timestamp >= ~A"
+                 (description c)
+                 (topic c)
+                 (partition c)
+                 (timestamp c))
+         (format s "~&Encountered error ~S when querying offsets for ~S"
+                 (description c)
+                 (timestamps c)))))
+  (:documentation
+   "Condition signalled when consumer's offsets-for-times method fails."))
 
 (defmethod offsets-for-times
     ((consumer consumer)
@@ -494,16 +633,58 @@ be nil if no previous message existed):
                   timeout-ms))
             alist-to-return)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to get offsets for times: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'offsets-for-times-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :timestamps timestamps))
         (foreach-toppar toppar-list (topic partition offset err)
-          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-            (error "~&Error getting offset for topic|partition ~S|~S: ~S"
-                   topic
-                   partition
-                   (cl-rdkafka/ll:rd-kafka-err2str err)))
-          (push `((,topic . ,partition) . ,offset) alist-to-return))
+          (let (skip-p)
+            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+              (cerror (format nil "Skip ~A:~A and continue with other topic:partitions."
+                              topic
+                              partition)
+                      'offsets-for-times-error
+                      :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                      :timestamps timestamps
+                      :topic topic
+                      :partition partition
+                      :timestamp (cdr (assoc (cons topic partition)
+                                             timestamps
+                                             :test #'equal)))
+              (setf skip-p t))
+            (unless skip-p
+              (push `((,topic . ,partition) . ,offset) alist-to-return))))
         alist-to-return))))
+
+(define-condition positions-error (error)
+  ((description
+    :initarg :description
+    :initform (error "Must supply description")
+    :reader description)
+   (topic+partitions
+    :initarg :topic+partitions
+    :initform (error "Must supply topic+partitions")
+    :reader topic+partitions)
+   (topic
+    :initarg :topic
+    :initform nil
+    :reader topic
+    :documentation "Set only when the error is specific to a topic+partition.")
+   (partition
+    :initarg :partition
+    :initform nil
+    :reader partition
+    :documentation "Set only when the error is specific to a topic+partition."))
+  (:report
+   (lambda (c s)
+     (if (topic c)
+         (format s "~&Encountered error ~S when querying position for ~A:~A"
+                 (description c)
+                 (topic c)
+                 (partition c))
+         (format s "~&Encountered error ~S when querying for positions"
+                 (description c)))))
+  (:documentation
+   "Condition signalled when consumer's positions method fails."))
 
 (defmethod positions ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
@@ -515,17 +696,25 @@ be nil if no previous message existed):
                   toppar-list))
             alist-to-return)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error "~&Failed to get positions: ~S"
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error 'positions-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                 :topic+partitions topic+partitions))
         (foreach-toppar toppar-list (topic partition offset err)
-          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-            (error "~&Error getting position for topic|partition ~S|~S: ~S"
-                   topic
-                   partition
-                   (cl-rdkafka/ll:rd-kafka-err2str err)))
-          (push
-           (cons `(,topic . ,partition)
-                 (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
-                   offset))
-           alist-to-return))
+          (let (skip-p)
+            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+              (cerror (format nil "Skip ~A:~A and continue with other topic:partitions."
+                              topic
+                              partition)
+                      'positions-error
+                      :topic+partitions topic+partitions
+                      :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                      :topic topic
+                      :partition partition)
+              (setf skip-p t))
+            (unless skip-p
+              (push
+               (cons `(,topic . ,partition)
+                     (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
+                       offset))
+               alist-to-return))))
         alist-to-return))))
