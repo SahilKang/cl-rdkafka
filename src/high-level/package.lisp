@@ -28,7 +28,7 @@
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign #:member-id
    #:pause #:resume #:query-watermark-offsets #:offsets-for-times
-   #:positions #:commit-error #:assign-error #:poll-error
+   #:positions #:assign-error #:poll-error
    #:assignment-error #:committed-error
    #:pause-error #:resume-error
    #:query-watermark-offsets-error #:offsets-for-times-error

@@ -217,21 +217,6 @@ be nil if no previous message existed):
         (unless (cffi:null-pointer-p rd-kafka-message)
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
-(define-condition commit-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description.")
-    :reader description)
-   (topic+partitions
-    :initarg :topic+partitions
-    :initform (error "Must supply topic+partitions")
-    :reader topic+partitions))
-  (:report
-   (lambda (c s)
-     (format s "~&Commit Error: ~S" (description c))))
-  (:documentation
-   "Condition signalled when consumer's commit method fails."))
-
 (defmethod commit ((consumer consumer) &optional topic+partitions)
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
@@ -253,9 +238,8 @@ be nil if no previous message existed):
                   toppar-list
                   0)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'commit-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                 :topic+partitions topic+partitions))))))
+          (error 'kafka-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
 
 (define-condition assignment-error (error)
   ((description
