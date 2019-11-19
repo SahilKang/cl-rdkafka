@@ -30,7 +30,7 @@
    #:pause #:resume #:query-watermark-offsets #:offsets-for-times
    #:positions #:commit-error #:assign-error #:poll-error
    #:subscription-error #:assignment-error #:committed-error
-   #:unsubscribe-error #:pause-error #:resume-error
+   #:pause-error #:resume-error
    #:query-watermark-offsets-error #:offsets-for-times-error
    #:positions-error
 
