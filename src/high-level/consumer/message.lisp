@@ -134,8 +134,10 @@
                 headers)))
       (unless (or (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                   (eq err cl-rdkafka/ll:rd-kafka-resp-err--noent))
-        (error "~&Failed to get message headers: ~S"
-               (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (error 'kafka-error
+               :description
+               (format nil "Failed to get message headers: `~A`"
+                       (cl-rdkafka/ll:rd-kafka-err2str err))))
       (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
 
