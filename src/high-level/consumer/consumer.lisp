@@ -188,24 +188,13 @@ be nil if no previous message existed):
         (error 'kafka-error
                :description (cl-rdkafka/ll:rd-kafka-err2str err))))))
 
-(define-condition subscription-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description.")
-    :reader description))
-  (:report
-   (lambda (c s)
-     (format s "~&Subscription Error: ~S" (description c))))
-  (:documentation
-   "Condition signalled when consumer's subscription method fails."))
-
 (defun %subscription (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)
     (let ((err (cl-rdkafka/ll:rd-kafka-subscription
                 rd-kafka-consumer
                 rd-list)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error 'subscription-error
+        (error 'kafka-error
                :description (cl-rdkafka/ll:rd-kafka-err2str err)))
       (cffi:mem-ref rd-list :pointer))))
 
