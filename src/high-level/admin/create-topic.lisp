@@ -37,8 +37,10 @@ validated by the broker without the topic actually being created."))
                      errstr
                      errstr-len)))
       (when (cffi:null-pointer-p newtopic)
-        (error "~&Failed to allocate newtopic pointer: ~S"
-               (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))
+        (error 'allocation-error
+               :name "newtopic"
+               :description (cffi:foreign-string-to-lisp
+                             errstr :max-chars (1- errstr-len))))
       newtopic)))
 
 (defun set-conf (newtopic conf)
