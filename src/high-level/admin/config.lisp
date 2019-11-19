@@ -101,8 +101,10 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
                          name
                          value)))
                (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                 (error "~&Failed to set config: ~S"
-                        (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+                 (error 'kafka-error
+                        :description
+                        (format nil "Failed to set config: `~A`"
+                                (cl-rdkafka/ll:rd-kafka-err2str err))))))))
        alist))
 
 (defun %alter-config (rd-kafka-client name config timeout-ms)
