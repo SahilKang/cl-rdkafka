@@ -34,7 +34,7 @@
    #:query-watermark-offsets-error #:offsets-for-times-error
    #:positions-error
 
-   #:producer #:produce #:flush #:produce-error #:flush-error
+   #:producer #:produce #:flush #:produce-error
 
    #:create-topic
    #:delete-topic
