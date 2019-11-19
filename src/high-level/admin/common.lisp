@@ -150,7 +150,12 @@ POINTER symbol is bound to each array elem for BODY to use."
        for name = (,get-name pointer)
 
        unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error "~&Failed to perform ~S on ~S: ~S" ',result name errstr)
+       do (error 'kafka-error
+                 :description
+                 (format nil "Failed to perform `~A` on `~A`: `~A`"
+                         ',result
+                         name
+                         errstr))
 
        when (config-op-p ',result)
        collect (get-config-data pointer))))
