@@ -166,9 +166,10 @@ The returned alist looks something like:
                  topic-name
                  (cffi:null-pointer))))
     (when (cffi:null-pointer-p handle)
-      (error "~&Failed to allocate topic object: ~A"
-             (cl-rdkafka/ll:rd-kafka-err2str
-              (cl-rdkafka/ll:rd-kafka-last-error))))
+      (error 'allocation-error
+             :name "topic"
+             :description (cl-rdkafka/ll:rd-kafka-err2str
+                           (cl-rdkafka/ll:rd-kafka-last-error))))
     handle))
 
 (def-admin-methods
