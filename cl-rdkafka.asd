@@ -39,9 +39,10 @@
             ((:file "package")
              (:file "common" :depends-on ("package"))
              (:file "conf" :depends-on ("common"))
-             (:file "producer" :depends-on ("conf"))
+             (:file "conditions" :depends-on ("package"))
+             (:file "producer" :depends-on ("conf" "conditions"))
              (:module "consumer"
-                      :depends-on ("common" "conf")
+                      :depends-on ("common" "conf" "conditions")
                       :components
                       ((:file "toppar")
                        (:file "message")

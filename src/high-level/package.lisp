@@ -45,4 +45,7 @@
    #:group-info
    #:cluster-id
    #:controller-id
-   #:get-conf))
+   #:get-conf
+
+   #:kafka-error
+   #:description))
