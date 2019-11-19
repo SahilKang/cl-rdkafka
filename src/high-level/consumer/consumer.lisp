@@ -306,40 +306,6 @@ be nil if no previous message existed):
   (with-slots (rd-kafka-consumer) consumer
     (cl-rdkafka/ll:rd-kafka-memberid rd-kafka-consumer)))
 
-(define-condition pause-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description")
-    :reader description)
-   (topic+partitions
-    :initarg :topic+partitions
-    :initform (error "Must supply topic+partitions")
-    :reader topic+partitions)
-   (topic
-    :initarg :topic
-    :initform nil
-    :reader topic
-    :documentation
-    "This is set only when the error is specific to a topic+partition.")
-   (partition
-    :initarg :partition
-    :initform nil
-    :reader partition
-    :documentation
-    "This is set only when the error is specific to a topic+partition."))
-  (:report
-   (lambda (c s)
-     (if (topic c)
-         (format s "~&Encountered error ~S when pausing ~A:~A"
-                 (description c)
-                 (topic c)
-                 (partition c))
-         (format s "~&Encountered error ~S when pausing ~S"
-                 (description c)
-                 (topic+partitions c)))))
-  (:documentation
-   "Condition signalled when consumer's pause method fails."))
-
 (defmethod pause ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
@@ -349,18 +315,16 @@ be nil if no previous message existed):
                   rd-kafka-consumer
                   toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'pause-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                 :topic+partitions topic+partitions))
+          (error 'kafka-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
         ;; rd-kafka-pause-partitions will set the err field of
         ;; each struct in rd-list, so let's make sure no per
         ;; topic-partition errors occurred
         (foreach-toppar toppar-list (err topic partition)
           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
             (cerror "Continue checking pause status of other topic+partitions."
-                    'pause-error
+                    'topic+partition-error
                     :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                    :topic+partitions topic+partitions
                     :topic topic
                     :partition partition)))))))
 
