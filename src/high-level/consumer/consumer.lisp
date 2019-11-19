@@ -172,32 +172,14 @@ be nil if no previous message existed):
        (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
        (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))))
 
-(define-condition subscribe-error (error)
-  ((description
-    :initarg :description
-    :initform (error "Must supply description")
-    :reader description)
-   (topics
-    :initarg :topics
-    :initform (error "Must supply topics")
-    :reader topics))
-  (:report
-   (lambda (c s)
-     (format s "~&Encountered error ~S when subscribing to topics ~S"
-             (description c)
-             (topics c))))
-  (:documentation
-   "Condition signalled when consumer's subscribe method fails."))
-
 (defmethod subscribe ((consumer consumer) topics)
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list toppar-list (alloc-toppar-list topics)
       (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
                                                    toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'subscribe-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                 :topics topics))))))
+          (error 'kafka-error
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
 
 (define-condition unsubscribe-error (error)
   ((description
