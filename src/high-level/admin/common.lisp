@@ -45,8 +45,11 @@
               errstr
               errstr-len)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error "~&Failed to set validate-only to true/false: ~S"
-             (cffi:foreign-string-to-lisp errstr :max-chars (1- errstr-len))))))
+      (error 'kafka-error
+             :description
+             (format nil "Failed to set validate-only of admin-options: `~A`"
+                     (cffi:foreign-string-to-lisp
+                      errstr :max-chars (1- errstr-len)))))))
 
 
 (defun make-queue (rd-kafka-client)
