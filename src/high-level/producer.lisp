@@ -98,10 +98,15 @@ sent to kafka cluster."))
                      (length name)
                      value-pointer
                      (length value))))
+           ;; this should never return an error...however, those are
+           ;; famous last words, so let's check the return value
+           ;; anyway like the good engineers that we are
            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-             (error "~&Failed to set header value for ~S: ~S"
-                    name
-                    (cl-rdkafka/ll:rd-kafka-err2str err))))
+             (error 'kafka-error
+                    :description
+                    (format nil "Failed to set header value for `~A`: `~A`"
+                            name
+                            (cl-rdkafka/ll:rd-kafka-err2str err)))))
       (cffi:foreign-free value-pointer))))
 
 (defun make-headers (alist)
