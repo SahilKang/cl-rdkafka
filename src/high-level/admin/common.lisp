@@ -179,7 +179,8 @@ POINTER symbol is bound to each array elem for BODY to use."
                 (setf ,event (cl-rdkafka/ll:rd-kafka-queue-poll ,queue 2000))
                 (when (cffi:null-pointer-p ,event)
                   (setf ,event nil)
-                  (error "~&Failed to get event from queue"))
+                  (error 'kafka-error
+                         :description "Failed to get event from queue"))
                 (assert-successful-event ,event ,op))
            (when ,event
              (cl-rdkafka/ll:rd-kafka-event-destroy ,event))
