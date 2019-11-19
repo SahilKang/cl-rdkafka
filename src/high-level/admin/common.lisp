@@ -22,7 +22,7 @@
                         rd-kafka-client
                         cl-rdkafka/ll:rd-kafka-admin-op-any)))
     (when (cffi:null-pointer-p admin-options)
-      (error "~&Failed to allocate new admin-options pointer"))
+      (error 'allocation-error :name "admin-options"))
     admin-options))
 
 (defun set-timeout (admin-options timeout-ms errstr errstr-len)
