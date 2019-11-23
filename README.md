@@ -191,11 +191,9 @@ Here are a few examples for the `kf` package:
 ;;                           (:port . 9092))))
 ;;     (:topic-metadata . (((:topic . "interesting-topic-name")
 ;;                          (:partitions . (((:id . 0)
-;;                                           (:err . nil)
 ;;                                           (:leader . 1001)
 ;;                                           (:replicas . (1001))
-;;                                           (:in-sync-replicas . (1001)))))
-;;                          (:err . nil)))))
+;;                                           (:in-sync-replicas . (1001)))))))))
 ```
 
 ### Describe Groups

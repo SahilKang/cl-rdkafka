@@ -248,11 +248,9 @@
                                        (:port . 9092))))
                  (:topic-metadata . (((:topic . ,topic)
                                       (:partitions . (((:id . 0)
-                                                       (:err . nil)
                                                        (:leader . 1001)
                                                        (:replicas . (1001))
-                                                       (:in-sync-replicas . (1001)))))
-                                      (:err . nil)))))
+                                                       (:in-sync-replicas . (1001)))))))))
                (kf:cluster-metadata consumer topic)))))
 
 (test cluster-metadata-with-producer
@@ -269,11 +267,9 @@
                                        (:port . 9092))))
                  (:topic-metadata . (((:topic . ,topic)
                                       (:partitions . (((:id . 0)
-                                                       (:err . nil)
                                                        (:leader . 1001)
                                                        (:replicas . (1001))
-                                                       (:in-sync-replicas . (1001)))))
-                                      (:err . nil)))))
+                                                       (:in-sync-replicas . (1001)))))))))
                (kf:cluster-metadata producer topic)))))
 
 
