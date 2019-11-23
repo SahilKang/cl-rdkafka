@@ -20,17 +20,16 @@
 (defgeneric group-info
     (client group &key timeout-ms)
   (:documentation
-   "Return group info about GROUP in alist format.
+   "Return group info about GROUP as a list of alists.
 
-The second boolean value indicates if some brokers failed to respond
-in time.
+The second boolean return value indicates if some brokers failed to
+respond in time.
 
 GROUP can be either:
-  * a string indicating which group to return info for; a single alist
-    is returned in this case.
-  * nil, in which case info for all groups is returned as a list of alists.
+  * a string indicating which group to return info for.
+  * nil, in which case info for all groups is returned.
 
-The alists look something like:
+Each alist looks something like:
 ((:GROUP . \"clever-group-name-to-showcase-my-creative-personality\")
  (:BROKER (:ID . 1001)
           (:HOST . \"127.0.0.1\")
@@ -174,8 +173,7 @@ The alists look something like:
     group-info
     (client (group string) &key (timeout-ms 5000))
   (cffi:with-foreign-string (group group)
-    (first
-     (%group-info pointer group timeout-ms))))
+    (%group-info pointer group timeout-ms)))
 
 (def-admin-methods
     group-info

@@ -292,7 +292,7 @@
     (kf:subscribe consumer-2 (list topic))
     (sleep 2)
 
-    (let ((group-info (kf:group-info consumer-1 group-1)))
+    (let ((group-info (first (kf:group-info consumer-1 group-1))))
       (is (string= group-1 (cdr (assoc :group group-info)))))
 
     (let ((group-info (kf:group-info consumer-1 nil)))
@@ -330,7 +330,7 @@
     (kf:subscribe consumer-2 (list topic))
     (sleep 2)
 
-    (let ((group-info (kf:group-info producer group-1)))
+    (let ((group-info (first (kf:group-info producer group-1))))
       (is (string= group-1 (cdr (assoc :group group-info)))))
 
     (let ((group-info (kf:group-info producer nil)))
