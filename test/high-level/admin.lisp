@@ -248,11 +248,9 @@
                                        (:port . 9092))))
                  (:topic-metadata . (((:topic . ,topic)
                                       (:partitions . (((:id . 0)
-                                                       (:err . nil)
                                                        (:leader . 1001)
                                                        (:replicas . (1001))
-                                                       (:in-sync-replicas . (1001)))))
-                                      (:err . nil)))))
+                                                       (:in-sync-replicas . (1001)))))))))
                (kf:cluster-metadata consumer topic)))))
 
 (test cluster-metadata-with-producer
@@ -269,11 +267,9 @@
                                        (:port . 9092))))
                  (:topic-metadata . (((:topic . ,topic)
                                       (:partitions . (((:id . 0)
-                                                       (:err . nil)
                                                        (:leader . 1001)
                                                        (:replicas . (1001))
-                                                       (:in-sync-replicas . (1001)))))
-                                      (:err . nil)))))
+                                                       (:in-sync-replicas . (1001)))))))))
                (kf:cluster-metadata producer topic)))))
 
 
@@ -296,7 +292,7 @@
     (kf:subscribe consumer-2 (list topic))
     (sleep 2)
 
-    (let ((group-info (kf:group-info consumer-1 group-1)))
+    (let ((group-info (first (kf:group-info consumer-1 group-1))))
       (is (string= group-1 (cdr (assoc :group group-info)))))
 
     (let ((group-info (kf:group-info consumer-1 nil)))
@@ -334,7 +330,7 @@
     (kf:subscribe consumer-2 (list topic))
     (sleep 2)
 
-    (let ((group-info (kf:group-info producer group-1)))
+    (let ((group-info (first (kf:group-info producer group-1))))
       (is (string= group-1 (cdr (assoc :group group-info)))))
 
     (let ((group-info (kf:group-info producer nil)))

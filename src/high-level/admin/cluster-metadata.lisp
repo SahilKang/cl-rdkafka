@@ -35,11 +35,9 @@ The returned alist looks something like:
                        (:port . 9092))))
  (:topic-metadata . (((:topic . \"topic-name\")
                       (:partitions . (((:id . 0)
-                                       (:err . nil)
                                        (:leader . 1001)
                                        (:replicas . (1001))
-                                       (:in-sync-replicas . (1001)))))
-                      (:err . nil)))))"))
+                                       (:in-sync-replicas . (1001)))))))))"))
 
 ;; TODO think about switching timeout-ms from a keyword arg to an
 ;; optional arg for these admin methods
@@ -73,7 +71,7 @@ The returned alist looks something like:
      collect (mapcar #'cons '(:id :host :port) (list id host port))))
 
 (defun parse-partitions-metadata (topic-metadata)
-  "Return a list of (:id :err :leader :replicas :in-sync-replicas) alists."
+  "Return a list of (:id :leader :replicas :in-sync-replicas) alists."
   (flet ((parse-list (struct array-symbol count-symbol)
            (loop
               with count = (getf struct count-symbol)
@@ -82,6 +80,7 @@ The returned alist looks something like:
               for elt = (cffi:mem-aref array :int32 i)
               collect elt)))
     (loop
+       with topic-name = (getf topic-metadata 'cl-rdkafka/ll:topic)
        with count = (getf topic-metadata 'cl-rdkafka/ll:partition-cnt)
        with partitions = (getf topic-metadata 'cl-rdkafka/ll:partitions)
 
@@ -92,24 +91,30 @@ The returned alist looks something like:
                         i)
 
        for id = (getf partition 'cl-rdkafka/ll:id)
-       ;; TODO should signal an error instead of keeping it as a field
-       for err = (let ((err (getf partition 'cl-rdkafka/ll:err)))
-                   (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                     (cl-rdkafka/ll:rd-kafka-err2str err)))
-       for leader = (getf partition 'cl-rdkafka/ll:leader)
-       for replicas = (parse-list partition
-                                  'cl-rdkafka/ll:replicas
-                                  'cl-rdkafka/ll:replica-cnt)
-       for in-sync-replicas = (parse-list partition
-                                          'cl-rdkafka/ll:isrs
-                                          'cl-rdkafka/ll:isr-cnt)
+       for err = (getf partition 'cl-rdkafka/ll:err)
 
+       if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
        collect (mapcar #'cons
-                       '(:id :err :leader :replicas :in-sync-replicas)
-                       (list id err leader replicas in-sync-replicas)))))
+                       '(:id :leader :replicas :in-sync-replicas)
+                       (list id
+                             (getf partition 'cl-rdkafka/ll:leader)
+                             (parse-list partition
+                                         'cl-rdkafka/ll:replicas
+                                         'cl-rdkafka/ll:replica-cnt)
+                             (parse-list partition
+                                         'cl-rdkafka/ll:isrs
+                                         'cl-rdkafka/ll:isr-cnt)))
+       else do
+         (cerror (format nil "Skip `~A:~A` and continue with others."
+                         topic-name
+                         id)
+                 'topic+partition-error
+                 :topic topic-name
+                 :partition id
+                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))
 
 (defun parse-topic-metadata (metadata)
-  "Return a list of (:topic :partitions :err) alists."
+  "Return a list of (:topic :partitions) alists."
   (loop
      with count = (getf metadata 'cl-rdkafka/ll:topic-cnt)
      with topics = (getf metadata 'cl-rdkafka/ll:topics)
@@ -121,13 +126,19 @@ The returned alist looks something like:
                   i)
 
      for name = (getf topic 'cl-rdkafka/ll:topic)
-     for partitions = (parse-partitions-metadata topic)
-     ;; TODO should signal an error instead of keeping it as a field
-     for err = (let ((err (getf topic 'cl-rdkafka/ll:err)))
-                 (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                   (cl-rdkafka/ll:rd-kafka-err2str err)))
+     for err = (getf topic 'cl-rdkafka/ll:err)
 
-     collect (mapcar #'cons '(:topic :partitions :err) (list name partitions err))))
+     if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+     collect (mapcar #'cons
+                     '(:topic :partitions)
+                     (list name (parse-partitions-metadata topic)))
+     else do
+       (cerror (format nil "Skip topic `~A` and continue with others." name)
+               'kafka-error
+               :description
+               (format nil "Broker error for topic `~A`: `~A`"
+                       name
+                       (cl-rdkafka/ll:rd-kafka-err2str err)))))
 
 (defun parse-cluster-metadata (metadata)
   "Returns a (:originating-broker :broker-metadata :topic-metadata) alist."

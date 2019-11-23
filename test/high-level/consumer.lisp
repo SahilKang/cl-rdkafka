@@ -126,7 +126,7 @@
     (sleep 2)
 
     (let ((member-id (kf:member-id consumer))
-          (group-info (kf:group-info consumer group)))
+          (group-info (first (kf:group-info consumer group))))
       (is (find member-id
                 (cdr (assoc :members group-info))
                 :test #'string=

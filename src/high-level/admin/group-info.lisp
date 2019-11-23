@@ -20,17 +20,16 @@
 (defgeneric group-info
     (client group &key timeout-ms)
   (:documentation
-   "Return group info about GROUP in alist format.
+   "Return group info about GROUP as a list of alists.
 
-The second boolean value indicates if some brokers failed to respond
-in time.
+The second boolean return value indicates if some brokers failed to
+respond in time.
 
 GROUP can be either:
-  * a string indicating which group to return info for; a single alist
-    is returned in this case.
-  * nil, in which case info for all groups is returned as a list of alists.
+  * a string indicating which group to return info for.
+  * nil, in which case info for all groups is returned.
 
-The alists look something like:
+Each alist looks something like:
 ((:GROUP . \"clever-group-name-to-showcase-my-creative-personality\")
  (:BROKER (:ID . 1001)
           (:HOST . \"127.0.0.1\")
@@ -47,8 +46,7 @@ The alists look something like:
         0 0 0 1 0 0 0 0 0 0 0 0))
    (:ASSIGNMENT
     . #(0 0 0 0 0 1 0 15 102 111 111 45 98 97 114 45 116 111 112 105 99 45 51
-        0 0 0 1 0 0 0 0 0 0 0 0))))
- (:ERR))"))
+        0 0 0 1 0 0 0 0 0 0 0 0)))))"))
 
 
 (defun parse-broker-group-info (group-info)
@@ -102,21 +100,17 @@ The alists look something like:
      collect (parse-member-info member)))
 
 (defun parse-group-info (group-info)
-  ;; TODO should I signal these errors instead of returning them?
   (let ((group (getf group-info 'cl-rdkafka/ll:group))
         (broker (parse-broker-group-info group-info))
-        
         (state (getf group-info 'cl-rdkafka/ll:state))
         (protocol-type (getf group-info 'cl-rdkafka/ll:protocol-type))
         (protocol (getf group-info 'cl-rdkafka/ll:protocol))
         (members (parse-members-group-info group-info))
-        (err (let ((err (getf group-info 'cl-rdkafka/ll:err)))
-               (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                 (cl-rdkafka/ll:rd-kafka-err2str err)))))
+        (err (getf group-info 'cl-rdkafka/ll:err)))
     (mapcar
      #'cons
-     '(:group :broker :state :protocol-type :protocol :members :err)
-     (list group broker state protocol-type protocol members err))))
+     '(:err :group :broker :state :protocol-type :protocol :members)
+     (list err group broker state protocol-type protocol members))))
 
 (defun parse-group-list (group-list)
   (loop
@@ -124,12 +118,30 @@ The alists look something like:
      with groups = (getf group-list 'cl-rdkafka/ll:groups)
 
      for i below count
-     for group = (cffi:mem-aref
-                  groups
-                  '(:struct cl-rdkafka/ll:rd-kafka-group-info)
-                  i)
+     for group =  (cffi:mem-aref
+                   groups
+                   '(:struct cl-rdkafka/ll:rd-kafka-group-info)
+                   i)
+     for group-info =
+       (let* ((group-info (parse-group-info group))
+              (err (cdr (assoc :err group-info))))
+         (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+             (delete :err group-info :key #'car)
+             (let ((group (cdr (assoc :group group-info)))
+                   (broker (cdr (assoc :broker group-info))))
+               (cerror
+                (format nil "Skip group `~A` from broker `~A` and continue with others."
+                        group
+                        broker)
+                'kafka-error
+                :description
+                (format nil "Broker `~A` returned error for group `~A`: `~A`"
+                        broker
+                        group
+                        (cl-rdkafka/ll:rd-kafka-err2str err))))))
 
-     collect (parse-group-info group)))
+     when group-info
+     collect group-info))
 
 (defun %group-info (rd-kafka-client group-pointer timeout-ms)
   (cffi:with-foreign-object (group-list :pointer)
@@ -161,8 +173,7 @@ The alists look something like:
     group-info
     (client (group string) &key (timeout-ms 5000))
   (cffi:with-foreign-string (group group)
-    (first
-     (%group-info pointer group timeout-ms))))
+    (%group-info pointer group timeout-ms)))
 
 (def-admin-methods
     group-info
