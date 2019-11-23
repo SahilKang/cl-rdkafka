@@ -224,8 +224,7 @@ Here are a few examples for the `kf` package:
 ;;            0 0 0 1 0 0 0 0 0 0 0 0))
 ;;       (:ASSIGNMENT
 ;;     .    #(0 0 0 0 0 1 0 15 102 111 111 45 98 97 114 45 116 111 112 105 99 45 51
-;;            0 0 0 1 0 0 0 0 0 0 0 0))))
-;;     (:ERR))
+;;            0 0 0 1 0 0 0 0 0 0 0 0)))))
 ```
 
 # Contributing and Hacking
