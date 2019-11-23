@@ -21,11 +21,11 @@
   ((rd-kafka-consumer
     :documentation "Pointer to rd_kafka_t struct.")
    (key-serde
-    :initform nil
-    :documentation "Function to map byte vector to object, or nil for bytes.")
+    :type function
+    :documentation "Function to map byte vector to object.")
    (value-serde
-    :initform nil
-    :documentation "Function to map byte vector to object, or nil for bytes."))
+    :type function
+    :documentation "Function to map byte vector to object."))
   (:documentation
    "A client that consumes messages from kafka topics.
 
@@ -152,7 +152,7 @@ be nil if no previous message existed):
   ((\"topic\" . partition) . offset)"))
 
 (defmethod initialize-instance :after
-    ((consumer consumer) &key conf serde key-serde value-serde)
+    ((consumer consumer) &key conf (serde #'identity) key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
     (with-conf rd-kafka-conf conf
       (cffi:with-foreign-object (errstr :char +errstr-len+)
