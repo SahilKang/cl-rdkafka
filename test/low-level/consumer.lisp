@@ -18,7 +18,7 @@
 (in-package #:cl-user)
 
 (defpackage #:test/low-level/consumer
-  (:use #:cl #:cffi #:cl-rdkafka/low-level #:1am))
+  (:use #:cl #:cl-rdkafka/low-level #:1am))
 
 (in-package #:test/low-level/consumer)
 
@@ -28,18 +28,18 @@
                                      :fill-pointer 0))
 
 (defun consume-message (rk-message)
-  (let* ((*rk-message (mem-ref rk-message '(:struct rd-kafka-message)))
+  (let* ((*rk-message (cffi:mem-ref rk-message '(:struct rd-kafka-message)))
          (err (getf *rk-message 'cl-rdkafka/ll:err))
          (len (getf *rk-message 'cl-rdkafka/ll:len))
          (payload (getf *rk-message 'cl-rdkafka/ll:payload)))
     (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (let ((message (foreign-string-to-lisp payload :max-chars len)))
+      (let ((message (cffi:foreign-string-to-lisp payload :max-chars len)))
         (vector-push-extend message *messages*)))))
 
 (defun make-conf (group-id errstr errstr-len)
   (let ((conf (rd-kafka-conf-new)))
     (rd-kafka-conf-set conf "group.id" group-id errstr errstr-len)
-    (rd-kafka-conf-set conf "enable.partition.eof" "true" (null-pointer) 0)
+    (rd-kafka-conf-set conf "enable.partition.eof" "true" (cffi:null-pointer) 0)
     conf))
 
 (defun make-topic-conf (conf errstr errstr-len)
@@ -78,13 +78,13 @@
 
 (defun consume (consumer)
   (let ((message (rd-kafka-consumer-poll consumer 5000)))
-    (unless (null-pointer-p message)
+    (unless (cffi:null-pointer-p message)
       (consume-message message)
       (rd-kafka-message-destroy message))))
 
 (defun init (group-id brokers topics)
   (let (conf topic-conf consumer&topic+partitions (errstr-len 512))
-    (with-foreign-object (errstr :char errstr-len)
+    (cffi:with-foreign-object (errstr :char errstr-len)
       (setf conf (make-conf group-id errstr errstr-len)
             topic-conf (make-topic-conf conf errstr errstr-len)
 
