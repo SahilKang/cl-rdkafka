@@ -18,18 +18,18 @@
 (in-package #:cl-user)
 
 (defpackage #:test/low-level/producer
-  (:use #:cl #:cl-rdkafka/low-level #:1am))
+  (:use #:cl #:1am))
 
 (in-package #:test/low-level/producer)
 
 (defun make-conf (brokers errstr errstr-len)
-  (let ((conf (rd-kafka-conf-new)))
+  (let ((conf (cl-rdkafka/ll:rd-kafka-conf-new)))
     (if (eq 'cl-rdkafka/ll:rd-kafka-conf-ok
-            (rd-kafka-conf-set conf
-                               "bootstrap.servers"
-                               brokers
-                               errstr
-                               errstr-len))
+            (cl-rdkafka/ll:rd-kafka-conf-set conf
+                                             "bootstrap.servers"
+                                             brokers
+                                             errstr
+                                             errstr-len))
         conf
         (error (format nil
                        "make-conf failed with: ~A~%"
@@ -38,10 +38,11 @@
                         :max-chars (- errstr-len 1)))))))
 
 (defun make-producer (conf errstr errstr-len)
-  (let ((producer (rd-kafka-new cl-rdkafka/ll:rd-kafka-producer
-                                conf
-                                errstr
-                                errstr-len)))
+  (let ((producer (cl-rdkafka/ll:rd-kafka-new
+                   cl-rdkafka/ll:rd-kafka-producer
+                   conf
+                   errstr
+                   errstr-len)))
     (unless producer
       (error (format nil
                      "Failed to create new producer: ~A~%"
@@ -49,12 +50,14 @@
     producer))
 
 (defun make-topic (producer topic-name)
-  (let ((topic (rd-kafka-topic-new producer topic-name (cffi:null-pointer))))
+  (let ((topic (cl-rdkafka/ll:rd-kafka-topic-new
+                producer topic-name (cffi:null-pointer))))
     (unless topic
-      (rd-kafka-destroy producer)
+      (cl-rdkafka/ll:rd-kafka-destroy producer)
       (error (format nil
                      "Failed to create topic object: ~A~%"
-                     (rd-kafka-err2str (rd-kafka-last-error)))))
+                     (cl-rdkafka/ll:rd-kafka-err2str
+                      (cl-rdkafka/ll:rd-kafka-last-error)))))
     topic))
 
 (defun init (brokers topic-name)
@@ -66,14 +69,15 @@
     (list producer topic)))
 
 (defun produce-buf (topic buf len)
-  (rd-kafka-produce topic
-                    rd-kafka-partition-ua
-                    rd-kafka-msg-f-copy
-                    buf
-                    len
-                    (cffi:null-pointer)
-                    0
-                    (cffi:null-pointer)))
+  (cl-rdkafka/ll:rd-kafka-produce
+   topic
+   cl-rdkafka/ll:rd-kafka-partition-ua
+   cl-rdkafka/ll:rd-kafka-msg-f-copy
+   buf
+   len
+   (cffi:null-pointer)
+   0
+   (cffi:null-pointer)))
 
 (defun produce (producer topic message)
   (cffi:with-foreign-string (buf message)
@@ -81,9 +85,10 @@
       (error (format nil
                      "Failed to produce message ~A to topic ~A: ~A~%"
                      message
-                     (rd-kafka-topic-name topic)
-                     (rd-kafka-err2str (rd-kafka-last-error))))))
-  (rd-kafka-poll producer 0))
+                     (cl-rdkafka/ll:rd-kafka-topic-name topic)
+                     (cl-rdkafka/ll:rd-kafka-err2str
+                      (cl-rdkafka/ll:rd-kafka-last-error))))))
+  (cl-rdkafka/ll:rd-kafka-poll producer 0))
 
 (test producer
   (let ((topic-name "producer-test-topic")
@@ -93,9 +98,9 @@
       (mapcar (lambda (message)
                 (produce producer topic message))
               expected)
-      (rd-kafka-flush producer 5000)
-      (rd-kafka-topic-destroy topic)
-      (rd-kafka-destroy producer))
+      (cl-rdkafka/ll:rd-kafka-flush producer 5000)
+      (cl-rdkafka/ll:rd-kafka-topic-destroy topic)
+      (cl-rdkafka/ll:rd-kafka-destroy producer))
     (is (equal expected (uiop:run-program
                          (format nil "kafkacat -Ce -b '~A' -t '~A'"
                                  bootstrap-servers
