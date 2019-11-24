@@ -25,13 +25,16 @@ functions.")
 
 (defun pointer->bytes (pointer length)
   "Copies cffi :pointer bytes into a byte vector."
-  (let ((vector (make-array length :element-type '(unsigned-byte 8))))
-    (loop
-       for i below length
+  (loop
+     with vector = (make-array length
+                               :element-type '(unsigned-byte 8)
+                               :fill-pointer 0)
 
-       for byte = (cffi:mem-aref pointer :uint8 i)
-       do (setf (elt vector i) byte))
-    vector))
+     for i below length
+     for byte = (cffi:mem-aref pointer :uint8 i)
+     do (vector-push byte vector)
+
+     finally (return vector)))
 
 (defun bytes->pointer (bytes)
   "Allocates and returns a new uint8 pointer to BYTES."

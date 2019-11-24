@@ -21,11 +21,11 @@
   ((rd-kafka-producer
     :documentation "Pointer to rd_kafka_t struct.")
    (key-serde
-    :initform nil
-    :documentation "Function to map object to byte vector, or nil for identity.")
+    :type serializer
+    :documentation "Serializer to map object to byte sequence.")
    (value-serde
-    :initform nil
-    :documentation "Function to map object to byte vector, or nil for identity."))
+    :type serializer
+    :documentation "Serializer to map object to byte sequence."))
   (:documentation
    "A client that produces messages to kafka topics.
 
@@ -59,7 +59,7 @@ HEADERS should be an alist of (string . byte-vector) pairs."))
 sent to kafka cluster."))
 
 (defmethod initialize-instance :after
-    ((producer producer) &key conf serde key-serde value-serde)
+    ((producer producer) &key conf (serde #'identity) key-serde value-serde)
   (with-slots (rd-kafka-producer
                (ks key-serde)
                (vs value-serde))
@@ -76,18 +76,17 @@ sent to kafka cluster."))
                  :name "producer"
                  :description (cffi:foreign-string-to-lisp
                                errstr :max-chars +errstr-len+)))))
-    (setf ks (or key-serde serde)
-          vs (or value-serde serde))
+    (setf ks (make-instance 'serializer
+                            :name "key-serde"
+                            :function (or key-serde serde))
+          vs (make-instance 'serializer
+                            :name "value-serde"
+                            :function (or value-serde serde)))
     (tg:finalize
      producer
      (lambda ()
        (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer 5000)
        (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)))))
-
-(defun ->bytes (object serde)
-  (if (functionp serde)
-      (funcall serde object)
-      object))
 
 (defun add-header (headers name value)
   (let ((value-pointer (bytes->pointer value)))
@@ -175,8 +174,8 @@ sent to kafka cluster."))
      value
      &key (key nil key-p) partition headers)
   (with-slots (rd-kafka-producer key-serde value-serde) producer
-    (let ((key-bytes (if key-p (->bytes key key-serde) (vector)))
-          (value-bytes (->bytes value value-serde))
+    (let ((key-bytes (if key-p (apply-serde key-serde key) (vector)))
+          (value-bytes (apply-serde value-serde value))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
       (unwind-protect
            (%produce rd-kafka-producer

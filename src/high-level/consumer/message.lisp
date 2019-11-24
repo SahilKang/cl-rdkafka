@@ -141,12 +141,6 @@
       (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
 
-;; TODO add restarts here when serde signals a condition
-(defun apply-serde (serde bytes)
-  (if (functionp serde)
-      (funcall serde bytes)
-      bytes))
-
 (defun rd-kafka-message->message (rd-kafka-message key-serde value-serde)
   (let* ((*rd-kafka-message (cffi:mem-ref
                              rd-kafka-message
