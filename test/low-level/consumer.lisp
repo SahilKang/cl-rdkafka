@@ -18,7 +18,7 @@
 (in-package #:cl-user)
 
 (defpackage #:test/low-level/consumer
-  (:use #:cl #:cl-rdkafka/low-level #:1am))
+  (:use #:cl #:1am))
 
 (in-package #:test/low-level/consumer)
 
@@ -28,7 +28,9 @@
                                      :fill-pointer 0))
 
 (defun consume-message (rk-message)
-  (let* ((*rk-message (cffi:mem-ref rk-message '(:struct rd-kafka-message)))
+  (let* ((*rk-message (cffi:mem-ref
+                       rk-message
+                       '(:struct cl-rdkafka/ll:rd-kafka-message)))
          (err (getf *rk-message 'cl-rdkafka/ll:err))
          (len (getf *rk-message 'cl-rdkafka/ll:len))
          (payload (getf *rk-message 'cl-rdkafka/ll:payload)))
@@ -37,50 +39,49 @@
         (vector-push-extend message *messages*)))))
 
 (defun make-conf (group-id errstr errstr-len)
-  (let ((conf (rd-kafka-conf-new)))
-    (rd-kafka-conf-set conf "group.id" group-id errstr errstr-len)
-    (rd-kafka-conf-set conf "enable.partition.eof" "true" (cffi:null-pointer) 0)
+  (let ((conf (cl-rdkafka/ll:rd-kafka-conf-new)))
+    (cl-rdkafka/ll:rd-kafka-conf-set
+     conf "group.id" group-id errstr errstr-len)
+    (cl-rdkafka/ll:rd-kafka-conf-set
+     conf "enable.partition.eof" "true" (cffi:null-pointer) 0)
     conf))
 
 (defun make-topic-conf (conf errstr errstr-len)
-  (let ((topic-conf (rd-kafka-topic-conf-new)))
-    (rd-kafka-topic-conf-set topic-conf
-                             "offset.store.method"
-                             "broker"
-                             errstr
-                             errstr-len)
-    (rd-kafka-topic-conf-set topic-conf
-                             "auto.offset.reset"
-                             "earliest"
-                             errstr
-                             errstr-len)
-    (rd-kafka-conf-set-default-topic-conf conf topic-conf)))
+  (let ((topic-conf (cl-rdkafka/ll:rd-kafka-topic-conf-new)))
+    (cl-rdkafka/ll:rd-kafka-topic-conf-set
+     topic-conf "offset.store.method" "broker" errstr errstr-len)
+    (cl-rdkafka/ll:rd-kafka-topic-conf-set
+     topic-conf "auto.offset.reset" "earliest" errstr errstr-len)
+    (cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf conf topic-conf)))
 
 (defun make-topic+partition-list (topics)
-  (let ((topic+partitions (rd-kafka-topic-partition-list-new (length topics))))
+  (let ((topic+partitions (cl-rdkafka/ll:rd-kafka-topic-partition-list-new
+                           (length topics))))
     (loop
        for topic in topics
-       do (rd-kafka-topic-partition-list-add topic+partitions topic -1))
+       do (cl-rdkafka/ll:rd-kafka-topic-partition-list-add
+           topic+partitions topic -1))
     topic+partitions))
 
 (defun make-consumer (conf brokers topics errstr errstr-len)
-  (let* ((consumer (rd-kafka-new cl-rdkafka/ll:rd-kafka-consumer
-                                 conf
-                                 errstr
-                                 errstr-len))
+  (let* ((consumer (cl-rdkafka/ll:rd-kafka-new
+                    cl-rdkafka/ll:rd-kafka-consumer
+                    conf
+                    errstr
+                    errstr-len))
          (topic+partitions (make-topic+partition-list topics)))
     (unless consumer
       (error (format nil "Failed to create new consumer: ~A~%" errstr)))
-    (rd-kafka-brokers-add consumer brokers)
-    (rd-kafka-poll-set-consumer consumer)
-    (rd-kafka-subscribe consumer topic+partitions)
+    (cl-rdkafka/ll:rd-kafka-brokers-add consumer brokers)
+    (cl-rdkafka/ll:rd-kafka-poll-set-consumer consumer)
+    (cl-rdkafka/ll:rd-kafka-subscribe consumer topic+partitions)
     (list consumer topic+partitions)))
 
 (defun consume (consumer)
-  (let ((message (rd-kafka-consumer-poll consumer 5000)))
+  (let ((message (cl-rdkafka/ll:rd-kafka-consumer-poll consumer 5000)))
     (unless (cffi:null-pointer-p message)
       (consume-message message)
-      (rd-kafka-message-destroy message))))
+      (cl-rdkafka/ll:rd-kafka-message-destroy message))))
 
 (defun init (group-id brokers topics)
   (let (conf topic-conf consumer&topic+partitions (errstr-len 512))
@@ -93,9 +94,9 @@
     consumer&topic+partitions))
 
 (defun destroy (consumer topic+partitions)
-  (rd-kafka-consumer-close consumer)
-  (rd-kafka-topic-partition-list-destroy topic+partitions)
-  (rd-kafka-destroy consumer))
+  (cl-rdkafka/ll:rd-kafka-consumer-close consumer)
+  (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy topic+partitions)
+  (cl-rdkafka/ll:rd-kafka-destroy consumer))
 
 (test consumer
   (let ((bootstrap-servers "kafka:9092")
