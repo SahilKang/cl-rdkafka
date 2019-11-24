@@ -18,7 +18,7 @@
 (in-package #:cl-user)
 
 (defpackage #:test/low-level/producer
-  (:use #:cl #:cffi #:cl-rdkafka/low-level #:1am))
+  (:use #:cl #:cl-rdkafka/low-level #:1am))
 
 (in-package #:test/low-level/producer)
 
@@ -33,7 +33,7 @@
         conf
         (error (format nil
                        "make-conf failed with: ~A~%"
-                       (foreign-string-to-lisp
+                       (cffi:foreign-string-to-lisp
                         errstr
                         :max-chars (- errstr-len 1)))))))
 
@@ -49,7 +49,7 @@
     producer))
 
 (defun make-topic (producer topic-name)
-  (let ((topic (rd-kafka-topic-new producer topic-name (null-pointer))))
+  (let ((topic (rd-kafka-topic-new producer topic-name (cffi:null-pointer))))
     (unless topic
       (rd-kafka-destroy producer)
       (error (format nil
@@ -59,7 +59,7 @@
 
 (defun init (brokers topic-name)
   (let (producer topic conf (errstr-len 512))
-    (with-foreign-object (errstr :char errstr-len)
+    (cffi:with-foreign-object (errstr :char errstr-len)
       (setf conf (make-conf brokers errstr errstr-len)
             producer (make-producer conf errstr errstr-len)
             topic (make-topic producer topic-name)))
@@ -71,12 +71,12 @@
                     rd-kafka-msg-f-copy
                     buf
                     len
-                    (null-pointer)
+                    (cffi:null-pointer)
                     0
-                    (null-pointer)))
+                    (cffi:null-pointer)))
 
 (defun produce (producer topic message)
-  (with-foreign-string (buf message)
+  (cffi:with-foreign-string (buf message)
     (when (= -1 (produce-buf topic buf (length message)))
       (error (format nil
                      "Failed to produce message ~A to topic ~A: ~A~%"
