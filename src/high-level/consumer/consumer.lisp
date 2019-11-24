@@ -21,11 +21,11 @@
   ((rd-kafka-consumer
     :documentation "Pointer to rd_kafka_t struct.")
    (key-serde
-    :type function
-    :documentation "Function to map byte vector to object.")
+    :type deserializer
+    :documentation "Deserializer to map byte vector to object.")
    (value-serde
-    :type function
-    :documentation "Function to map byte vector to object."))
+    :type deserializer
+    :documentation "Deserializer to map byte vector to object."))
   (:documentation
    "A client that consumes messages from kafka topics.
 
@@ -166,8 +166,12 @@ be nil if no previous message existed):
                  :name "consumer"
                  :description (cffi:foreign-string-to-lisp
                                errstr :max-chars +errstr-len+)))))
-    (setf ks (or key-serde serde)
-          vs (or value-serde serde))
+    (setf ks (make-instance 'deserializer
+                            :name "key-serde"
+                            :function (or key-serde serde))
+          vs (make-instance 'deserializer
+                            :name "value-serde"
+                            :function (or value-serde serde)))
     (tg:finalize
      consumer
      (lambda ()

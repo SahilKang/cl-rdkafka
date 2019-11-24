@@ -21,11 +21,11 @@
   ((rd-kafka-producer
     :documentation "Pointer to rd_kafka_t struct.")
    (key-serde
-    :type function
-    :documentation "Function to map object to byte vector.")
+    :type serializer
+    :documentation "Serializer to map object to byte sequence.")
    (value-serde
-    :type function
-    :documentation "Function to map object to byte vector."))
+    :type serializer
+    :documentation "Serializer to map object to byte sequence."))
   (:documentation
    "A client that produces messages to kafka topics.
 
@@ -76,8 +76,12 @@ sent to kafka cluster."))
                  :name "producer"
                  :description (cffi:foreign-string-to-lisp
                                errstr :max-chars +errstr-len+)))))
-    (setf ks (or key-serde serde)
-          vs (or value-serde serde))
+    (setf ks (make-instance 'serializer
+                            :name "key-serde"
+                            :function (or key-serde serde))
+          vs (make-instance 'serializer
+                            :name "value-serde"
+                            :function (or value-serde serde)))
     (tg:finalize
      producer
      (lambda ()
@@ -170,8 +174,8 @@ sent to kafka cluster."))
      value
      &key (key nil key-p) partition headers)
   (with-slots (rd-kafka-producer key-serde value-serde) producer
-    (let ((key-bytes (if key-p (funcall key-serde key) (vector)))
-          (value-bytes (funcall value-serde value))
+    (let ((key-bytes (if key-p (apply-serde key-serde key) (vector)))
+          (value-bytes (apply-serde value-serde value))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
       (unwind-protect
            (%produce rd-kafka-producer

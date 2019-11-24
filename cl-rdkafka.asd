@@ -40,15 +40,16 @@
              (:file "common" :depends-on ("package"))
              (:file "conf" :depends-on ("common"))
              (:file "conditions" :depends-on ("package"))
-             (:file "producer" :depends-on ("conf" "conditions"))
+             (:file "serde" :depends-on ("package"))
+             (:file "producer" :depends-on ("conf" "conditions" "serde"))
              (:module "consumer"
-                      :depends-on ("common" "conf" "conditions")
+                      :depends-on ("conf" "conditions" "serde")
                       :components
                       ((:file "toppar")
                        (:file "message")
                        (:file "consumer" :depends-on ("toppar" "message"))))
              (:module "admin"
-                      :depends-on ("common" "consumer" "producer")
+                      :depends-on ("consumer" "producer")
                       :components
                       ((:file "common")
                        (:file "create-topic" :depends-on ("common"))
