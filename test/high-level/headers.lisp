@@ -18,22 +18,22 @@
 (in-package #:cl-user)
 
 (defpackage #:test/high-level/headers
-  (:use #:cl #:1am))
+  (:use #:cl #:1am #:test))
 
 (in-package #:test/high-level/headers)
 
 (test headers
   (let ((producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)
                    :serde (lambda (string)
                             (babel:string-to-octets string :encoding :utf-8))))
         (consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "headers-group-id"
-                           "auto.offset.reset" "earliest"
-                           "enable.partition.eof" "false")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "group.id" "headers-group-id"
+                               "auto.offset.reset" "earliest"
+                               "enable.partition.eof" "false")
                    :serde (lambda (bytes)
                             (babel:octets-to-string bytes :encoding :utf-8))))
         (topic "headers-topic")
