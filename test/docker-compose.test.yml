@@ -20,5 +20,7 @@ services:
     build:
       context: ..
       dockerfile: ./test/Dockerfile.test
+      args:
+        bootstrap_servers: "kafka:9092"
     links:
       - kafka
