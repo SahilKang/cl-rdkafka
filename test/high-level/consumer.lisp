@@ -18,18 +18,18 @@
 (in-package #:cl-user)
 
 (defpackage #:test/high-level/consumer
-  (:use #:cl #:1am))
+  (:use #:cl #:1am #:test))
 
 (in-package #:test/high-level/consumer)
 
 (test consumer-subscribe
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "consumer-subscribe-group"
-                           "enable.auto.commit" "true"
-                           "auto.offset.reset" "earliest"
-                           "offset.store.method" "broker")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "group.id" "consumer-subscribe-group"
+                               "enable.auto.commit" "true"
+                               "auto.offset.reset" "earliest"
+                               "offset.store.method" "broker")))
         (expected '("consumer-test-topic" "foobar"))
         actual)
     (kf:subscribe consumer expected)
@@ -41,10 +41,9 @@
          (= 0 (length (kf:subscription consumer)))))))
 
 (test poll
-  (let* ((bootstrap-servers "kafka:9092")
-         (consumer (make-instance
+  (let* ((consumer (make-instance
                     'kf:consumer
-                    :conf (list "bootstrap.servers" bootstrap-servers
+                    :conf (list "bootstrap.servers" *bootstrap-servers*
                                 "group.id" "consumer-poll-group"
                                 "enable.auto.commit" "true"
                                 "auto.offset.reset" "earliest"
@@ -56,7 +55,7 @@
     (uiop:run-program
      (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
              (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
-             bootstrap-servers
+             *bootstrap-servers*
              topic)
      :force-shell t
      :output nil
@@ -70,10 +69,9 @@
                            collect (kf:value message))))))
 
 (test commit
-  (let* ((bootstrap-servers "kafka:9092")
-         (consumer (make-instance
+  (let* ((consumer (make-instance
                     'kf:consumer
-                    :conf (list "bootstrap.servers" bootstrap-servers
+                    :conf (list "bootstrap.servers" *bootstrap-servers*
                                 "group.id" "consumer-commit-group"
                                 "enable.auto.commit" "false"
                                 "auto.offset.reset" "earliest"
@@ -82,7 +80,7 @@
          (topic "consumer-commit-topic"))
     (uiop:run-program
      (format nil "echo -n 'Live|Laugh|Hack' | kafkacat -P -D '|' -b '~A' -t '~A'"
-             bootstrap-servers
+             *bootstrap-servers*
              topic)
      :force-shell t
      :output nil
@@ -100,11 +98,11 @@
 (test assign
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "consumer-assign-group"
-                           "enable.auto.commit" "true"
-                           "auto.offset.reset" "earliest"
-                           "offset.store.method" "broker")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "group.id" "consumer-assign-group"
+                               "enable.auto.commit" "true"
+                               "auto.offset.reset" "earliest"
+                               "offset.store.method" "broker")))
         (topic "foobar")
         (partition 35))
     (kf:assign consumer (list (cons topic partition)))
@@ -117,7 +115,7 @@
   (let* ((group "consumer-member-id-group")
          (consumer (make-instance
                     'kf:consumer
-                    :conf (list "bootstrap.servers" "kafka:9092"
+                    :conf (list "bootstrap.servers" *bootstrap-servers*
                                 "group.id" group)))
          (topic "consumer-member-id"))
     (is (string= topic (kf:create-topic consumer topic)))
@@ -136,17 +134,17 @@
 (test consumer-pause
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "consumer-pause-group"
-                           "auto.offset.reset" "earliest"
-                           "enable.auto.commit" "false"
-                           "offset.store.method" "broker"
-                           "enable.partition.eof" "false")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "group.id" "consumer-pause-group"
+                               "auto.offset.reset" "earliest"
+                               "enable.auto.commit" "false"
+                               "offset.store.method" "broker"
+                               "enable.partition.eof" "false")
                    :serde (lambda (bytes)
                             (babel:octets-to-string bytes :encoding :utf-8))))
         (producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)
                    :serde (lambda (string)
                             (babel:string-to-octets string :encoding :utf-8))))
         (topic "consumer-pause-topic")
@@ -177,17 +175,17 @@
 (test consumer-resume
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "consumer-resume-group"
-                           "auto.offset.reset" "earliest"
-                           "enable.auto.commit" "false"
-                           "offset.store.method" "broker"
-                           "enable.partition.eof" "false")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "group.id" "consumer-resume-group"
+                               "auto.offset.reset" "earliest"
+                               "enable.auto.commit" "false"
+                               "offset.store.method" "broker"
+                               "enable.partition.eof" "false")
                    :serde (lambda (bytes)
                             (babel:octets-to-string bytes :encoding :utf-8))))
         (producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)
                    :serde (lambda (string)
                             (babel:string-to-octets string :encoding :utf-8))))
         (topic "consumer-resume-topic")
@@ -226,10 +224,10 @@
 (test query-watermark-offsets
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "query-watermark-offsets-topic"))
     (is (string= topic (kf:create-topic producer topic :partitions 2)))
     (sleep 2)
@@ -248,17 +246,17 @@
 (test offsets-for-times
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "offsets-for-times-group"
-                           "auto.offset.reset" "earliest"
-                           "enable.auto.commit" "false"
-                           "offset.store.method" "broker"
-                           "enable.partition.eof" "false")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "group.id" "offsets-for-times-group"
+                               "auto.offset.reset" "earliest"
+                               "enable.auto.commit" "false"
+                               "offset.store.method" "broker"
+                               "enable.partition.eof" "false")
                    :serde (lambda (bytes)
                             (babel:octets-to-string bytes :encoding :utf-8))))
         (producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)
                    :serde (lambda (string)
                             (babel:string-to-octets string :encoding :utf-8))))
         (topic "offsets-for-times-topic"))
@@ -301,17 +299,17 @@
 (test positions
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092"
-                           "group.id" "positions-group"
-                           "auto.offset.reset" "earliest"
-                           "enable.auto.commit" "false"
-                           "offset.store.method" "broker"
-                           "enable.partition.eof" "false")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "group.id" "positions-group"
+                               "auto.offset.reset" "earliest"
+                               "enable.auto.commit" "false"
+                               "offset.store.method" "broker"
+                               "enable.partition.eof" "false")
                    :serde (lambda (bytes)
                             (babel:octets-to-string bytes :encoding :utf-8))))
         (producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)
                    :serde (lambda (string)
                             (babel:string-to-octets string :encoding :utf-8))))
         (topic "positions-topic"))
