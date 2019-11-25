@@ -18,7 +18,7 @@
 (in-package #:cl-user)
 
 (defpackage #:test/low-level/producer
-  (:use #:cl #:1am))
+  (:use #:cl #:1am #:test))
 
 (in-package #:test/low-level/producer)
 
@@ -99,15 +99,14 @@
 
 
 (test producer
-  (let ((bootstrap-servers "kafka:9092")
-        (topic "producer-test-topic")
+  (let ((topic "producer-test-topic")
         (expected '("Hello" "World" "!"))
         (errstr-len 512)
         conf
         producer)
     (unwind-protect
          (cffi:with-foreign-object (errstr :char errstr-len)
-           (setf conf (make-conf `(("bootstrap.servers" . ,bootstrap-servers))
+           (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*))
                                  errstr
                                  errstr-len)
                  producer (make-producer conf errstr errstr-len))
@@ -120,7 +119,7 @@
                 expected)
            (flush producer)
            (is (equal expected
-                      (consume-messages bootstrap-servers topic))))
+                      (consume-messages *bootstrap-servers* topic))))
       (when conf
         (cl-rdkafka/ll:rd-kafka-conf-destroy conf))
       (when producer
