@@ -18,18 +18,19 @@
 (in-package #:cl-user)
 
 (defpackage #:test/high-level/produce->consume
-  (:use #:cl #:1am))
+  (:use #:cl #:1am #:test))
 
 (in-package #:test/high-level/produce->consume)
 
 (defvar +topic+ "test-produce-to-consume")
 
 (defun produce-messages ()
-  (let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
-         (messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
-         (producer (make-instance 'kf:producer
-                                  :conf '("bootstrap.servers" "kafka:9092")
-                                  :serde serde)))
+  (let ((producer (make-instance
+                   'kf:producer
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)
+                   :serde (lambda (x)
+                            (babel:string-to-octets x :encoding :utf-8))))
+        (messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
     (loop
        for (k v) in messages
        do (kf:produce producer +topic+ v :key k))
@@ -38,17 +39,16 @@
     messages))
 
 (defun consume-messages ()
-  (let* ((serde (lambda (x) (babel:octets-to-string x :encoding :utf-8)))
-         (conf (list "bootstrap.servers" "kafka:9092"
-                     "group.id" (write-to-string (get-universal-time))
-                     "enable.auto.commit" "false"
-                     "auto.offset.reset" "earliest"
-                     "offset.store.method" "broker"
-                     "enable.partition.eof" "false"))
-         (consumer (make-instance 'kf:consumer
-                                  :conf conf
-                                  :key-serde serde
-                                  :value-serde serde)))
+  (let ((consumer (make-instance
+                   'kf:consumer
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "group.id" "consume-messages-group-id"
+                               "enable.auto.commit" "false"
+                               "auto.offset.reset" "earliest"
+                               "offset.store.method" "broker"
+                               "enable.partition.eof" "false")
+                   :serde (lambda (x)
+                            (babel:octets-to-string x :encoding :utf-8)))))
     (kf:subscribe consumer (list +topic+))
 
     (loop
@@ -64,12 +64,5 @@
 
 (test produce->consume
   (let ((expected (produce-messages))
-        (actual (consume-messages))
-        (same-pair-p (lambda (lhs rhs)
-                       (and
-                        (= 2 (length lhs) (length rhs))
-                        (every #'string= lhs rhs)))))
-    (is
-     (and
-      (= (length expected) (length actual))
-      (every same-pair-p expected actual)))))
+        (actual (consume-messages)))
+    (is (equal expected actual))))
