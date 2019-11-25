@@ -22,20 +22,32 @@
 
 (in-package #:test/low-level/producer)
 
-(defun make-conf (brokers errstr errstr-len)
+(defun set-conf (conf key value errstr errstr-len)
+  (let ((result (cl-rdkafka/ll:rd-kafka-conf-set
+                 conf
+                 key
+                 value
+                 errstr
+                 errstr-len)))
+    (unless (eq result 'cl-rdkafka/ll:rd-kafka-conf-ok)
+      (error "Failed to set conf name `~A` to `~A`: `~A`"
+             key
+             value
+             (cffi:foreign-string-to-lisp errstr :max-chars errstr-len)))))
+
+(defun make-conf (alist errstr errstr-len)
   (let ((conf (cl-rdkafka/ll:rd-kafka-conf-new)))
-    (if (eq 'cl-rdkafka/ll:rd-kafka-conf-ok
-            (cl-rdkafka/ll:rd-kafka-conf-set conf
-                                             "bootstrap.servers"
-                                             brokers
-                                             errstr
-                                             errstr-len))
-        conf
-        (error (format nil
-                       "make-conf failed with: ~A~%"
-                       (cffi:foreign-string-to-lisp
-                        errstr
-                        :max-chars (- errstr-len 1)))))))
+    (when (cffi:null-pointer-p conf)
+      (error "Failed to allocate conf"))
+    (handler-case
+        (flet ((set-conf (kv-cons)
+                 (set-conf conf (car kv-cons) (cdr kv-cons) errstr errstr-len)))
+          (map nil #'set-conf alist)
+          conf)
+      (condition (c)
+        (cl-rdkafka/ll:rd-kafka-conf-destroy conf)
+        (error c)))))
+
 
 (defun make-producer (conf errstr errstr-len)
   (let ((producer (cl-rdkafka/ll:rd-kafka-new
@@ -43,68 +55,73 @@
                    conf
                    errstr
                    errstr-len)))
-    (unless producer
-      (error (format nil
-                     "Failed to create new producer: ~A~%"
-                     errstr)))
+    (when (cffi:null-pointer-p producer)
+      (error "Failed to allocate producer: `~A`"
+             (cffi:foreign-string-to-lisp errstr :max-chars errstr-len)))
     producer))
 
-(defun make-topic (producer topic-name)
-  (let ((topic (cl-rdkafka/ll:rd-kafka-topic-new
-                producer topic-name (cffi:null-pointer))))
-    (unless topic
-      (cl-rdkafka/ll:rd-kafka-destroy producer)
-      (error (format nil
-                     "Failed to create topic object: ~A~%"
-                     (cl-rdkafka/ll:rd-kafka-err2str
-                      (cl-rdkafka/ll:rd-kafka-last-error)))))
-    topic))
-
-(defun init (brokers topic-name)
-  (let (producer topic conf (errstr-len 512))
-    (cffi:with-foreign-object (errstr :char errstr-len)
-      (setf conf (make-conf brokers errstr errstr-len)
-            producer (make-producer conf errstr errstr-len)
-            topic (make-topic producer topic-name)))
-    (list producer topic)))
-
-(defun produce-buf (topic buf len)
-  (cl-rdkafka/ll:rd-kafka-produce
-   topic
-   cl-rdkafka/ll:rd-kafka-partition-ua
-   cl-rdkafka/ll:rd-kafka-msg-f-copy
-   buf
-   len
-   (cffi:null-pointer)
-   0
-   (cffi:null-pointer)))
-
 (defun produce (producer topic message)
-  (cffi:with-foreign-string (buf message)
-    (when (= -1 (produce-buf topic buf (length message)))
-      (error (format nil
-                     "Failed to produce message ~A to topic ~A: ~A~%"
-                     message
-                     (cl-rdkafka/ll:rd-kafka-topic-name topic)
-                     (cl-rdkafka/ll:rd-kafka-err2str
-                      (cl-rdkafka/ll:rd-kafka-last-error))))))
-  (cl-rdkafka/ll:rd-kafka-poll producer 0))
+  (unwind-protect
+       (cffi:with-foreign-string (buf message)
+         (let ((err (cl-rdkafka/ll:rd-kafka-producev
+                     producer
+
+                     :int cl-rdkafka/ll:rd-kafka-vtype-topic
+                     :string topic
+
+                     :int cl-rdkafka/ll:rd-kafka-vtype-value
+                     :pointer buf
+                     cl-rdkafka/ll:size-t (length message)
+
+                     :int cl-rdkafka/ll:rd-kafka-vtype-msgflags
+                     :int cl-rdkafka/ll:rd-kafka-msg-f-copy
+
+                     :int cl-rdkafka/ll:rd-kafka-vtype-end)))
+           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+             (error "Failed to produce message: `~A`"
+                    (cl-rdkafka/ll:rd-kafka-err2str err)))))
+    (cl-rdkafka/ll:rd-kafka-poll producer 0)))
+
+(defun flush (producer)
+  (let ((err (cl-rdkafka/ll:rd-kafka-flush producer 5000)))
+    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (if (eq err cl-rdkafka/ll:rd-kafka-resp-err--timed-out)
+          (error "Flush timed out")
+          (error "Flush error: `~A`" (cl-rdkafka/ll:rd-kafka-err2str err))))))
+
+
+(defun consume-messages (bootstrap-servers topic)
+  (uiop:run-program
+   (format nil "kafkacat -Ce -b '~A' -t '~A'" bootstrap-servers topic)
+   :force-shell t
+   :output :lines
+   :error-output nil))
+
 
 (test producer
-  (let ((topic-name "producer-test-topic")
-        (bootstrap-servers "kafka:9092")
-        (expected '("Hello" "World" "!")))
-    (destructuring-bind (producer topic) (init bootstrap-servers topic-name)
-      (mapcar (lambda (message)
-                (produce producer topic message))
-              expected)
-      (cl-rdkafka/ll:rd-kafka-flush producer 5000)
-      (cl-rdkafka/ll:rd-kafka-topic-destroy topic)
-      (cl-rdkafka/ll:rd-kafka-destroy producer))
-    (is (equal expected (uiop:run-program
-                         (format nil "kafkacat -Ce -b '~A' -t '~A'"
-                                 bootstrap-servers
-                                 topic-name)
-                         :force-shell t
-                         :output :lines
-                         :error-output nil)))))
+  (let ((bootstrap-servers "kafka:9092")
+        (topic "producer-test-topic")
+        (expected '("Hello" "World" "!"))
+        (errstr-len 512)
+        conf
+        producer)
+    (unwind-protect
+         (cffi:with-foreign-object (errstr :char errstr-len)
+           (setf conf (make-conf `(("bootstrap.servers" . ,bootstrap-servers))
+                                 errstr
+                                 errstr-len)
+                 producer (make-producer conf errstr errstr-len))
+           ;; set conf to nil because producer was successfully
+           ;; allocated and it takes ownership of conf pointer
+           (setf conf nil)
+           (map nil
+                (lambda (message)
+                  (produce producer topic message))
+                expected)
+           (flush producer)
+           (is (equal expected
+                      (consume-messages bootstrap-servers topic))))
+      (when conf
+        (cl-rdkafka/ll:rd-kafka-conf-destroy conf))
+      (when producer
+        (cl-rdkafka/ll:rd-kafka-destroy producer)))))
