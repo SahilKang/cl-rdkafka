@@ -18,7 +18,7 @@
 (in-package #:cl-user)
 
 (defpackage #:test/low-level/consumer
-  (:use #:cl #:1am))
+  (:use #:cl #:1am #:test))
 
 (in-package #:test/low-level/consumer)
 
@@ -119,18 +119,17 @@
 
 
 (test consumer
-  (let ((bootstrap-servers "kafka:9092")
-        (topic "consumer-test-topic")
+  (let ((topic "consumer-test-topic")
         (group-id "consumer-group-id")
         (expected '("Hello" "World" "!"))
         (errstr-len 512)
         conf
         consumer)
-    (produce-messages bootstrap-servers topic expected)
+    (produce-messages *bootstrap-servers* topic expected)
     (sleep 2)
     (unwind-protect
          (cffi:with-foreign-object (errstr :char errstr-len)
-           (setf conf (make-conf `(("bootstrap.servers" . ,bootstrap-servers)
+           (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*)
                                    ("group.id" . ,group-id)
                                    ("enable.auto.commit" . "false")
                                    ("auto.offset.reset" . "earliest")
