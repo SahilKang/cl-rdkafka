@@ -18,7 +18,7 @@
 (in-package #:cl-user)
 
 (defpackage #:test/high-level/producer
-  (:use #:cl #:1am))
+  (:use #:cl #:1am #:test))
 
 (in-package #:test/high-level/producer)
 
@@ -31,13 +31,13 @@
        collect (parse x))))
 
 (test producer-produce
-  (let* ((serde (lambda (x) (babel:string-to-octets x :encoding :utf-8)))
-         (bootstrap-servers "kafka:9092")
-         (topic "test-producer-produce")
-         (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
-         (producer (make-instance 'kf:producer
-                                  :conf (list "bootstrap.servers" bootstrap-servers)
-                                  :serde serde)))
+  (let ((producer (make-instance
+                   'kf:producer
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)
+                   :serde (lambda (x)
+                            (babel:string-to-octets x :encoding :utf-8))))
+        (topic "test-producer-produce")
+        (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
     (loop
        for (k v) in expected
        do (kf:produce producer topic v :key k)) ; TODO test partition here, too
@@ -49,11 +49,9 @@
             (uiop:run-program
              (format nil "kafkacat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A'"
                      #\newline
-                     bootstrap-servers
+                     *bootstrap-servers*
                      topic)
              :force-shell t
-             :output :lines
-             :error-output t
-             :ignore-error-status t))
+             :output :lines))
            (actual (parse-kafkacat kafkacat-output-lines)))
       (is (equal expected actual)))))
