@@ -18,21 +18,21 @@
 (in-package #:cl-user)
 
 (defpackage #:test/high-level/admin
-  (:use #:cl #:1am))
+  (:use #:cl #:1am #:test))
 
 (in-package #:test/high-level/admin)
 
 (defun make-sed-commmand (topic)
   (format nil "sed -En 's/^\\s+topic\\s+~S\\s+with\\s+([0-9]+).*/\\1/p'" topic))
 
-(defun make-kafkacat-command (topic)
+(defun make-kafkacat-command (bootstrap-servers topic)
   (let ((sed (make-sed-commmand topic)))
-    (format nil "kafkacat -b 'kafka:9092' -L -t '~A' | ~A" topic sed)))
+    (format nil "kafkacat -b '~A' -L -t '~A' | ~A" bootstrap-servers topic sed)))
 
-(defun get-partitions (topic)
+(defun get-partitions (bootstrap-servers topic)
   (parse-integer
    (uiop:run-program
-    (make-kafkacat-command topic)
+    (make-kafkacat-command bootstrap-servers topic)
     :force-shell t
     :output 'string)))
 
@@ -40,7 +40,7 @@
 (test create-topic-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "create-topic-with-consumer")
         (partitions 3))
     (is (string= topic (kf:create-topic consumer
@@ -48,12 +48,12 @@
                                         :partitions partitions
                                         :timeout-ms 5000)))
     (sleep 2)
-    (is (= partitions (get-partitions topic)))))
+    (is (= partitions (get-partitions *bootstrap-servers* topic)))))
 
 (test create-topic-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "create-topic-with-producer")
         (partitions 7))
     (is (string= topic (kf:create-topic producer
@@ -61,12 +61,12 @@
                                         :partitions partitions
                                         :timeout-ms 5000)))
     (sleep 2)
-    (is (= partitions (get-partitions topic)))))
+    (is (= partitions (get-partitions *bootstrap-servers* topic)))))
 
 (test create-topic-validatep
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "create-topic-with-validate-only")
         (partitions 4))
     (is (string= topic (kf:create-topic consumer
@@ -75,13 +75,13 @@
                                         :timeout-ms 5000
                                         :validate-only-p t)))
     (sleep 2)
-    (is (= 0 (get-partitions topic)))))
+    (is (= 0 (get-partitions *bootstrap-servers* topic)))))
 
 
 (test delete-topic-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "delete-topic-with-consumer")
         (partitions 7))
     (is (string= topic (kf:create-topic consumer
@@ -89,16 +89,16 @@
                                         :partitions partitions
                                         :timeout-ms 5000)))
     (sleep 2)
-    (is (= partitions (get-partitions topic)))
+    (is (= partitions (get-partitions *bootstrap-servers* topic)))
 
     (is (string= topic (kf:delete-topic consumer topic :timeout-ms 5000)))
     (sleep 2)
-    (is (= 0 (get-partitions topic)))))
+    (is (= 0 (get-partitions *bootstrap-servers* topic)))))
 
 (test delete-topic-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "delete-topic-with-producer")
         (partitions 4))
     (is (string= topic (kf:create-topic producer
@@ -106,17 +106,17 @@
                                         :partitions partitions
                                         :timeout-ms 5000)))
     (sleep 2)
-    (is (= partitions (get-partitions topic)))
+    (is (= partitions (get-partitions *bootstrap-servers* topic)))
 
     (is (string= topic (kf:delete-topic producer topic :timeout-ms 5000)))
     (sleep 2)
-    (is (= 0 (get-partitions topic)))))
+    (is (= 0 (get-partitions *bootstrap-servers* topic)))))
 
 
 (test create-partitions-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "create-partitions-with-consumer")
         (old-partitions 7)
         (new-partitions 10))
@@ -124,16 +124,16 @@
                                         topic
                                         :partitions old-partitions)))
     (sleep 2)
-    (is (= old-partitions (get-partitions topic)))
+    (is (= old-partitions (get-partitions *bootstrap-servers* topic)))
 
     (is (= new-partitions (kf:create-partitions consumer topic new-partitions)))
     (sleep 2)
-    (is (= new-partitions (get-partitions topic)))))
+    (is (= new-partitions (get-partitions *bootstrap-servers* topic)))))
 
 (test create-partitions-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "create-partitions-with-producer")
         (old-partitions 11)
         (new-partitions 20))
@@ -141,17 +141,17 @@
                                         topic
                                         :partitions old-partitions)))
     (sleep 2)
-    (is (= old-partitions (get-partitions topic)))
+    (is (= old-partitions (get-partitions *bootstrap-servers* topic)))
 
     (is (= new-partitions (kf:create-partitions producer topic new-partitions)))
     (sleep 2)
-    (is (= new-partitions (get-partitions topic)))))
+    (is (= new-partitions (get-partitions *bootstrap-servers* topic)))))
 
 
 (test describe-topic-with-consumer
   (let ((consumer (make-instance
                    'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "describe-topic-with-consumer"))
     (is (string= topic (kf:create-topic consumer topic)))
     (sleep 2)
@@ -164,7 +164,7 @@
 (test describe-topic-with-producer
   (let ((producer (make-instance
                    'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")))
+                   :conf (list "bootstrap.servers" *bootstrap-servers*)))
         (topic "describe-topic-with-producer"))
     (is (string= topic (kf:create-topic producer topic)))
     (sleep 2)
@@ -175,30 +175,34 @@
       (is (string= expected actual)))))
 
 (test describe-broker-with-consumer
-  (let* ((consumer (make-instance
-                    'kf:consumer
-                    :conf '("bootstrap.servers" "kafka:9092")))
-         (config (kf:describe-config consumer "1001" :broker)))
-    (is (string= "kafka"
-                 (cdr (assoc "advertised.host.name" config :test #'string=))))
-    (is (string= "9092"
-                 (cdr (assoc "advertised.port" config :test #'string=))))))
+  (destructuring-bind (host port)
+      (uiop:split-string *bootstrap-servers* :separator ":")
+    (let* ((consumer (make-instance
+                      'kf:consumer
+                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
+           (config (kf:describe-config consumer "1001" :broker)))
+      (is (string= host
+                   (cdr (assoc "advertised.host.name" config :test #'string=))))
+      (is (string= port
+                   (cdr (assoc "advertised.port" config :test #'string=)))))))
 
 (test describe-broker-with-producer
-  (let* ((producer (make-instance
-                    'kf:producer
-                    :conf '("bootstrap.servers" "kafka:9092")))
-         (config (kf:describe-config producer "1001" :broker)))
-    (is (string= "kafka"
-                 (cdr (assoc "advertised.host.name" config :test #'string=))))
-    (is (string= "9092"
-                 (cdr (assoc "advertised.port" config :test #'string=))))))
+  (destructuring-bind (host port)
+      (uiop:split-string *bootstrap-servers* :separator ":")
+    (let* ((producer (make-instance
+                      'kf:producer
+                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
+           (config (kf:describe-config producer "1001" :broker)))
+      (is (string= host
+                   (cdr (assoc "advertised.host.name" config :test #'string=))))
+      (is (string= port
+                   (cdr (assoc "advertised.port" config :test #'string=)))))))
 
 
 (test alter-topic-with-consumer
   (let* ((consumer (make-instance
                     'kf:consumer
-                    :conf '("bootstrap.servers" "kafka:9092")))
+                    :conf (list "bootstrap.servers" *bootstrap-servers*)))
          (topic "alter-topic-with-consumer")
          (get-actual (lambda ()
                        (cdr (assoc "message.timestamp.type"
@@ -217,7 +221,7 @@
 (test alter-topic-with-producer
   (let* ((producer (make-instance
                     'kf:producer
-                    :conf '("bootstrap.servers" "kafka:9092")))
+                    :conf (list "bootstrap.servers" *bootstrap-servers*)))
          (topic "alter-topic-with-producer")
          (get-actual (lambda ()
                        (cdr (assoc "message.timestamp.type"
@@ -235,42 +239,48 @@
 
 
 (test cluster-metadata-with-consumer
-  (let ((consumer (make-instance
-                   'kf:consumer
-                   :conf '("bootstrap.servers" "kafka:9092")))
-        (topic "cluster-metadata-with-consumer"))
-    (is (string= topic (kf:create-topic consumer topic)))
-    (sleep 2)
-    (is (equal `((:originating-broker . ((:id . 1001)
-                                         (:name . "kafka:9092/1001")))
-                 (:broker-metadata . (((:id . 1001)
-                                       (:host . "kafka")
-                                       (:port . 9092))))
-                 (:topic-metadata . (((:topic . ,topic)
-                                      (:partitions . (((:id . 0)
-                                                       (:leader . 1001)
-                                                       (:replicas . (1001))
-                                                       (:in-sync-replicas . (1001)))))))))
-               (kf:cluster-metadata consumer topic)))))
+  (destructuring-bind (host port)
+      (uiop:split-string *bootstrap-servers* :separator ":")
+    (let ((consumer (make-instance
+                     'kf:consumer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)))
+          (topic "cluster-metadata-with-consumer")
+          (broker-name (format nil "~A/1001" *bootstrap-servers*)))
+      (is (string= topic (kf:create-topic consumer topic)))
+      (sleep 2)
+      (is (equal `((:originating-broker . ((:id . 1001)
+                                           (:name . ,broker-name)))
+                   (:broker-metadata . (((:id . 1001)
+                                         (:host . ,host)
+                                         (:port . ,(parse-integer port)))))
+                   (:topic-metadata . (((:topic . ,topic)
+                                        (:partitions . (((:id . 0)
+                                                         (:leader . 1001)
+                                                         (:replicas . (1001))
+                                                         (:in-sync-replicas . (1001)))))))))
+                 (kf:cluster-metadata consumer topic))))))
 
 (test cluster-metadata-with-producer
-  (let ((producer (make-instance
-                   'kf:producer
-                   :conf '("bootstrap.servers" "kafka:9092")))
-        (topic "cluster-metadata-with-producer"))
-    (is (string= topic (kf:create-topic producer topic)))
-    (sleep 2)
-    (is (equal `((:originating-broker . ((:id . 1001)
-                                         (:name . "kafka:9092/1001")))
-                 (:broker-metadata . (((:id . 1001)
-                                       (:host . "kafka")
-                                       (:port . 9092))))
-                 (:topic-metadata . (((:topic . ,topic)
-                                      (:partitions . (((:id . 0)
-                                                       (:leader . 1001)
-                                                       (:replicas . (1001))
-                                                       (:in-sync-replicas . (1001)))))))))
-               (kf:cluster-metadata producer topic)))))
+  (destructuring-bind (host port)
+      (uiop:split-string *bootstrap-servers* :separator ":")
+    (let ((producer (make-instance
+                     'kf:producer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)))
+          (topic "cluster-metadata-with-producer")
+          (broker-name (format nil "~A/1001" *bootstrap-servers*)))
+      (is (string= topic (kf:create-topic producer topic)))
+      (sleep 2)
+      (is (equal `((:originating-broker . ((:id . 1001)
+                                           (:name . ,broker-name)))
+                   (:broker-metadata . (((:id . 1001)
+                                         (:host . ,host)
+                                         (:port . ,(parse-integer port)))))
+                   (:topic-metadata . (((:topic . ,topic)
+                                        (:partitions . (((:id . 0)
+                                                         (:leader . 1001)
+                                                         (:replicas . (1001))
+                                                         (:in-sync-replicas . (1001)))))))))
+                 (kf:cluster-metadata producer topic))))))
 
 
 (test group-info-with-consumer
@@ -278,11 +288,11 @@
          (group-2 "group-info-with-consumer-group-2")
          (consumer-1 (make-instance
                       'kf:consumer
-                      :conf (list "bootstrap.servers" "kafka:9092"
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" group-1)))
          (consumer-2 (make-instance
                       'kf:consumer
-                      :conf (list "bootstrap.servers" "kafka:9092"
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" group-2)))
          (topic "group-info-with-consumer"))
     (is (string= topic (kf:create-topic consumer-1 topic)))
@@ -313,15 +323,15 @@
          (group-2 "group-info-with-producer-group-2")
          (consumer-1 (make-instance
                       'kf:consumer
-                      :conf (list "bootstrap.servers" "kafka:9092"
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" group-1)))
          (consumer-2 (make-instance
                       'kf:consumer
-                      :conf (list "bootstrap.servers" "kafka:9092"
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" group-2)))
          (producer (make-instance
                     'kf:producer
-                    :conf '("bootstrap.servers" "kafka:9092")))
+                    :conf (list "bootstrap.servers" *bootstrap-servers*)))
          (topic "group-info-with-producer"))
     (is (string= topic (kf:create-topic producer topic)))
     (sleep 2)
@@ -348,7 +358,7 @@
 
 
 (test cluster-id
-  (let* ((conf '("bootstrap.servers" "kafka:9092"))
+  (let* ((conf (list "bootstrap.servers" *bootstrap-servers*))
          (consumer (make-instance 'kf:consumer :conf conf))
          (producer (make-instance 'kf:producer :conf conf))
          (lhs (kf:cluster-id consumer))
@@ -358,7 +368,7 @@
 
 
 (test controller-id
-  (let* ((conf '("bootstrap.servers" "kafka:9092"))
+  (let* ((conf (list "bootstrap.servers" *bootstrap-servers*))
          (consumer (make-instance 'kf:consumer :conf conf))
          (producer (make-instance 'kf:producer :conf conf))
          (lhs (kf:controller-id consumer))
