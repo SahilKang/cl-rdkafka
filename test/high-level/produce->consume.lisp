@@ -63,6 +63,7 @@
        do (kf:commit consumer))))
 
 (test produce->consume
-  (let ((expected (produce-messages))
-        (actual (consume-messages)))
-    (is (equal expected actual))))
+  (with-topics ((+topic+ +topic+))
+    (let ((expected (produce-messages))
+          (actual (consume-messages)))
+      (is (equal expected actual)))))
