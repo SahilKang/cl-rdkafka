@@ -99,28 +99,28 @@
 
 
 (test producer
-  (let ((topic "producer-test-topic")
-        (expected '("Hello" "World" "!"))
-        (errstr-len 512)
-        conf
-        producer)
-    (unwind-protect
-         (cffi:with-foreign-object (errstr :char errstr-len)
-           (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*))
-                                 errstr
-                                 errstr-len)
-                 producer (make-producer conf errstr errstr-len))
-           ;; set conf to nil because producer was successfully
-           ;; allocated and it takes ownership of conf pointer
-           (setf conf nil)
-           (map nil
-                (lambda (message)
-                  (produce producer topic message))
-                expected)
-           (flush producer)
-           (is (equal expected
-                      (consume-messages *bootstrap-servers* topic))))
-      (when conf
-        (cl-rdkafka/ll:rd-kafka-conf-destroy conf))
-      (when producer
-        (cl-rdkafka/ll:rd-kafka-destroy producer)))))
+  (with-topics ((topic "producer-test-topic"))
+    (let ((expected '("Hello" "World" "!"))
+          (errstr-len 512)
+          conf
+          producer)
+      (unwind-protect
+           (cffi:with-foreign-object (errstr :char errstr-len)
+             (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*))
+                                   errstr
+                                   errstr-len)
+                   producer (make-producer conf errstr errstr-len))
+             ;; set conf to nil because producer was successfully
+             ;; allocated and it takes ownership of conf pointer
+             (setf conf nil)
+             (map nil
+                  (lambda (message)
+                    (produce producer topic message))
+                  expected)
+             (flush producer)
+             (is (equal expected
+                        (consume-messages *bootstrap-servers* topic))))
+        (when conf
+          (cl-rdkafka/ll:rd-kafka-conf-destroy conf))
+        (when producer
+          (cl-rdkafka/ll:rd-kafka-destroy producer))))))
