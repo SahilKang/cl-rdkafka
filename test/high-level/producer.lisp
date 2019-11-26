@@ -31,27 +31,27 @@
        collect (parse x))))
 
 (test producer-produce
-  (let ((producer (make-instance
-                   'kf:producer
-                   :conf (list "bootstrap.servers" *bootstrap-servers*)
-                   :serde (lambda (x)
-                            (babel:string-to-octets x :encoding :utf-8))))
-        (topic "test-producer-produce")
-        (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
-    (loop
-       for (k v) in expected
-       do (kf:produce producer topic v :key k)) ; TODO test partition here, too
+  (with-topics ((topic "test-producer-produce"))
+    (let ((producer (make-instance
+                     'kf:producer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :serde (lambda (x)
+                              (babel:string-to-octets x :encoding :utf-8))))
+          (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
+      (loop
+         for (k v) in expected
+         do (kf:produce producer topic v :key k)) ; TODO test partition here, too
 
-    (kf:flush producer 5000)
-    (sleep 2)
+      (kf:flush producer 5000)
+      (sleep 2)
 
-    (let* ((kafkacat-output-lines
-            (uiop:run-program
-             (format nil "kafkacat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A'"
-                     #\newline
-                     *bootstrap-servers*
-                     topic)
-             :force-shell t
-             :output :lines))
-           (actual (parse-kafkacat kafkacat-output-lines)))
-      (is (equal expected actual)))))
+      (let* ((kafkacat-output-lines
+              (uiop:run-program
+               (format nil "kafkacat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A'"
+                       #\newline
+                       *bootstrap-servers*
+                       topic)
+               :force-shell t
+               :output :lines))
+             (actual (parse-kafkacat kafkacat-output-lines)))
+        (is (equal expected actual))))))
