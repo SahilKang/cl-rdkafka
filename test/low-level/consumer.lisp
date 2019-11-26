@@ -119,36 +119,36 @@
 
 
 (test consumer
-  (let ((topic "consumer-test-topic")
-        (group-id "consumer-group-id")
-        (expected '("Hello" "World" "!"))
-        (errstr-len 512)
-        conf
-        consumer)
-    (produce-messages *bootstrap-servers* topic expected)
-    (sleep 2)
-    (unwind-protect
-         (cffi:with-foreign-object (errstr :char errstr-len)
-           (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*)
-                                   ("group.id" . ,group-id)
-                                   ("enable.auto.commit" . "false")
-                                   ("auto.offset.reset" . "earliest")
-                                   ("offset.store.method" . "broker")
-                                   ("enable.partition.eof" . "false"))
-                                 errstr
-                                 errstr-len)
-                 consumer (make-consumer conf errstr errstr-len))
-           ;; set conf to nil because consumer was successfully
-           ;; allocated and it takes ownership of conf pointer
-           (setf conf nil)
-           (subscribe consumer (list topic))
-           (is (equal expected
-                      (loop
-                         repeat (length expected)
-                         collect (consume consumer)
-                         do (commit consumer)))))
-      (when conf
-        (cl-rdkafka/ll:rd-kafka-conf-destroy conf))
-      (when consumer
-        (cl-rdkafka/ll:rd-kafka-consumer-close consumer)
-        (cl-rdkafka/ll:rd-kafka-destroy consumer)))))
+  (with-topics ((topic "consumer-test-topic"))
+    (let ((group-id "consumer-group-id")
+          (expected '("Hello" "World" "!"))
+          (errstr-len 512)
+          conf
+          consumer)
+      (produce-messages *bootstrap-servers* topic expected)
+      (sleep 2)
+      (unwind-protect
+           (cffi:with-foreign-object (errstr :char errstr-len)
+             (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*)
+                                     ("group.id" . ,group-id)
+                                     ("enable.auto.commit" . "false")
+                                     ("auto.offset.reset" . "earliest")
+                                     ("offset.store.method" . "broker")
+                                     ("enable.partition.eof" . "false"))
+                                   errstr
+                                   errstr-len)
+                   consumer (make-consumer conf errstr errstr-len))
+             ;; set conf to nil because consumer was successfully
+             ;; allocated and it takes ownership of conf pointer
+             (setf conf nil)
+             (subscribe consumer (list topic))
+             (is (equal expected
+                        (loop
+                           repeat (length expected)
+                           collect (consume consumer)
+                           do (commit consumer)))))
+        (when conf
+          (cl-rdkafka/ll:rd-kafka-conf-destroy conf))
+        (when consumer
+          (cl-rdkafka/ll:rd-kafka-consumer-close consumer)
+          (cl-rdkafka/ll:rd-kafka-destroy consumer))))))
