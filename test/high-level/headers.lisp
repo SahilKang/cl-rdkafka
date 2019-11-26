@@ -23,36 +23,34 @@
 (in-package #:test/high-level/headers)
 
 (test headers
-  (let ((producer (make-instance
-                   'kf:producer
-                   :conf (list "bootstrap.servers" *bootstrap-servers*)
-                   :serde (lambda (string)
-                            (babel:string-to-octets string :encoding :utf-8))))
-        (consumer (make-instance
-                   'kf:consumer
-                   :conf (list "bootstrap.servers" *bootstrap-servers*
-                               "group.id" "headers-group-id"
-                               "auto.offset.reset" "earliest"
-                               "enable.partition.eof" "false")
-                   :serde (lambda (bytes)
-                            (babel:octets-to-string bytes :encoding :utf-8))))
-        (topic "headers-topic")
-        (expected-message "some clever message")
-        (expected-headers '(("snarky header 1" . #(2 4 6))
-                            ("cheeky header 2" . #(8 10 12))
-                            ("creative header 3" . #(14 16 18)))))
-    (is (string= topic (kf:create-topic producer topic)))
-    (sleep 2)
-    (kf:subscribe consumer (list topic))
+  (with-topics ((topic "headers-topic"))
+    (let ((producer (make-instance
+                     'kf:producer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :serde (lambda (string)
+                              (babel:string-to-octets string :encoding :utf-8))))
+          (consumer (make-instance
+                     'kf:consumer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "group.id" "headers-group-id"
+                                 "auto.offset.reset" "earliest"
+                                 "enable.partition.eof" "false")
+                     :serde (lambda (bytes)
+                              (babel:octets-to-string bytes :encoding :utf-8))))
+          (expected-message "some clever message")
+          (expected-headers '(("snarky header 1" . #(2 4 6))
+                              ("cheeky header 2" . #(8 10 12))
+                              ("creative header 3" . #(14 16 18)))))
+      (kf:subscribe consumer (list topic))
 
-    (kf:produce producer topic expected-message :headers expected-headers)
-    (kf:flush producer 5000)
+      (kf:produce producer topic expected-message :headers expected-headers)
+      (kf:flush producer 5000)
 
-    (let ((message (kf:poll consumer 5000)))
-      (is (string= expected-message (kf:value message)))
-      (map nil
-           (lambda (expected actual)
-             (is (string= (car expected) (car actual)))
-             (is (equalp (cdr expected) (cdr actual))))
-           expected-headers
-           (kf:headers message)))))
+      (let ((message (kf:poll consumer 5000)))
+        (is (string= expected-message (kf:value message)))
+        (map nil
+             (lambda (expected actual)
+               (is (string= (car expected) (car actual)))
+               (is (equalp (cdr expected) (cdr actual))))
+             expected-headers
+             (kf:headers message))))))
