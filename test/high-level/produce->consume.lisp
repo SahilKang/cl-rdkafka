@@ -22,9 +22,7 @@
 
 (in-package #:test/high-level/produce->consume)
 
-(defvar +topic+ "test-produce-to-consume")
-
-(defun produce-messages ()
+(defun produce-messages (topic)
   (let ((producer (make-instance
                    'kf:producer
                    :conf (list "bootstrap.servers" *bootstrap-servers*)
@@ -33,12 +31,12 @@
         (messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
     (loop
        for (k v) in messages
-       do (kf:produce producer +topic+ v :key k))
+       do (kf:produce producer topic v :key k))
 
     (kf:flush producer 5000)
     messages))
 
-(defun consume-messages ()
+(defun consume-messages (topic)
   (let ((consumer (make-instance
                    'kf:consumer
                    :conf (list "bootstrap.servers" *bootstrap-servers*
@@ -49,7 +47,7 @@
                                "enable.partition.eof" "false")
                    :serde (lambda (x)
                             (babel:octets-to-string x :encoding :utf-8)))))
-    (kf:subscribe consumer (list +topic+))
+    (kf:subscribe consumer (list topic))
 
     (loop
        for message = (kf:poll consumer 5000)
@@ -63,7 +61,7 @@
        do (kf:commit consumer))))
 
 (test produce->consume
-  (with-topics ((+topic+ +topic+))
-    (let ((expected (produce-messages))
-          (actual (consume-messages)))
+  (with-topics ((topic "test-produce-to-consume"))
+    (let ((expected (produce-messages topic))
+          (actual (consume-messages topic)))
       (is (equal expected actual)))))
