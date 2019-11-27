@@ -94,8 +94,7 @@
   (uiop:run-program
    (format nil "kafkacat -Ce -b '~A' -t '~A'" bootstrap-servers topic)
    :force-shell t
-   :output :lines
-   :error-output nil))
+   :output :lines))
 
 
 (test producer

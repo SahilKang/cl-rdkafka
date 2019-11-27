@@ -113,9 +113,7 @@
            (reduce (lambda (agg s) (format nil "~A|~A" agg s)) messages)
            bootstrap-servers
            topic)
-   :force-shell t
-   :output nil
-   :error-output nil))
+   :force-shell t))
 
 
 (test consumer

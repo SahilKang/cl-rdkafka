@@ -59,9 +59,7 @@
                (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
                *bootstrap-servers*
                topic)
-       :force-shell t
-       :output nil
-       :error-output nil)
+       :force-shell t)
       (sleep 2)
 
       (kf:subscribe consumer (list topic))
@@ -84,9 +82,7 @@
        (format nil "echo -n 'Live|Laugh|Hack' | kafkacat -P -D '|' -b '~A' -t '~A'"
                *bootstrap-servers*
                topic)
-       :force-shell t
-       :output nil
-       :error-output nil)
+       :force-shell t)
       (sleep 2)
 
       (kf:subscribe consumer (list topic))
