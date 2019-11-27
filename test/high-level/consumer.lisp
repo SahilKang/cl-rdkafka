@@ -32,15 +32,12 @@
                                  "enable.auto.commit" "true"
                                  "auto.offset.reset" "earliest"
                                  "offset.store.method" "broker")))
-          (expected (list topic-1 topic-2))
-          actual)
+          (expected (list topic-1 topic-2)))
       (kf:subscribe consumer expected)
-      (setf actual (sort (kf:subscription consumer) #'string<))
+      (is (equal expected (sort (kf:subscription consumer) #'string<)))
+
       (kf:unsubscribe consumer)
-      (is (and
-           (= (length expected) (length actual))
-           (every #'string= expected actual)
-           (= 0 (length (kf:subscription consumer))))))))
+      (is (zerop (length (kf:subscription consumer)))))))
 
 (test poll
   (with-topics ((topic "consumer-poll-topic"))
