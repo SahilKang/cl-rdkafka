@@ -34,20 +34,17 @@ librdkafka/rdkafka.h says that the version int should be interpreted as:
   So 0x000801ff = 0.8.1"
   (flet ((get-byte (offset)
            (let ((bits (* -1 (* 8 offset))))
-             (logand #xff (ash version-num bits))))
-         (format-pre-release (pre-release)
-           (if (= pre-release #xff)
-               ""
-               (format nil ".~A" pre-release))))
+             (logand #xff (ash version-num bits)))))
     (let ((major (get-byte 3))
           (minor (get-byte 2))
           (revision (get-byte 1))
           (pre-release (get-byte 0)))
-      (format nil "~A.~A.~A~A"
+      (format nil "~A.~A.~A~@[.~A~]"
               major
               minor
               revision
-              (format-pre-release pre-release)))))
+              (unless (= pre-release #xff)
+                pre-release)))))
 
 (test check-version-funcs
   (let ((num (cl-rdkafka/ll:rd-kafka-version))

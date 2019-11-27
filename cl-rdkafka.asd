@@ -69,12 +69,15 @@
   :perform (test-op (op sys) (uiop:symbol-call :1am :run))
   :pathname "test"
   :components
-  ((:module "low-level"
+  ((:file "common")
+   (:module "low-level"
+            :depends-on ("common")
             :components
             ((:file "unit-test")
              (:file "producer")
              (:file "consumer")))
    (:module "high-level"
+            :depends-on ("common")
             :components
             ((:file "consumer")
              (:file "producer")

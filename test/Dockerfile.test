@@ -1,5 +1,8 @@
 FROM debian:stable
 
+# kafka bootstrap.servers that tests will use
+ARG bootstrap_servers
+
 WORKDIR /root/quicklisp/local-projects/cl-rdkafka/
 
 COPY cl-rdkafka.asd version.lisp ./
@@ -15,11 +18,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
             --eval '(quicklisp-quickstart:install)' \
             --eval '(ql:quickload :cffi)' \
             --eval '(ql:quickload :cl-rdkafka/test)' \
-            --eval '(sb-ext:save-lisp-and-die \
-                      "test-image" \
+            --eval "(sb-ext:save-lisp-and-die \
+                      \"test-image\" \
                       :toplevel (lambda () \
                                   (sleep 5) \
-                                  (asdf:operate :test-op :cl-rdkafka)))' \
+                                  (let ((test:*bootstrap-servers* \"$bootstrap_servers\")) \
+                                    (asdf:operate :test-op :cl-rdkafka))))" \
             --end-toplevel-options \
     && mkdir /app \
     && mv ./test-image /app/test-image
