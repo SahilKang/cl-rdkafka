@@ -41,13 +41,13 @@
              (:file "conf" :depends-on ("common"))
              (:file "conditions" :depends-on ("package"))
              (:file "serde" :depends-on ("package"))
+             (:file "message" :depends-on ("common" "conditions" "serde"))
              (:file "producer" :depends-on ("conf" "conditions" "serde"))
              (:module "consumer"
-                      :depends-on ("conf" "conditions" "serde")
+                      :depends-on ("conf" "conditions" "serde" "message")
                       :components
                       ((:file "toppar")
-                       (:file "message")
-                       (:file "consumer" :depends-on ("toppar" "message"))))
+                       (:file "consumer" :depends-on ("toppar"))))
              (:module "admin"
                       :depends-on ("consumer" "producer")
                       :components
