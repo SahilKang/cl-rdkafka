@@ -219,7 +219,11 @@ be nil if no previous message existed):
                              timeout-ms)))
       (unwind-protect
            (unless (cffi:null-pointer-p rd-kafka-message)
-             (rd-kafka-message->message rd-kafka-message key-serde value-serde))
+             (rd-kafka-message->message rd-kafka-message
+                                        (lambda (bytes)
+                                          (apply-serde key-serde bytes))
+                                        (lambda (bytes)
+                                          (apply-serde value-serde bytes))))
         (unless (cffi:null-pointer-p rd-kafka-message)
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 

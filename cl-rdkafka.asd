@@ -41,7 +41,7 @@
              (:file "conf" :depends-on ("common"))
              (:file "conditions" :depends-on ("package"))
              (:file "serde" :depends-on ("package"))
-             (:file "message" :depends-on ("common" "conditions" "serde"))
+             (:file "message" :depends-on ("common" "conditions"))
              (:file "producer" :depends-on ("conf" "conditions" "serde"))
              (:module "consumer"
                       :depends-on ("conf" "conditions" "serde" "message")

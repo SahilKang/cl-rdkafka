@@ -141,7 +141,12 @@
       (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
 
-(defun rd-kafka-message->message (rd-kafka-message key-serde value-serde)
+(defun rd-kafka-message->message (rd-kafka-message key-function value-function)
+  "Transform a struct rd-kafka-message pointer to a MESSAGE object.
+
+KEY-FUNCTION and VALUE-FUNCTION are both unary functions that are
+expected to output the deserialized key/value given the serialized
+key/value."
   (let* ((*rd-kafka-message (cffi:mem-ref
                              rd-kafka-message
                              '(:struct cl-rdkafka/ll:rd-kafka-message)))
@@ -164,8 +169,8 @@
                      :headers (get-headers rd-kafka-message)
                      :raw-key raw-key
                      :raw-value raw-value
-                     :key (apply-serde key-serde raw-key)
-                     :value (apply-serde value-serde raw-value)))))
+                     :key (funcall key-function raw-key)
+                     :value (funcall value-function raw-value)))))
 
 (defmethod key ((message message))
   (with-slots (key raw-key) message
