@@ -41,3 +41,30 @@ functions.")
   (if (zerop (length bytes))
       (cffi:null-pointer)
       (cffi:foreign-alloc :uint8 :initial-contents bytes)))
+
+
+(defstruct (queue (:constructor make-queue ()))
+  "Good old-fashioned fifo queue."
+  (head nil :read-only t :type (or null cons))
+  (tail nil :read-only t :type (or null cons))
+  (length 0 :read-only t :type fixnum))
+
+(defmethod enqueue ((queue queue) item)
+  "Enqueue ITEM to the end of QUEUE and return new QUEUE size."
+  (with-slots (head tail length) queue
+    (if tail
+        (setf tail (cdr (rplacd tail (list item))))
+        (setf tail (list item)
+              head tail))
+    (incf length)))
+
+(defmethod dequeue ((queue queue))
+  "Dequeue the next item from the front of QUEUE."
+  (with-slots (head tail length) queue
+    (when (zerop length)
+      (error "Empty queue!"))
+    (prog1 (car head)
+      (setf head (cdr head))
+      (decf length)
+      (when (zerop length)
+        (setf tail head)))))

@@ -52,7 +52,7 @@
                       errstr :max-chars (1- errstr-len)))))))
 
 
-(defun make-queue (rd-kafka-client)
+(defun make-rd-kafka-queue (rd-kafka-client)
   (let ((queue (cl-rdkafka/ll:rd-kafka-queue-new rd-kafka-client)))
     (when (cffi:null-pointer-p queue)
       (error 'allocation-error :name "queue"))
@@ -174,7 +174,7 @@ POINTER symbol is bound to each array elem for BODY to use."
          (unwind-protect
               (progn
                 (setf (cffi:mem-aref ,array :pointer 0) ,admin-object
-                      ,queue (make-queue ,rd-kafka-client))
+                      ,queue (make-rd-kafka-queue ,rd-kafka-client))
                 (,function ,rd-kafka-client ,array 1 ,admin-options ,queue)
                 (setf ,event (cl-rdkafka/ll:rd-kafka-queue-poll ,queue 2000))
                 (when (cffi:null-pointer-p ,event)

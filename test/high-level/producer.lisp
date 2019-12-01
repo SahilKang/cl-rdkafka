@@ -55,3 +55,30 @@
                :output :lines))
              (actual (parse-kafkacat kafkacat-output-lines)))
         (is (equal expected actual))))))
+
+(test producer-promises
+  (with-topics ((topic "test-producer-promises"))
+    (let ((producer (make-instance
+                     'kf:producer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :serde #'babel:string-to-octets))
+          (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
+      (let (actual)
+        (bb:chain expected
+          (:then (messages)
+                 (mapcar (lambda (pair)
+                           (destructuring-bind (key value) pair
+                             (kf:produce producer topic value :key key)))
+                         messages))
+          (:then (promises)
+                 (kf:flush producer 5000)
+                 promises)
+          (:map (message)
+                (list (kf:key message) (kf:value message)))
+          (:then (messages)
+                 (setf actual messages))
+          (:catch (c)
+            (setf actual c)))
+        (when (typep actual 'condition)
+          (error actual))
+        (is (equal expected actual))))))

@@ -25,7 +25,12 @@
     :documentation "Serializer to map object to byte sequence.")
    (value-serde
     :type serializer
-    :documentation "Serializer to map object to byte sequence."))
+    :documentation "Serializer to map object to byte sequence.")
+   (promises
+    :initform (make-queue)
+    :type queue
+    :documentation
+    "A queue of (promise key value) lists to fulfill after produce."))
   (:documentation
    "A client that produces messages to kafka topics.
 
@@ -46,25 +51,52 @@ Example:
 
 (defgeneric produce (producer topic value &key key partition headers)
   (:documentation
-   "Asynchronously produce a message to a kafka topic.
+   "Asynchronously produce a message to a kafka topic and return a promise.
 
 If PARTITION is not specified, one is chosen using the topic's
 partitioner function.
 
-HEADERS should be an alist of (string . byte-vector) pairs."))
+HEADERS should be an alist of (string . byte-vector) pairs.
+
+The returned blackbird:promise is either resolved with a MESSAGE or
+rejected with a condition."))
 
 (defgeneric flush (producer timeout-ms)
   (:documentation
    "Block for up to timeout-ms milliseconds while in-flight messages are
 sent to kafka cluster."))
 
+(cffi:defcallback message-delivery-callback :void
+    ((rk :pointer)
+     (rk-message :pointer)
+     (opaque :pointer))
+  (declare (ignore rk opaque)
+           (special *promises*))
+  (destructuring-bind (promise key value) (dequeue *promises*)
+    (handler-case
+        (blackbird-base:finish
+         promise
+         (rd-kafka-message->message rk-message
+                                    (lambda (bytes)
+                                      (declare (ignore bytes))
+                                      key)
+                                    (lambda (bytes)
+                                      (declare (ignore bytes))
+                                      value)))
+      (condition (c)
+        (blackbird-base:signal-error promise c)))))
+
 (defmethod initialize-instance :after
     ((producer producer) &key conf (serde #'identity) key-serde value-serde)
   (with-slots (rd-kafka-producer
                (ks key-serde)
-               (vs value-serde))
+               (vs value-serde)
+               promises)
       producer
     (with-conf rd-kafka-conf conf
+      (cl-rdkafka/ll:rd-kafka-conf-set-dr-msg-cb
+       rd-kafka-conf
+       (cffi:callback message-delivery-callback))
       (cffi:with-foreign-object (errstr :char +errstr-len+)
         (setf rd-kafka-producer (cl-rdkafka/ll:rd-kafka-new
                                  cl-rdkafka/ll:rd-kafka-producer
@@ -84,9 +116,11 @@ sent to kafka cluster."))
                             :function (or value-serde serde)))
     (tg:finalize
      producer
-     (lambda ()
-       (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer 5000)
-       (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)))))
+     (let ((*promises* promises))
+       (declare (special *promises*))
+       (lambda ()
+         (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer 5000)
+         (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer))))))
 
 (defun add-header (headers name value)
   (let ((value-pointer (bytes->pointer value)))
@@ -173,26 +207,34 @@ sent to kafka cluster."))
      (topic string)
      value
      &key (key nil key-p) partition headers)
-  (with-slots (rd-kafka-producer key-serde value-serde) producer
+  (with-slots (rd-kafka-producer key-serde value-serde promises) producer
     (let ((key-bytes (if key-p (apply-serde key-serde key) (vector)))
           (value-bytes (apply-serde value-serde value))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
       (unwind-protect
-           (%produce rd-kafka-producer
-                     topic
-                     partition
-                     key-bytes
-                     value-bytes
-                     headers)
-        (cl-rdkafka/ll:rd-kafka-poll rd-kafka-producer 0)))))
+           (progn
+             (%produce rd-kafka-producer
+                       topic
+                       partition
+                       key-bytes
+                       value-bytes
+                       headers)
+             (let ((promise (blackbird-base:make-promise)))
+               (enqueue promises (list promise key value))
+               promise))
+        (let ((*promises* promises))
+          (declare (special *promises*))
+          (cl-rdkafka/ll:rd-kafka-poll rd-kafka-producer 0))))))
 
 (defmethod flush ((producer producer) (timeout-ms integer))
-  (with-slots (rd-kafka-producer) producer
-    (let ((err (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer timeout-ms)))
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (if (eq err cl-rdkafka/ll:rd-kafka-resp-err--timed-out)
-            (cerror "Ignore timeout and return from flush."
-                    'kafka-error
-                    :description "Flush timed out before finishing.")
-            (error 'kafka-error
-                   :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+  (with-slots (rd-kafka-producer promises) producer
+    (let ((*promises* promises))
+      (declare (special *promises*))
+      (let ((err (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer timeout-ms)))
+        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          (if (eq err cl-rdkafka/ll:rd-kafka-resp-err--timed-out)
+              (cerror "Ignore timeout and return from flush."
+                      'kafka-error
+                      :description "Flush timed out before finishing.")
+              (error 'kafka-error
+                     :description (cl-rdkafka/ll:rd-kafka-err2str err))))))))
