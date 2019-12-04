@@ -151,6 +151,11 @@ and the returned alist contains elements that look like (offset will
 be nil if no previous message existed):
   ((\"topic\" . partition) . offset)"))
 
+(defun make-consumer-finalizer (rd-kafka-consumer)
+  (lambda ()
+    (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
+    (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))
+
 (defmethod initialize-instance :after
     ((consumer consumer) &key conf (serde #'identity) key-serde value-serde)
   (with-slots (rd-kafka-consumer (ks key-serde) (vs value-serde)) consumer
@@ -172,11 +177,7 @@ be nil if no previous message existed):
           vs (make-instance 'deserializer
                             :name "value-serde"
                             :function (or value-serde serde)))
-    (tg:finalize
-     consumer
-     (lambda ()
-       (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
-       (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))))
+    (tg:finalize consumer (make-consumer-finalizer rd-kafka-consumer))))
 
 (defmethod subscribe ((consumer consumer) topics)
   (with-slots (rd-kafka-consumer) consumer
