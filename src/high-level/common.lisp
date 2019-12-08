@@ -68,3 +68,30 @@ functions.")
       (decf length)
       (when (zerop length)
         (setf tail head)))))
+
+
+(defun force-promise (promise)
+  (declare (blackbird-base:promise promise))
+  "Wait for PROMISE to complete and return value or signal condition."
+  (let* ((initial-value (gensym))
+         (value initial-value)
+         (successp nil)
+         (lock (bt:make-lock))
+         (cv (bt:make-condition-variable)))
+    (bb:chain promise
+      (:then (result)
+             (bt:with-lock-held (lock)
+               (setf value result
+                     successp t)
+               (bt:condition-notify cv)))
+      (:catch (condition)
+        (bt:with-lock-held (lock)
+          (setf value condition
+                successp nil)
+          (bt:condition-notify cv))))
+    (bt:with-lock-held (lock)
+      (when (eq value initial-value)
+        (bt:condition-wait cv lock))
+      (if successp
+          value
+          (error value)))))

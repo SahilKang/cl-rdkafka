@@ -90,6 +90,49 @@
                                (kf:commit consumer)
                              collect (cadar (kf:committed consumer))))))))
 
+(test commit-sync
+  (with-topics ((topic "consumer-test-commit-sync"))
+    (let ((consumer (make-instance
+                     'kf:consumer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "group.id" "consumer-commit-sync-group"
+                                 "enable.auto.commit" "false"
+                                 "auto.offset.reset" "earliest"
+                                 "offset.store.method" "broker")))
+          (expected `(((,topic . 0) . (0 . #(2 4 6)))
+                      ((,topic . 0) . (1 . #(8 10 12)))
+                      ((,topic . 0) . (2 . #())))))
+      (is (equalp expected (kf:commit consumer :topic+partitions expected))))))
+
+(test commit-async
+  (with-topics ((topic "consumer-test-commit-async"))
+    (let* ((consumer (make-instance
+                      'kf:consumer
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
+                                  "group.id" "consumer-commit-async-group"
+                                  "enable.auto.commit" "false"
+                                  "auto.offset.reset" "earliest"
+                                  "offset.store.method" "broker")))
+           (expected `(((,topic . 0) . (0 . #(2 4 6)))
+                       ((,topic . 0) . (1 . #(8 10 12)))
+                       ((,topic . 0) . (2 . #()))))
+           (initial-actual (gensym))
+           (actual initial-actual)
+           (lock (bt:make-lock))
+           (cv (bt:make-condition-variable)))
+      (bb:alet ((commit-value (kf:commit consumer
+                                         :asyncp t
+                                         :topic+partitions expected)))
+        (bt:with-lock-held (lock)
+          (setf actual commit-value)
+          (bt:condition-notify cv)))
+      (bt:with-lock-held (lock)
+        (when (eq actual initial-actual)
+          (bt:condition-wait cv lock))
+        (if (typep actual 'condition)
+            (error actual)
+            (is (equalp expected actual)))))))
+
 (test assign
   (with-topics ((topic "foobar"))
     (let ((consumer (make-instance
