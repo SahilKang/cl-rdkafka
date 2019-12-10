@@ -20,6 +20,8 @@
 (defclass producer ()
   ((rd-kafka-producer
     :documentation "Pointer to rd_kafka_t struct.")
+   (rd-kafka-queue
+    :documentation "Pointer to rd_kafka_queue_t struct.")
    (key-serde
     :type serializer
     :documentation "Serializer to map object to byte sequence.")
@@ -42,7 +44,7 @@ Example:
      for (k v) in messages
      do (kf:produce producer \"topic-name\" v :key k))
 
-  (kf:flush producer 2000))"))
+  (kf:flush producer))"))
 
 (defgeneric produce (producer topic value &key key partition headers)
   (:documentation
@@ -56,15 +58,14 @@ HEADERS should be an alist of (string . byte-vector) pairs.
 The returned blackbird:promise is either resolved with a MESSAGE or
 rejected with a condition."))
 
-(defgeneric flush (producer timeout-ms)
+(defgeneric flush (producer)
   (:documentation
-   "Block for up to timeout-ms milliseconds while in-flight messages are
-sent to kafka cluster."))
+   "Block while in-flight messages are sent to kafka cluster."))
 
-(defvar +poll-table-lock+ (bt:make-recursive-lock "poll-table-lock"))
+(defvar +poll-table-lock+ (bt:make-lock "poll-table-lock"))
 
 (defvar +poll-table+ (make-hash-table)
-  "Maps a producer pointer address to a queue of (promise key value) lists.")
+  "Maps an rd_kafka_queue_t pointer address to a queue of (promise key value) lists.")
 
 (defvar +background-thread+ nil
   "Background thread to poll all producers.")
@@ -78,58 +79,76 @@ sent to kafka cluster."))
 ;; want to expose; however, I should try and get librdkafka to poll
 ;; with one of its background threads instead.
 
-(defun poll-all-producers ()
+(defun assert-produce-event (rd-kafka-event)
+  (let ((event-type (cl-rdkafka/ll:rd-kafka-event-type rd-kafka-event))
+        (err (cl-rdkafka/ll:rd-kafka-event-error rd-kafka-event)))
+    (unless (= event-type cl-rdkafka/ll:rd-kafka-event-dr)
+      (error "Expected event-type `~A`, not `~A`"
+             cl-rdkafka/ll:rd-kafka-event-dr
+             event-type))
+    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (error 'kafka-error
+             :description (cl-rdkafka/ll:rd-kafka-err2str err)))))
+
+(defun process-produce-event (rd-kafka-event queue)
+  (assert-produce-event rd-kafka-event)
   (loop
-     for address being the hash-keys of +poll-table+
-     for pointer = (cffi:make-pointer address)
-     do (cl-rdkafka/ll:rd-kafka-poll pointer 0)))
+     for rd-kafka-message = (cl-rdkafka/ll:rd-kafka-event-message-next
+                             rd-kafka-event)
+     until (cffi:null-pointer-p rd-kafka-message)
+
+     for (promise key value) = (dequeue queue)
+     for key-fn = (lambda (bytes)
+                    (declare (ignore bytes))
+                    key)
+     for value-fn = (lambda (bytes)
+                      (declare (ignore bytes))
+                      value)
+     do (handler-case
+            (blackbird-base:finish
+             promise
+             (rd-kafka-message->message rd-kafka-message key-fn value-fn))
+          (condition (c)
+            (blackbird-base:signal-error promise c)))))
+
+(defun process-produces (rd-kafka-queue queue)
+  (loop
+     for event = (cl-rdkafka/ll:rd-kafka-queue-poll rd-kafka-queue 0)
+     until (cffi:null-pointer-p event)
+     do (unwind-protect
+             (process-produce-event event queue)
+          (cl-rdkafka/ll:rd-kafka-event-destroy event))))
+
+(defun poll-all-produce-queues ()
+  (maphash (lambda (address queue)
+             (let ((rd-kafka-queue (cffi:make-pointer address)))
+               (handler-case
+                   (process-produces rd-kafka-queue queue)
+                 (condition ()))))
+           +poll-table+))
 
 (defun poll-loop ()
   (loop
      do
        (handler-case
-           (bt:with-recursive-lock-held (+poll-table-lock+)
+           (bt:with-lock-held (+poll-table-lock+)
              (if (zerop (hash-table-count +poll-table+))
                  (return-from poll-loop)
-                 (poll-all-producers)))
+                 (poll-all-produce-queues)))
          (condition ()))
        (sleep 0.5)))
 
-;; this executes in +background-thread+
-(cffi:defcallback message-delivery-callback :void
-    ((rk :pointer)
-     (rk-message :pointer)
-     (opaque :pointer))
-  (declare (ignore opaque))
-  (let ((address (cffi:pointer-address rk)))
-    (destructuring-bind (promise key value)
-        (bt:with-recursive-lock-held (+poll-table-lock+)
-          (dequeue (gethash address +poll-table+)))
-      (handler-case
-          (let* ((key-fn (lambda (bytes)
-                           (declare (ignore bytes))
-                           key))
-                 (value-fn (lambda (bytes)
-                             (declare (ignore bytes))
-                             value))
-                 (message (rd-kafka-message->message rk-message
-                                                     key-fn
-                                                     value-fn)))
-            (blackbird-base:finish promise message))
-        (condition (c)
-          (blackbird-base:signal-error promise c))))))
-
-(defun make-produce-promise (rd-kafka-producer key value)
+(defun make-produce-promise (rd-kafka-queue key value)
   (let ((promise (blackbird-base:make-promise))
-        (address (cffi:pointer-address rd-kafka-producer)))
-    (bt:with-recursive-lock-held (+poll-table-lock+)
+        (address (cffi:pointer-address rd-kafka-queue)))
+    (bt:with-lock-held (+poll-table-lock+)
       (let ((queue (gethash address +poll-table+)))
         (enqueue queue (list promise key value))))
     promise))
 
-(defun add-producer-to-poll-table (rd-kafka-producer)
-  (let ((address (cffi:pointer-address rd-kafka-producer)))
-    (bt:with-recursive-lock-held (+poll-table-lock+)
+(defun add-queue-to-poll-table (rd-kafka-queue)
+  (let ((address (cffi:pointer-address rd-kafka-queue)))
+    (bt:with-lock-held (+poll-table-lock+)
       (handler-case
           (progn
             (setf (gethash address +poll-table+) (make-queue))
@@ -139,30 +158,42 @@ sent to kafka cluster."))
                     (bt:make-thread #'poll-loop :name "poll-loop"))))
         (condition (c)
           (remhash address +poll-table+)
-          (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)
           (error c))))))
 
-(defun remove-producer-from-poll-table (rd-kafka-producer)
-  (let ((address (cffi:pointer-address rd-kafka-producer)))
-    (bt:with-recursive-lock-held (+poll-table-lock+)
+(defun remove-queue-from-poll-table (rd-kafka-queue)
+  (let ((address (cffi:pointer-address rd-kafka-queue)))
+    (bt:with-lock-held (+poll-table-lock+)
       (remhash address +poll-table+))))
 
-(defun make-producer-finalizer (rd-kafka-producer)
+(defun get-last-promise (rd-kafka-queue)
+  (bt:with-lock-held (+poll-table-lock+)
+    (loop
+       with address = (cffi:pointer-address rd-kafka-queue)
+       with queue = (gethash address +poll-table+)
+       with head = (queue-head queue)
+
+       repeat (1- (queue-length queue))
+       do (setf head (cdr head))
+
+       finally (return (first (car head))))))
+
+(defun make-producer-finalizer (rd-kafka-producer rd-kafka-queue)
   (lambda ()
-    (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer 5000)
-    (remove-producer-from-poll-table rd-kafka-producer)
+    (remove-queue-from-poll-table rd-kafka-queue)
+    (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
     (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)))
 
 (defmethod initialize-instance :after
     ((producer producer) &key conf (serde #'identity) key-serde value-serde)
   (with-slots (rd-kafka-producer
+               rd-kafka-queue
                (ks key-serde)
                (vs value-serde))
       producer
     (with-conf rd-kafka-conf conf
-      (cl-rdkafka/ll:rd-kafka-conf-set-dr-msg-cb
+      (cl-rdkafka/ll:rd-kafka-conf-set-events
        rd-kafka-conf
-       (cffi:callback message-delivery-callback))
+       cl-rdkafka/ll:rd-kafka-event-dr)
       (cffi:with-foreign-object (errstr :char +errstr-len+)
         (setf rd-kafka-producer (cl-rdkafka/ll:rd-kafka-new
                                  cl-rdkafka/ll:rd-kafka-producer
@@ -174,14 +205,23 @@ sent to kafka cluster."))
                  :name "producer"
                  :description (cffi:foreign-string-to-lisp
                                errstr :max-chars +errstr-len+)))))
-    (add-producer-to-poll-table rd-kafka-producer)
+    (setf rd-kafka-queue (cl-rdkafka/ll:rd-kafka-queue-get-main rd-kafka-producer))
+    (when (cffi:null-pointer-p rd-kafka-queue)
+      (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)
+      (error 'allocation-error :name "queue"))
+    (handler-case
+        (add-queue-to-poll-table rd-kafka-queue)
+      (condition (c)
+        (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
+        (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)
+        (error c)))
     (setf ks (make-instance 'serializer
                             :name "key-serde"
                             :function (or key-serde serde))
           vs (make-instance 'serializer
                             :name "value-serde"
                             :function (or value-serde serde)))
-    (tg:finalize producer (make-producer-finalizer rd-kafka-producer))))
+    (tg:finalize producer (make-producer-finalizer rd-kafka-producer rd-kafka-queue))))
 
 (defun add-header (headers name value)
   (let ((value-pointer (bytes->pointer value)))
@@ -268,7 +308,7 @@ sent to kafka cluster."))
      (topic string)
      value
      &key (key nil key-p) partition headers)
-  (with-slots (rd-kafka-producer key-serde value-serde) producer
+  (with-slots (rd-kafka-producer rd-kafka-queue key-serde value-serde) producer
     (let ((key-bytes (if key-p (apply-serde key-serde key) (vector)))
           (value-bytes (apply-serde value-serde value))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
@@ -278,15 +318,18 @@ sent to kafka cluster."))
                 key-bytes
                 value-bytes
                 headers)
-      (make-produce-promise rd-kafka-producer key value))))
+      (make-produce-promise rd-kafka-queue key value))))
 
-(defmethod flush ((producer producer) (timeout-ms integer))
-  (with-slots (rd-kafka-producer) producer
-    (let ((err (cl-rdkafka/ll:rd-kafka-flush rd-kafka-producer timeout-ms)))
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (if (eq err cl-rdkafka/ll:rd-kafka-resp-err--timed-out)
-            (cerror "Ignore timeout and return from flush."
-                    'kafka-error
-                    :description "Flush timed out before finishing.")
-            (error 'kafka-error
-                   :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+;; using rd_kafka_flush with rd_kafka_event_dr would cause a sporadic
+;; NULL dereference for some reason. My gut feeling is that some race
+;; condition was occurring because the problem would go away when
+;; either stepping through with the debugger or sleeping before the
+;; rd_kafka_flush call. In either case, it's easy enough to implement
+;; flush ourselves:
+(defmethod flush ((producer producer))
+  (with-slots (rd-kafka-queue) producer
+    (handler-case
+        ;; this ignores any rejected promises...not sure if that's
+        ;; good or bad
+        (force-promise (get-last-promise rd-kafka-queue))
+      (condition ()))))

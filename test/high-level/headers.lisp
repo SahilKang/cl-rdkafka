@@ -44,7 +44,7 @@
       (kf:subscribe consumer (list topic))
 
       (kf:produce producer topic expected-message :headers expected-headers)
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (let ((message (kf:poll consumer 5000)))
         (is (string= expected-message (kf:value message)))

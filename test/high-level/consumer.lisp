@@ -197,7 +197,7 @@
       (mapcar (lambda (message)
                 (kf:produce producer topic message :partition bad-partition))
               '("These" "messages" "won't" "be" "consumed"))
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (kf:pause consumer (list (cons topic bad-partition)))
 
@@ -239,7 +239,7 @@
       (mapcar (lambda (message)
                 (kf:produce producer topic message :partition bad-partition))
               baddies)
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (kf:pause consumer (list (cons topic bad-partition)))
       (is (equal goodies
@@ -274,7 +274,7 @@
       (kf:produce producer topic #(2 4) :partition 0)
       (kf:produce producer topic #(1 2) :partition 1)
       (kf:produce producer topic #(3 4) :partition 1)
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (is (equal '(0 1) (kf:query-watermark-offsets consumer topic 0)))
       (is (equal '(0 2) (kf:query-watermark-offsets consumer topic 1))))))
@@ -302,7 +302,7 @@
                 (kf:produce producer topic message)
                 (sleep 1))
               '("There" "is" "a" "delay" "between" "these" "messages"))
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (let (delay-offset
             delay-timestamp)
@@ -352,7 +352,7 @@
       (mapcar (lambda (message)
                 (kf:produce producer topic message))
               '("Here" "are" "a" "few" "messages"))
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (loop
          for i from 0

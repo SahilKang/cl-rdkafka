@@ -45,7 +45,7 @@ Here are a few examples for the `kf` package:
      for (k v) in messages
      do (kf:produce producer "topic-name" v :key k))
 
-  (kf:flush producer 2000))
+  (kf:flush producer))
 ```
 
 ## Consumer
