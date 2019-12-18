@@ -21,7 +21,7 @@
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :license "GPLv3"
-  :depends-on (#:cffi #:trivial-garbage #:blackbird #:bordeaux-threads)
+  :depends-on (#:cffi #:trivial-garbage #:bordeaux-threads #:lparallel)
   :defsystem-depends-on (#:cffi-grovel)
   :in-order-to ((test-op (test-op #:cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
@@ -39,9 +39,9 @@
             ((:file "package")
              (:cffi-grovel-file "posix-grovel" :depends-on ("package"))
              (:file "posix" :depends-on ("posix-grovel"))
-             (:file "common" :depends-on ("package"))
-             (:file "conf" :depends-on ("common"))
              (:file "conditions" :depends-on ("package"))
+             (:file "common" :depends-on ("posix" "conditions"))
+             (:file "conf" :depends-on ("common"))
              (:file "serde" :depends-on ("package"))
              (:file "message" :depends-on ("common" "conditions"))
              (:file "producer" :depends-on ("conf" "conditions" "serde" "message"))

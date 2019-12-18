@@ -43,55 +43,130 @@ functions.")
       (cffi:foreign-alloc :uint8 :initial-contents bytes)))
 
 
-(defstruct (queue (:constructor make-queue ()))
-  "Good old-fashioned fifo queue."
-  (head nil :read-only t :type (or null cons))
-  (tail nil :read-only t :type (or null cons))
-  (length 0 :read-only t :type fixnum))
+(defparameter +address->queue-lock+ (bt:make-lock "address->queue-lock"))
 
-(defmethod enqueue ((queue queue) item)
-  "Enqueue ITEM to the end of QUEUE and return new QUEUE size."
-  (with-slots (head tail length) queue
-    (if tail
-        (setf tail (cdr (rplacd tail (list item))))
-        (setf tail (list item)
-              head tail))
-    (incf length)))
+(defparameter +address->queue+ (make-hash-table)
+  "Maps an rd_kafka_queue_t pointer address to an lparallel.queue:queue.")
 
-(defmethod dequeue ((queue queue))
-  "Dequeue the next item from the front of QUEUE."
-  (with-slots (head tail length) queue
-    (when (zerop length)
-      (error "Empty queue!"))
-    (prog1 (car head)
-      (setf head (cdr head))
-      (decf length)
-      (when (zerop length)
-        (setf tail head)))))
+(defparameter +pointer-size+ (cffi:foreign-type-size :pointer)
+  "C pointer size in bytes.")
 
+(defvar +kernel+ nil)
 
-(defun force-promise (promise)
-  (declare (blackbird-base:promise promise))
-  "Wait for PROMISE to complete and return value or signal condition."
-  (let* ((initial-value (gensym))
-         (value initial-value)
-         (successp nil)
-         (lock (bt:make-lock))
-         (cv (bt:make-condition-variable)))
-    (bb:chain promise
-      (:then (result)
-             (bt:with-lock-held (lock)
-               (setf value result
-                     successp t)
-               (bt:condition-notify cv)))
-      (:catch (condition)
-        (bt:with-lock-held (lock)
-          (setf value condition
-                successp nil)
-          (bt:condition-notify cv))))
-    (bt:with-lock-held (lock)
-      (when (eq value initial-value)
-        (bt:condition-wait cv lock))
-      (if successp
-          value
-          (error value)))))
+(defvar +read-fd+ nil)
+
+(defvar +write-fd+ nil)
+
+(defun wait-for-fd (pollfd)
+  (when (= -1 (loop
+                 with errno = (cffi:foreign-symbol-pointer "errno")
+
+                 for ret = (posix-poll pollfd 1 -1)
+                 while (and (= ret -1)
+                            (= (cffi:mem-ref errno :int) eintr))
+                 finally (return ret)))
+    (error "posix-poll failed")))
+
+(defun assert-good-revents (pollfd)
+  (let ((revents (cffi:foreign-slot-value pollfd '(:struct pollfd) 'revents)))
+    (unless (zerop (logand revents (logior pollerr pollhup pollnval)))
+      (error "posix-poll revents error"))
+    (when (zerop (logand revents pollin))
+      (error "posix-poll returned but fd is not ready to read"))))
+
+(defun read-rd-kafka-queue-from-fd (pollfd)
+  (wait-for-fd pollfd)
+  (assert-good-revents pollfd)
+  (cffi:with-foreign-object (buf :pointer)
+    (let* ((fd (cffi:foreign-slot-value pollfd '(:struct pollfd) 'fd))
+           (bytes-read (posix-read fd buf +pointer-size+)))
+      (when (= -1 bytes-read)
+        (error "posix-read failed"))
+      (unless (= bytes-read +pointer-size+)
+        (error "Read ~A bytes instead of ~A" bytes-read +pointer-size+)))
+    (cffi:mem-ref buf :pointer)))
+
+;; (gethash address +address->queue+) may return nil...this occurs
+;; when deregister-rd-kafka-queue runs before the next poll-loop iteration
+;; (should I prevent consumer/producer gc from running while promises are
+;; being fulfilled?...can also have finalizer close/flush...or just have
+;; deregister fail the remaining promises...TODO figure this out)
+
+(defun process-events (rd-kafka-queue)
+  (let* ((address (cffi:pointer-address rd-kafka-queue))
+         (pair (gethash address +address->queue+)))
+    (when pair
+      (loop
+         with process-event = (car pair)
+         with queue = (cdr pair)
+
+         for event = (cl-rdkafka/ll:rd-kafka-queue-poll rd-kafka-queue 0)
+         until (cffi:null-pointer-p event)
+         do (unwind-protect
+                 (funcall process-event event queue)
+              (cl-rdkafka/ll:rd-kafka-event-destroy event))))))
+
+(defun poll-loop ()
+  (cffi:with-foreign-object (pollfd '(:struct pollfd))
+    (setf (cffi:foreign-slot-value pollfd '(:struct pollfd) 'fd) +read-fd+
+          (cffi:foreign-slot-value pollfd '(:struct pollfd) 'events) pollin)
+    (loop
+       for rd-kafka-queue = (read-rd-kafka-queue-from-fd pollfd)
+       ;; TODO maybe wrap this in a handler-case to prevent loop from
+       ;; dying...kernel might restart
+       do (bt:with-lock-held (+address->queue-lock+)
+            (process-events rd-kafka-queue)))))
+
+(defun assert-expected-event (rd-kafka-event expected)
+  (let ((actual (cl-rdkafka/ll:rd-kafka-event-type rd-kafka-event)))
+    (unless (= expected actual)
+      (error "Expected event-type `~A`, not `~A`" expected actual))))
+
+(defun init-fds ()
+  (cffi:with-foreign-object (fds :int 2)
+    (unless (zerop (posix-pipe fds))
+      (error "posix-pipe failed"))
+    (setf +read-fd+ (cffi:mem-aref fds :int 0)
+          +write-fd+ (cffi:mem-aref fds :int 1))))
+
+(defun init-kernel ()
+  (setf +kernel+ (lparallel:make-kernel 1 :name "cl-rdkafka"))
+  (let* ((lparallel:*kernel* +kernel+)
+         (channel (lparallel:make-channel :fixed-capacity 1)))
+    (lparallel:submit-task channel #'poll-loop)))
+
+(defun enable-event-io (rd-kafka-queue)
+  (unless +write-fd+
+    (init-fds))
+  (unless +kernel+
+    (init-kernel))
+  (cffi:with-foreign-object (queue-pointer :pointer)
+    (setf (cffi:mem-ref queue-pointer :pointer) rd-kafka-queue)
+    (cl-rdkafka/ll:rd-kafka-queue-io-event-enable
+     rd-kafka-queue
+     +write-fd+
+     queue-pointer
+     +pointer-size+)))
+
+(defun register-rd-kafka-queue (rd-kafka-queue process-event)
+  (handler-case
+      (bt:with-lock-held (+address->queue-lock+)
+        (let ((address (cffi:pointer-address rd-kafka-queue))
+              (pair (cons process-event (lparallel.queue:make-queue))))
+          (enable-event-io rd-kafka-queue)
+          (setf (gethash address +address->queue+) pair)))
+    (condition (c)
+      (deregister-rd-kafka-queue rd-kafka-queue)
+      (error c))))
+
+(defun enqueue-payload (rd-kafka-queue payload)
+  (bt:with-lock-held (+address->queue-lock+)
+    (let* ((address (cffi:pointer-address rd-kafka-queue))
+           (queue (cdr (gethash address +address->queue+))))
+      (lparallel.queue:push-queue payload queue))))
+
+;; TODO should probably fail all remaining promises
+(defun deregister-rd-kafka-queue (rd-kafka-queue)
+  (let ((address (cffi:pointer-address rd-kafka-queue)))
+    (bt:with-lock-held (+address->queue-lock+)
+      (remhash address +address->queue+))))

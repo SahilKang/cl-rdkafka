@@ -22,6 +22,9 @@
     :documentation "Pointer to rd_kafka_t struct.")
    (rd-kafka-queue
     :documentation "Pointer to rd_kafka_queue_t struct.")
+   (last-promise
+    :initform nil
+    :documentation "Latest promise from produce call.")
    (key-serde
     :type serializer
     :documentation "Serializer to map object to byte sequence.")
@@ -55,49 +58,27 @@ partitioner function.
 
 HEADERS should be an alist of (string . byte-vector) pairs.
 
-The returned blackbird:promise is either resolved with a MESSAGE or
-rejected with a condition."))
+The returned lparallel promise is either fulfilled with a MESSAGE or a
+condition."))
 
 (defgeneric flush (producer)
   (:documentation
    "Block while in-flight messages are sent to kafka cluster."))
 
-(defvar +poll-table-lock+ (bt:make-lock "poll-table-lock"))
-
-(defvar +poll-table+ (make-hash-table)
-  "Maps an rd_kafka_queue_t pointer address to a queue of (promise key value) lists.")
-
-(defvar +background-thread+ nil
-  "Background thread to poll all producers.")
-
-;; +background-thread+ will poll all producers to keep the
-;; message-delivery-callback fed. I tried using
-;; rd_kafka_interceptor_add_on_acknowledgement, but was getting a
-;; sporadic segfault from the callback (so defcallback might be
-;; failing me). I don't want users to concern themselves with polling
-;; the producers so this background thread at least gives me the api I
-;; want to expose; however, I should try and get librdkafka to poll
-;; with one of its background threads instead.
-
-(defun assert-produce-event (rd-kafka-event)
-  (let ((event-type (cl-rdkafka/ll:rd-kafka-event-type rd-kafka-event))
-        (err (cl-rdkafka/ll:rd-kafka-event-error rd-kafka-event)))
-    (unless (= event-type cl-rdkafka/ll:rd-kafka-event-dr)
-      (error "Expected event-type `~A`, not `~A`"
-             cl-rdkafka/ll:rd-kafka-event-dr
-             event-type))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error 'kafka-error
-             :description (cl-rdkafka/ll:rd-kafka-err2str err)))))
-
 (defun process-produce-event (rd-kafka-event queue)
-  (assert-produce-event rd-kafka-event)
+  (assert-expected-event rd-kafka-event cl-rdkafka/ll:rd-kafka-event-dr)
+  (let ((err (cl-rdkafka/ll:rd-kafka-event-error rd-kafka-event)))
+    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (let ((promise (first (lparallel.queue:pop-queue queue))))
+        (lparallel:fulfill promise
+          (make-condition
+           'kafka-error :description (cl-rdkafka/ll:rd-kafka-err2str err))))
+      (return-from process-produce-event)))
   (loop
-     for rd-kafka-message = (cl-rdkafka/ll:rd-kafka-event-message-next
-                             rd-kafka-event)
-     until (cffi:null-pointer-p rd-kafka-message)
+     for message = (cl-rdkafka/ll:rd-kafka-event-message-next rd-kafka-event)
+     until (cffi:null-pointer-p message)
 
-     for (promise key value) = (dequeue queue)
+     for (promise key value) = (lparallel.queue:pop-queue queue)
      for key-fn = (lambda (bytes)
                     (declare (ignore bytes))
                     key)
@@ -105,81 +86,14 @@ rejected with a condition."))
                       (declare (ignore bytes))
                       value)
      do (handler-case
-            (blackbird-base:finish
-             promise
-             (rd-kafka-message->message rd-kafka-message key-fn value-fn))
+            (lparallel:fulfill promise
+              (rd-kafka-message->message message key-fn value-fn))
           (condition (c)
-            (blackbird-base:signal-error promise c)))))
-
-(defun process-produces (rd-kafka-queue queue)
-  (loop
-     for event = (cl-rdkafka/ll:rd-kafka-queue-poll rd-kafka-queue 0)
-     until (cffi:null-pointer-p event)
-     do (unwind-protect
-             (process-produce-event event queue)
-          (cl-rdkafka/ll:rd-kafka-event-destroy event))))
-
-(defun poll-all-produce-queues ()
-  (maphash (lambda (address queue)
-             (let ((rd-kafka-queue (cffi:make-pointer address)))
-               (handler-case
-                   (process-produces rd-kafka-queue queue)
-                 (condition ()))))
-           +poll-table+))
-
-(defun poll-loop ()
-  (loop
-     do
-       (handler-case
-           (bt:with-lock-held (+poll-table-lock+)
-             (if (zerop (hash-table-count +poll-table+))
-                 (return-from poll-loop)
-                 (poll-all-produce-queues)))
-         (condition ()))
-       (sleep 0.5)))
-
-(defun make-produce-promise (rd-kafka-queue key value)
-  (let ((promise (blackbird-base:make-promise))
-        (address (cffi:pointer-address rd-kafka-queue)))
-    (bt:with-lock-held (+poll-table-lock+)
-      (let ((queue (gethash address +poll-table+)))
-        (enqueue queue (list promise key value))))
-    promise))
-
-(defun add-queue-to-poll-table (rd-kafka-queue)
-  (let ((address (cffi:pointer-address rd-kafka-queue)))
-    (bt:with-lock-held (+poll-table-lock+)
-      (handler-case
-          (progn
-            (setf (gethash address +poll-table+) (make-queue))
-            (unless (and +background-thread+
-                         (bt:thread-alive-p +background-thread+))
-              (setf +background-thread+
-                    (bt:make-thread #'poll-loop :name "poll-loop"))))
-        (condition (c)
-          (remhash address +poll-table+)
-          (error c))))))
-
-(defun remove-queue-from-poll-table (rd-kafka-queue)
-  (let ((address (cffi:pointer-address rd-kafka-queue)))
-    (bt:with-lock-held (+poll-table-lock+)
-      (remhash address +poll-table+))))
-
-(defun get-last-promise (rd-kafka-queue)
-  (bt:with-lock-held (+poll-table-lock+)
-    (loop
-       with address = (cffi:pointer-address rd-kafka-queue)
-       with queue = (gethash address +poll-table+)
-       with head = (queue-head queue)
-
-       repeat (1- (queue-length queue))
-       do (setf head (cdr head))
-
-       finally (return (first (car head))))))
+            (lparallel:fulfill promise c)))))
 
 (defun make-producer-finalizer (rd-kafka-producer rd-kafka-queue)
   (lambda ()
-    (remove-queue-from-poll-table rd-kafka-queue)
+    (deregister-rd-kafka-queue rd-kafka-queue)
     (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
     (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)))
 
@@ -210,7 +124,7 @@ rejected with a condition."))
       (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)
       (error 'allocation-error :name "queue"))
     (handler-case
-        (add-queue-to-poll-table rd-kafka-queue)
+        (register-rd-kafka-queue rd-kafka-queue #'process-produce-event)
       (condition (c)
         (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
         (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)
@@ -308,7 +222,12 @@ rejected with a condition."))
      (topic string)
      value
      &key (key nil key-p) partition headers)
-  (with-slots (rd-kafka-producer rd-kafka-queue key-serde value-serde) producer
+  (with-slots (rd-kafka-producer
+               rd-kafka-queue
+               key-serde
+               value-serde
+               last-promise)
+      producer
     (let ((key-bytes (if key-p (apply-serde key-serde key) (vector)))
           (value-bytes (apply-serde value-serde value))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
@@ -318,7 +237,10 @@ rejected with a condition."))
                 key-bytes
                 value-bytes
                 headers)
-      (make-produce-promise rd-kafka-queue key value))))
+      (let ((promise (lparallel:promise)))
+        (enqueue-payload rd-kafka-queue (list promise key value))
+        (setf last-promise promise)
+        promise))))
 
 ;; using rd_kafka_flush with rd_kafka_event_dr would cause a sporadic
 ;; NULL dereference for some reason. My gut feeling is that some race
@@ -327,9 +249,5 @@ rejected with a condition."))
 ;; rd_kafka_flush call. In either case, it's easy enough to implement
 ;; flush ourselves:
 (defmethod flush ((producer producer))
-  (with-slots (rd-kafka-queue) producer
-    (handler-case
-        ;; this ignores any rejected promises...not sure if that's
-        ;; good or bad
-        (force-promise (get-last-promise rd-kafka-queue))
-      (condition ()))))
+  (with-slots (last-promise) producer
+    (lparallel:force last-promise)))

@@ -153,25 +153,6 @@ and the returned alist contains elements that look like (offset will
 be nil if no previous message existed):
   ((\"topic\" . partition) . offset)"))
 
-(defvar +commit-table-lock+ (bt:make-lock "commit-table-lock"))
-
-(defvar +commit-table+ (make-hash-table)
-  "Maps an rd_kafka_queue_t pointer address to a queue of promises to fulfill.")
-
-;; using rd_kafka_conf_set_background_event_cb was giving me a nice
-;; segfault every now and then (defcallback might be failing), so
-;; let's use a lisp background thread to poll for commits ourselves.
-
-(defvar +commit-thread+ nil
-  "Background thread to poll all consumers for commits.")
-
-(defun assert-commit-event (rd-kafka-event)
-  (let ((event-type (cl-rdkafka/ll:rd-kafka-event-type rd-kafka-event)))
-    (unless (= event-type cl-rdkafka/ll:rd-kafka-event-offset-commit)
-      (error "Expected event-type `~A`, not `~A`"
-             cl-rdkafka/ll:rd-kafka-event-offset-commit
-             event-type))))
-
 (defun get-good-commits-and-assert-no-bad-commits (rd-kafka-event)
   (let (goodies baddies)
     (foreach-toppar
@@ -192,82 +173,26 @@ be nil if no previous message existed):
                      (nreverse baddies))))
     (nreverse goodies)))
 
-(defun process-event (rd-kafka-event queue)
-  (unwind-protect
-       (progn
-         (assert-commit-event rd-kafka-event)
-         (let ((err (cl-rdkafka/ll:rd-kafka-event-error rd-kafka-event))
-               (promise (dequeue queue)))
-           (handler-case
-               (cond
-                 ((eq err cl-rdkafka/ll:rd-kafka-resp-err--no-offset)
-                  (blackbird-base:finish promise))
-                 ((eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                  (blackbird-base:finish
-                   promise
-                   (get-good-commits-and-assert-no-bad-commits rd-kafka-event)))
-                 (t (error 'kafka-error
-                           :description (cl-rdkafka/ll:rd-kafka-err2str err))))
-             (condition (c)
-               (blackbird-base:signal-error promise c)))))
-    (cl-rdkafka/ll:rd-kafka-event-destroy rd-kafka-event)))
-
-(defun process-commits (rd-kafka-queue queue)
-  (loop
-     for event = (cl-rdkafka/ll:rd-kafka-queue-poll rd-kafka-queue 0)
-     until (cffi:null-pointer-p event)
-     do (process-event event queue)))
-
-(defun poll-all-queues ()
-  (maphash (lambda (address queue)
-             (let ((rd-kafka-queue (cffi:make-pointer address)))
-               (handler-case
-                   (process-commits rd-kafka-queue queue)
-                 (condition ()))))
-           +commit-table+))
-
-(defun poll-all-queues-loop ()
-  (loop
-     do
-       (handler-case
-           (bt:with-lock-held (+commit-table-lock+)
-             (if (zerop (hash-table-count +commit-table+))
-                 (return-from poll-all-queues-loop)
-                 (poll-all-queues)))
-         (condition ()))
-       (sleep 0.5)))
-
-(defun make-commit-promise (rd-kafka-queue)
-  (let ((promise (blackbird-base:make-promise))
-        (address (cffi:pointer-address rd-kafka-queue)))
-    (bt:with-lock-held (+commit-table-lock+)
-      (let ((queue (gethash address +commit-table+)))
-        (enqueue queue promise)))
-    promise))
-
-(defun add-queue-to-commit-table (rd-kafka-queue)
-  (let ((address (cffi:pointer-address rd-kafka-queue)))
-    (bt:with-lock-held (+commit-table-lock+)
-      (handler-case
-          (progn
-            (setf (gethash address +commit-table+) (make-queue))
-            (unless (and +commit-thread+ (bt:thread-alive-p +commit-thread+))
-              (setf +commit-thread+
-                    (bt:make-thread #'poll-all-queues-loop
-                                    :name "poll-all-queues-loop"))))
-        (condition (c)
-          (remhash address +commit-table+)
-          (error c))))))
-
-(defun remove-queue-from-commit-table (rd-kafka-queue)
-  (let ((address (cffi:pointer-address rd-kafka-queue)))
-    (bt:with-lock-held (+commit-table-lock+)
-      (remhash address +commit-table+))))
+(defun process-commit-event (rd-kafka-event queue)
+  (assert-expected-event rd-kafka-event cl-rdkafka/ll:rd-kafka-event-offset-commit)
+  (let ((err (cl-rdkafka/ll:rd-kafka-event-error rd-kafka-event))
+        (promise (lparallel.queue:pop-queue queue)))
+    (handler-case
+        (cond
+          ((eq err cl-rdkafka/ll:rd-kafka-resp-err--no-offset)
+           (lparallel:fulfill promise))
+          ((eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+           (lparallel:fulfill promise
+             (get-good-commits-and-assert-no-bad-commits rd-kafka-event)))
+          (t (error 'kafka-error
+                    :description (cl-rdkafka/ll:rd-kafka-err2str err))))
+      (condition (c)
+        (lparallel:fulfill promise c)))))
 
 (defun make-consumer-finalizer (rd-kafka-consumer rd-kafka-queue)
   (lambda ()
     (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
-    (remove-queue-from-commit-table rd-kafka-queue)
+    (deregister-rd-kafka-queue rd-kafka-queue)
     (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
     (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))
 
@@ -279,6 +204,9 @@ be nil if no previous message existed):
                (vs value-serde))
       consumer
     (with-conf rd-kafka-conf conf
+      (cl-rdkafka/ll:rd-kafka-conf-set-events
+       rd-kafka-conf
+       cl-rdkafka/ll:rd-kafka-event-offset-commit)
       (cffi:with-foreign-object (errstr :char +errstr-len+)
         (setf rd-kafka-consumer (cl-rdkafka/ll:rd-kafka-new
                                  cl-rdkafka/ll:rd-kafka-consumer
@@ -296,7 +224,7 @@ be nil if no previous message existed):
       (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)
       (error 'allocation-error :name "queue"))
     (handler-case
-        (add-queue-to-commit-table rd-kafka-queue)
+        (register-rd-kafka-queue rd-kafka-queue #'process-commit-event)
       (condition (c)
         (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
         (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
@@ -369,7 +297,9 @@ be nil if no previous message existed):
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (error 'kafka-error
              :description (cl-rdkafka/ll:rd-kafka-err2str err)))
-    (make-commit-promise rd-kafka-queue)))
+    (let ((promise (lparallel:promise)))
+      (enqueue-payload rd-kafka-queue promise)
+      promise)))
 
 (defmethod commit ((consumer consumer) &key topic+partitions asyncp)
   (with-slots (rd-kafka-consumer rd-kafka-queue) consumer
@@ -390,7 +320,7 @@ be nil if no previous message existed):
       (let ((promise (%commit rd-kafka-consumer toppar-list rd-kafka-queue)))
         (if asyncp
             promise
-            (force-promise promise))))))
+            (lparallel:force promise))))))
 
 (defun %assignment (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)

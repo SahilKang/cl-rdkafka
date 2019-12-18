@@ -65,8 +65,8 @@
                              for message = (kf:poll consumer 5000)
                              collect (kf:value message)))))))
 
-(test commit
-  (with-topics ((topic "consumer-commit-topic"))
+(test committed
+  (with-topics ((topic "consumer-committed-topic"))
     (let ((consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*
@@ -116,19 +116,9 @@
            (expected `(((,topic . 0) . (0 . #(2 4 6)))
                        ((,topic . 0) . (1 . #(8 10 12)))
                        ((,topic . 0) . (2 . #()))))
-           (initial-actual (gensym))
-           (actual initial-actual)
-           (lock (bt:make-lock))
-           (cv (bt:make-condition-variable)))
-      (bb:alet ((commit-value (kf:commit consumer
-                                         :asyncp t
-                                         :topic+partitions expected)))
-        (bt:with-lock-held (lock)
-          (setf actual commit-value)
-          (bt:condition-notify cv)))
-      (bt:with-lock-held (lock)
-        (when (eq actual initial-actual)
-          (bt:condition-wait cv lock))
+           (promise (kf:commit consumer :asyncp t :topic+partitions expected)))
+      (is (typep promise 'lparallel.promise::%promise))
+      (let ((actual (lparallel:force promise)))
         (if (typep actual 'condition)
             (error actual)
             (is (equalp expected actual)))))))

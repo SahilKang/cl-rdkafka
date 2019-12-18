@@ -58,29 +58,18 @@
 
 (test producer-promises
   (with-topics ((topic "test-producer-promises"))
-    (let* ((producer (make-instance
-                      'kf:producer
-                      :conf (list "bootstrap.servers" *bootstrap-servers*)
-                      :serde #'babel:string-to-octets))
-           (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!")))
-           (initial-actual (gensym))
-           (actual initial-actual)
-           (lock (bt:make-lock))
-           (cv (bt:make-condition-variable)))
-      (bb:alet ((messages (bb:chain expected
-                            (:map (pair)
-                                  (destructuring-bind (key value) pair
-                                    (kf:produce producer topic value :key key)))
-                            (:map (message)
-                                  (list (kf:key message) (kf:value message)))
-                            (:catch (condition)
-                              condition))))
-        (bt:with-lock-held (lock)
-          (setf actual messages)
-          (bt:condition-notify cv)))
-      (bt:with-lock-held (lock)
-        (when (eq actual initial-actual)
-          (bt:condition-wait cv lock))
-        (if (typep actual 'condition)
-            (error actual)
-            (is (equal expected actual)))))))
+    (let ((producer (make-instance
+                     'kf:producer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :serde #'babel:string-to-octets))
+          (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
+      (is (equal expected
+                 (mapcar (lambda (promise)
+                           (let ((message (lparallel:force promise)))
+                             (if (typep message 'condition)
+                                 (error message)
+                                 (list (kf:key message) (kf:value message)))))
+                         (mapcar (lambda (pair)
+                                   (destructuring-bind (key value) pair
+                                     (kf:produce producer topic value :key key)))
+                                 expected)))))))
