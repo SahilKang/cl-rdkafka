@@ -37,16 +37,17 @@
             :depends-on ("low-level")
             :components
             ((:file "package")
-             (:cffi-grovel-file "posix-grovel" :depends-on ("package"))
-             (:file "posix" :depends-on ("posix-grovel"))
+             (:file "common" :depends-on ("package"))
              (:file "conditions" :depends-on ("package"))
-             (:file "common" :depends-on ("posix" "conditions"))
              (:file "conf" :depends-on ("common"))
              (:file "serde" :depends-on ("package"))
              (:file "message" :depends-on ("common" "conditions"))
-             (:file "producer" :depends-on ("conf" "conditions" "serde" "message"))
+             (:cffi-grovel-file "posix-grovel" :depends-on ("package"))
+             (:file "posix" :depends-on ("posix-grovel"))
+             (:file "event-io" :depends-on ("posix" "conditions"))
+             (:file "producer" :depends-on ("conf" "conditions" "serde" "message" "event-io"))
              (:module "consumer"
-                      :depends-on ("conf" "conditions" "serde" "message")
+                      :depends-on ("conf" "conditions" "serde" "message" "event-io")
                       :components
                       ((:file "toppar")
                        (:file "consumer" :depends-on ("toppar"))))
