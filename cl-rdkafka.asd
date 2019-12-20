@@ -37,6 +37,8 @@
             :depends-on ("low-level")
             :components
             ((:file "package")
+             (:cffi-grovel-file "posix-grovel" :depends-on ("package"))
+             (:file "posix" :depends-on ("posix-grovel"))
              (:file "common" :depends-on ("package"))
              (:file "conf" :depends-on ("common"))
              (:file "conditions" :depends-on ("package"))
