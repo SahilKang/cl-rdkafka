@@ -116,12 +116,9 @@
            (expected `(((,topic . 0) . (0 . #(2 4 6)))
                        ((,topic . 0) . (1 . #(8 10 12)))
                        ((,topic . 0) . (2 . #()))))
-           (promise (kf:commit consumer :asyncp t :topic+partitions expected)))
-      (is (typep promise 'lparallel.promise::%promise))
-      (let ((actual (lparallel:force promise)))
-        (if (typep actual 'condition)
-            (error actual)
-            (is (equalp expected actual)))))))
+           (future (kf:commit consumer :asyncp t :topic+partitions expected)))
+      (is (typep future 'kf:future))
+      (is (equalp expected (kf:value future))))))
 
 (test assign
   (with-topics ((topic "foobar"))

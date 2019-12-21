@@ -51,15 +51,12 @@ Example:
 
 (defgeneric produce (producer topic value &key key partition headers)
   (:documentation
-   "Asynchronously produce a message to a kafka topic and return a promise.
+   "Asynchronously produce a message and return a MESSAGE FUTURE.
 
 If PARTITION is not specified, one is chosen using the topic's
 partitioner function.
 
-HEADERS should be an alist of (string . byte-vector) pairs.
-
-The returned lparallel promise is either fulfilled with a MESSAGE or a
-condition."))
+HEADERS should be an alist of (string . byte-vector) pairs."))
 
 (defgeneric flush (producer)
   (:documentation
@@ -240,7 +237,7 @@ condition."))
       (let ((promise (lparallel:promise)))
         (enqueue-payload rd-kafka-queue (list promise key value))
         (setf last-promise promise)
-        promise))))
+        (make-instance 'future :promise promise :client producer)))))
 
 ;; using rd_kafka_flush with rd_kafka_event_dr would cause a sporadic
 ;; NULL dereference for some reason. My gut feeling is that some race

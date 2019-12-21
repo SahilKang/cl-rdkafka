@@ -42,15 +42,26 @@
              (:file "conf" :depends-on ("common"))
              (:file "serde" :depends-on ("package"))
              (:file "message" :depends-on ("common" "conditions"))
+             (:file "future" :depends-on ("package"))
              (:module "event-io"
                       :depends-on ("package" "conditions")
                       :components
                       ((:cffi-grovel-file "posix-grovel")
                        (:file "posix" :depends-on ("posix-grovel"))
                        (:file "kernel" :depends-on ("posix"))))
-             (:file "producer" :depends-on ("conf" "conditions" "serde" "message" "event-io"))
+             (:file "producer" :depends-on ("conf"
+                                            "conditions"
+                                            "serde"
+                                            "message"
+                                            "event-io"
+                                            "future"))
              (:module "consumer"
-                      :depends-on ("conf" "conditions" "serde" "message" "event-io")
+                      :depends-on ("conf"
+                                   "conditions"
+                                   "serde"
+                                   "message"
+                                   "event-io"
+                                   "future")
                       :components
                       ((:file "toppar")
                        (:file "consumer" :depends-on ("toppar"))))

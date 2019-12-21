@@ -20,7 +20,7 @@
 (defparameter +address->queue-lock+ (bt:make-lock "address->queue-lock"))
 
 (defparameter +address->queue+ (make-hash-table)
-  "Maps an rd_kafka_queue_t pointer address to an lparallel.queue:queue.")
+  "Maps an rd_kafka_queue_t pointer address to (function . queue).")
 
 (defparameter +pointer-size+ (cffi:foreign-type-size :pointer)
   "C pointer size in bytes.")
@@ -60,15 +60,11 @@
         (error "Read ~A bytes instead of ~A" bytes-read +pointer-size+)))
     (cffi:mem-ref buf :pointer)))
 
-;; (gethash address +address->queue+) may return nil...this occurs
-;; when deregister-rd-kafka-queue runs before the next poll-loop iteration
-;; (should I prevent consumer/producer gc from running while promises are
-;; being fulfilled?...can also have finalizer close/flush...or just have
-;; deregister fail the remaining promises...TODO figure this out)
-
 (defun process-events (rd-kafka-queue)
   (let* ((address (cffi:pointer-address rd-kafka-queue))
          (pair (gethash address +address->queue+)))
+    ;; pair can be nil when deregister-rd-kafka-queue runs before the
+    ;; next poll-loop iteration
     (when pair
       (loop
          with process-event = (car pair)
@@ -86,8 +82,6 @@
           (cffi:foreign-slot-value pollfd '(:struct pollfd) 'events) pollin)
     (loop
        for rd-kafka-queue = (read-rd-kafka-queue-from-fd pollfd)
-       ;; TODO maybe wrap this in a handler-case to prevent loop from
-       ;; dying...kernel might restart
        do (bt:with-lock-held (+address->queue-lock+)
             (process-events rd-kafka-queue)))))
 
@@ -139,7 +133,6 @@
            (queue (cdr (gethash address +address->queue+))))
       (lparallel.queue:push-queue payload queue))))
 
-;; TODO should probably fail all remaining promises
 (defun deregister-rd-kafka-queue (rd-kafka-queue)
   (let ((address (cffi:pointer-address rd-kafka-queue)))
     (bt:with-lock-held (+address->queue-lock+)

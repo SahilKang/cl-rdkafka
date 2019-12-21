@@ -319,7 +319,7 @@ be nil if no previous message existed):
                                              (cddr pair)))))
       (let ((promise (%commit rd-kafka-consumer toppar-list rd-kafka-queue)))
         (if asyncp
-            promise
+            (make-instance 'future :promise promise :client consumer)
             (lparallel:force promise))))))
 
 (defun %assignment (rd-kafka-consumer)

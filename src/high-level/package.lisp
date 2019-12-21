@@ -25,6 +25,8 @@
    #:partition #:offset
    #:timestamp #:latency #:headers
 
+   #:future #:donep
+
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign #:member-id
    #:pause #:resume #:query-watermark-offsets #:offsets-for-times

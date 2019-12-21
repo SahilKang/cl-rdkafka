@@ -56,16 +56,16 @@
              (actual (parse-kafkacat kafkacat-output-lines)))
         (is (equal expected actual))))))
 
-(test producer-promises
-  (with-topics ((topic "test-producer-promises"))
+(test producer-futures
+  (with-topics ((topic "test-producer-futures"))
     (let ((producer (make-instance
                      'kf:producer
                      :conf (list "bootstrap.servers" *bootstrap-servers*)
                      :serde #'babel:string-to-octets))
           (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
       (is (equal expected
-                 (mapcar (lambda (promise)
-                           (let ((message (lparallel:force promise)))
+                 (mapcar (lambda (future)
+                           (let ((message (kf:value future)))
                              (if (typep message 'condition)
                                  (error message)
                                  (list (kf:key message) (kf:value message)))))
