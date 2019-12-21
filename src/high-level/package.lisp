@@ -20,6 +20,7 @@
 (defpackage #:cl-rdkafka
   (:nicknames #:kf)
   (:use #:cl)
+  (:shadow #:close)
   (:export
    #:message #:key #:value #:topic
    #:partition #:offset
@@ -30,7 +31,7 @@
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign #:member-id
    #:pause #:resume #:query-watermark-offsets #:offsets-for-times
-   #:positions
+   #:positions #:close
 
    #:producer #:produce #:flush
 

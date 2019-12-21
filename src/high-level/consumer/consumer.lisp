@@ -153,6 +153,14 @@ and the returned alist contains elements that look like (offset will
 be nil if no previous message existed):
   ((\"topic\" . partition) . offset)"))
 
+(defgeneric close (consumer)
+  (:documentation
+   "Close CONSUMER after revoking assignment, committing offsets, and leaving group.
+
+CONSUMER will be closed during garbage collection if it's still open;
+this method is provided if closing needs to occur at a well-defined
+time."))
+
 (defun get-good-commits-and-assert-no-bad-commits (rd-kafka-event)
   (let (goodies baddies)
     (foreach-toppar
@@ -191,7 +199,6 @@ be nil if no previous message existed):
 
 (defun make-consumer-finalizer (rd-kafka-consumer rd-kafka-queue)
   (lambda ()
-    (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
     (deregister-rd-kafka-queue rd-kafka-queue)
     (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
     (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))
@@ -220,14 +227,12 @@ be nil if no previous message existed):
                                errstr :max-chars +errstr-len+)))))
     (setf rd-kafka-queue (cl-rdkafka/ll:rd-kafka-queue-new rd-kafka-consumer))
     (when (cffi:null-pointer-p rd-kafka-queue)
-      (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
       (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)
       (error 'allocation-error :name "queue"))
     (handler-case
         (register-rd-kafka-queue rd-kafka-queue #'process-commit-event)
       (condition (c)
         (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
-        (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)
         (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)
         (error c)))
     (setf ks (make-instance 'deserializer
@@ -511,3 +516,9 @@ be nil if no previous message existed):
                        offset))
                alist-to-return))))
         alist-to-return))))
+
+(defmethod close ((consumer consumer))
+  (with-slots (rd-kafka-consumer) consumer
+    (let ((err (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)))
+      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (error 'kafka-error :description (cl-rdkafka/ll:rd-kafka-err2str err))))))

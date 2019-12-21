@@ -85,3 +85,6 @@
 (constant (rd-kafka-event-describeconfigs-result
            "RD_KAFKA_EVENT_DESCRIBECONFIGS_RESULT")
           :optional t)
+
+(constant (rd-kafka-destroy-f-no-consumer-close
+           "RD_KAFKA_DESTROY_F_NO_CONSUMER_CLOSE"))
