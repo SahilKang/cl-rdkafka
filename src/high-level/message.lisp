@@ -55,9 +55,9 @@
     :reader timestamp
     :documentation "Message timestamp.")
    (latency
+    ;; TODO this ends up being negative...figure out why and export
     :initarg :latency
     :initform nil
-    :reader latency
     :documentation "Message latency measured from the message produce call.")
    (headers
     :initarg :headers

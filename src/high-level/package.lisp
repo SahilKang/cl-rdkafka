@@ -24,7 +24,7 @@
   (:export
    #:message #:key #:value #:topic
    #:partition #:offset
-   #:timestamp #:latency #:headers
+   #:timestamp #:headers
 
    #:future #:donep
 
