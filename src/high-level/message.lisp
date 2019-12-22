@@ -49,10 +49,13 @@
     :documentation "Message offset.")
    (timestamp
     :initarg :timestamp
-    :reader timestamp
     :type (or null integer)
     :documentation
     "Message timestamp measured in milliseconds since the UTC epoch, or nil.")
+   (timestamp-type
+    :initarg :timestamp-type
+    :type (member nil :create-time :log-append-time)
+    :documentation "Type of message timestamp, or nil.")
    (latency
     ;; TODO this ends up being negative...figure out why and export
     :initarg :latency
@@ -86,7 +89,7 @@ Example:
   ;; => 0
 
   (kf:timestamp message)
-  ;; => 1577002478269
+  ;; => 1577002478269, :CREATE-TIME
 
   (kf:headers message)
   ;; => '((\"one\" . #(1 2 3))
@@ -98,13 +101,25 @@ Example:
 
 (defgeneric value (message))
 
+(defgeneric timestamp (message))
+
+(defun parse-timestamp-type (ts-type)
+  (let ((*ts-type (cffi:mem-ref ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-type)))
+    (cond
+      ((eq *ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-create-time)
+       :create-time)
+      ((eq *ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-log-append-time)
+       :log-append-time)
+      (t (error "Unknown timestamp-type: ~A" *ts-type)))))
+
 (defun get-timestamp (rd-kafka-message)
   (cffi:with-foreign-object (ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-type)
     (let ((timestamp (cl-rdkafka/ll:rd-kafka-message-timestamp
                       rd-kafka-message
                       ts-type)))
-      (unless (= -1 timestamp)
-        timestamp))))
+      (if (= -1 timestamp)
+          (cons nil nil)
+          (cons timestamp (parse-timestamp-type ts-type))))))
 
 (defun get-latency (rd-kafka-message)
   (handler-case
@@ -184,12 +199,14 @@ key/value."
              :topic topic
              :partition partition))
     (let ((raw-key (get-key *rd-kafka-message))
-          (raw-value (get-payload *rd-kafka-message)))
+          (raw-value (get-payload *rd-kafka-message))
+          (timestamp-pair (get-timestamp rd-kafka-message)))
       (make-instance 'message
                      :topic topic
                      :partition partition
                      :offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
-                     :timestamp (get-timestamp rd-kafka-message)
+                     :timestamp (car timestamp-pair)
+                     :timestamp-type (cdr timestamp-pair)
                      :latency (get-latency rd-kafka-message)
                      :headers (get-headers rd-kafka-message)
                      :raw-key raw-key
@@ -206,3 +223,13 @@ key/value."
   "Return (values deserialized-value serialized-value) from MESSAGE."
   (with-slots (value raw-value) message
     (values value raw-value)))
+
+(defmethod timestamp ((message message))
+  "Return (values timestamp timestamp-type) from MESSAGE.
+
+If timestamp is not available, then nil is returned. Otherwise:
+  * timestamp is the number of milliseconds since the UTC epoch
+  * timestamp-type is either :create-time or :log-append-time"
+  (with-slots (timestamp timestamp-type) message
+    (when timestamp
+      (values timestamp timestamp-type))))
