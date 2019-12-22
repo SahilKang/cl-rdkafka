@@ -40,7 +40,7 @@
              (:file "common" :depends-on ("package"))
              (:file "conditions" :depends-on ("package"))
              (:file "conf" :depends-on ("common"))
-             (:file "serde" :depends-on ("package"))
+             (:file "serde" :depends-on ("common"))
              (:file "message" :depends-on ("common" "conditions"))
              (:file "future" :depends-on ("package"))
              (:module "event-io"

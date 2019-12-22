@@ -36,14 +36,6 @@
 (defclass deserializer (serde) ())
 
 
-(defun byte-seq-p (seq)
-  (and (typep seq 'sequence)
-       (every (lambda (elt)
-                (typep elt '(unsigned-byte 8)))
-              seq)))
-
-(deftype byte-seq () '(satisfies byte-seq-p))
-
 (defmethod serde-funcall ((serde serializer) arg)
   (with-slots (function) serde
     (let ((serialized-value (funcall function arg)))
