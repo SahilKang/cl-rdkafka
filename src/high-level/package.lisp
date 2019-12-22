@@ -33,7 +33,10 @@
    #:timestamp
    #:headers
 
-   #:future #:donep
+   ;; future class
+   #:future
+   #:value
+   #:donep
 
    #:consumer #:subscribe #:unsubscribe #:subscription
    #:poll #:commit #:committed #:assignment #:assign #:member-id

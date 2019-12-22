@@ -40,7 +40,17 @@
     :initarg :client
     :type (or consumer producer)
     :documentation
-    "Reference to a producer/consumer to prevent gc during promise fulfillment.")))
+    "Reference to a producer/consumer to prevent gc during promise fulfillment."))
+  (:documentation
+   "A future to hold the result of an async operation.
+
+Example:
+
+(let ((future (kf:produce producer \"topic\" \"message\")))
+  (kf:donep future) ;; => nil
+  (kf:value future) ;; => #<MESSAGE {1005BE9D23}>
+  (kf:donep future) ;; => t
+  )"))
 
 (defgeneric donep (future))
 
