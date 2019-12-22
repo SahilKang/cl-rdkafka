@@ -35,17 +35,6 @@
 
    #:producer #:produce #:flush
 
-   #:create-topic
-   #:delete-topic
-   #:create-partitions
-   #:describe-config
-   #:alter-config
-   #:cluster-metadata
-   #:group-info
-   #:cluster-id
-   #:controller-id
-   #:get-conf
-
    #:kafka-error
    #:description
    #:topic+partition-error

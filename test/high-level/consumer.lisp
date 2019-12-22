@@ -147,7 +147,7 @@
       (sleep 2)
 
       (let ((member-id (kf:member-id consumer))
-            (group-info (first (kf:group-info consumer group))))
+            (group-info (first (kf::group-info consumer group))))
         (is (find member-id
                   (cdr (assoc :members group-info))
                   :test #'string=
@@ -174,7 +174,7 @@
           (good-partition 1)
           (bad-partition 0)
           (messages '("Here" "are" "some" "messages")))
-      (is (string= topic (kf:create-topic producer topic :partitions 2)))
+      (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
       (kf:subscribe consumer (list topic))
 
@@ -216,7 +216,7 @@
           (bad-partition 0)
           (goodies '("Here" "are" "some" "messages"))
           (baddies '("Here" "are" "some" "more" "messages")))
-      (is (string= topic (kf:create-topic producer topic :partitions 2)))
+      (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
       (kf:subscribe consumer (list topic))
 
@@ -252,7 +252,7 @@
           (producer (make-instance
                      'kf:producer
                      :conf (list "bootstrap.servers" *bootstrap-servers*))))
-      (is (string= topic (kf:create-topic producer topic :partitions 2)))
+      (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
 
       (is (equal '(0 0) (kf:query-watermark-offsets consumer topic 0)))

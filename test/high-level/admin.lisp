@@ -43,10 +43,10 @@
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (partitions 3))
-      (is (string= topic (kf:create-topic consumer
-                                          topic
-                                          :partitions partitions
-                                          :timeout-ms 5000)))
+      (is (string= topic (kf::create-topic consumer
+                                           topic
+                                           :partitions partitions
+                                           :timeout-ms 5000)))
       (sleep 2)
       (is (= partitions (get-partitions *bootstrap-servers* topic))))))
 
@@ -56,10 +56,10 @@
                      'kf:producer
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (partitions 7))
-      (is (string= topic (kf:create-topic producer
-                                          topic
-                                          :partitions partitions
-                                          :timeout-ms 5000)))
+      (is (string= topic (kf::create-topic producer
+                                           topic
+                                           :partitions partitions
+                                           :timeout-ms 5000)))
       (sleep 2)
       (is (= partitions (get-partitions *bootstrap-servers* topic))))))
 
@@ -69,11 +69,11 @@
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (partitions 4))
-      (is (string= topic (kf:create-topic consumer
-                                          topic
-                                          :partitions partitions
-                                          :timeout-ms 5000
-                                          :validate-only-p t)))
+      (is (string= topic (kf::create-topic consumer
+                                           topic
+                                           :partitions partitions
+                                           :timeout-ms 5000
+                                           :validate-only-p t)))
       (sleep 2)
       (is (= 0 (get-partitions *bootstrap-servers* topic))))))
 
@@ -84,14 +84,14 @@
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (partitions 7))
-      (is (string= topic (kf:create-topic consumer
-                                          topic
-                                          :partitions partitions
-                                          :timeout-ms 5000)))
+      (is (string= topic (kf::create-topic consumer
+                                           topic
+                                           :partitions partitions
+                                           :timeout-ms 5000)))
       (sleep 2)
       (is (= partitions (get-partitions *bootstrap-servers* topic)))
 
-      (is (string= topic (kf:delete-topic consumer topic :timeout-ms 5000)))
+      (is (string= topic (kf::delete-topic consumer topic :timeout-ms 5000)))
       (sleep 2)
       (is (= 0 (get-partitions *bootstrap-servers* topic))))))
 
@@ -101,14 +101,14 @@
                      'kf:producer
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (partitions 4))
-      (is (string= topic (kf:create-topic producer
-                                          topic
-                                          :partitions partitions
-                                          :timeout-ms 5000)))
+      (is (string= topic (kf::create-topic producer
+                                           topic
+                                           :partitions partitions
+                                           :timeout-ms 5000)))
       (sleep 2)
       (is (= partitions (get-partitions *bootstrap-servers* topic)))
 
-      (is (string= topic (kf:delete-topic producer topic :timeout-ms 5000)))
+      (is (string= topic (kf::delete-topic producer topic :timeout-ms 5000)))
       (sleep 2)
       (is (= 0 (get-partitions *bootstrap-servers* topic))))))
 
@@ -120,13 +120,13 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (old-partitions 7)
           (new-partitions 10))
-      (is (string= topic (kf:create-topic consumer
-                                          topic
-                                          :partitions old-partitions)))
+      (is (string= topic (kf::create-topic consumer
+                                           topic
+                                           :partitions old-partitions)))
       (sleep 2)
       (is (= old-partitions (get-partitions *bootstrap-servers* topic)))
 
-      (is (= new-partitions (kf:create-partitions consumer topic new-partitions)))
+      (is (= new-partitions (kf::create-partitions consumer topic new-partitions)))
       (sleep 2)
       (is (= new-partitions (get-partitions *bootstrap-servers* topic))))))
 
@@ -137,13 +137,13 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (old-partitions 11)
           (new-partitions 20))
-      (is (string= topic (kf:create-topic producer
-                                          topic
-                                          :partitions old-partitions)))
+      (is (string= topic (kf::create-topic producer
+                                           topic
+                                           :partitions old-partitions)))
       (sleep 2)
       (is (= old-partitions (get-partitions *bootstrap-servers* topic)))
 
-      (is (= new-partitions (kf:create-partitions producer topic new-partitions)))
+      (is (= new-partitions (kf::create-partitions producer topic new-partitions)))
       (sleep 2)
       (is (= new-partitions (get-partitions *bootstrap-servers* topic))))))
 
@@ -155,7 +155,7 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*))))
       (is (string= "CreateTime"
                    (cdr (assoc "message.timestamp.type"
-                               (kf:describe-config consumer topic :topic)
+                               (kf::describe-config consumer topic :topic)
                                :test #'string=)))))))
 
 (test describe-topic-with-producer
@@ -165,7 +165,7 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*))))
       (is (string= "CreateTime"
                    (cdr (assoc "message.timestamp.type"
-                               (kf:describe-config producer topic :topic)
+                               (kf::describe-config producer topic :topic)
                                :test #'string=)))))))
 
 (test describe-broker-with-consumer
@@ -174,7 +174,7 @@
     (let* ((consumer (make-instance
                       'kf:consumer
                       :conf (list "bootstrap.servers" *bootstrap-servers*)))
-           (config (kf:describe-config consumer "1001" :broker)))
+           (config (kf::describe-config consumer "1001" :broker)))
       (is (string= host
                    (cdr (assoc "advertised.host.name" config :test #'string=))))
       (is (string= port
@@ -186,7 +186,7 @@
     (let* ((producer (make-instance
                       'kf:producer
                       :conf (list "bootstrap.servers" *bootstrap-servers*)))
-           (config (kf:describe-config producer "1001" :broker)))
+           (config (kf::describe-config producer "1001" :broker)))
       (is (string= host
                    (cdr (assoc "advertised.host.name" config :test #'string=))))
       (is (string= port
@@ -200,13 +200,13 @@
                       :conf (list "bootstrap.servers" *bootstrap-servers*)))
            (get-actual (lambda ()
                          (cdr (assoc "message.timestamp.type"
-                                     (kf:describe-config consumer topic :topic)
+                                     (kf::describe-config consumer topic :topic)
                                      :test #'string=)))))
       (is (string= "CreateTime" (funcall get-actual)))
 
-      (kf:alter-config consumer
-                       topic
-                       '(("message.timestamp.type" . "LogAppendTime")))
+      (kf::alter-config consumer
+                        topic
+                        '(("message.timestamp.type" . "LogAppendTime")))
       (sleep 2)
       (is (string= "LogAppendTime" (funcall get-actual))))))
 
@@ -217,13 +217,13 @@
                       :conf (list "bootstrap.servers" *bootstrap-servers*)))
            (get-actual (lambda ()
                          (cdr (assoc "message.timestamp.type"
-                                     (kf:describe-config producer topic :topic)
+                                     (kf::describe-config producer topic :topic)
                                      :test #'string=)))))
       (is (string= "CreateTime" (funcall get-actual)))
 
-      (kf:alter-config producer
-                       topic
-                       '(("message.timestamp.type" . "LogAppendTime")))
+      (kf::alter-config producer
+                        topic
+                        '(("message.timestamp.type" . "LogAppendTime")))
       (sleep 2)
       (is (string= "LogAppendTime" (funcall get-actual))))))
 
@@ -246,7 +246,7 @@
                                                            (:leader . 1001)
                                                            (:replicas . (1001))
                                                            (:in-sync-replicas . (1001)))))))))
-                   (kf:cluster-metadata consumer topic)))))))
+                   (kf::cluster-metadata consumer topic)))))))
 
 (test cluster-metadata-with-producer
   (with-topics ((topic "cluster-metadata-with-producer"))
@@ -266,7 +266,7 @@
                                                            (:leader . 1001)
                                                            (:replicas . (1001))
                                                            (:in-sync-replicas . (1001)))))))))
-                   (kf:cluster-metadata producer topic)))))))
+                   (kf::cluster-metadata producer topic)))))))
 
 
 (test group-info-with-consumer
@@ -285,10 +285,10 @@
       (kf:subscribe consumer-2 (list topic))
       (sleep 2)
 
-      (let ((group-info (first (kf:group-info consumer-1 group-1))))
+      (let ((group-info (first (kf::group-info consumer-1 group-1))))
         (is (string= group-1 (cdr (assoc :group group-info)))))
 
-      (let ((group-info (kf:group-info consumer-1 nil)))
+      (let ((group-info (kf::group-info consumer-1 nil)))
         (is (< 1 (length group-info)))
         (is (find group-1
                   group-info
@@ -320,10 +320,10 @@
       (kf:subscribe consumer-2 (list topic))
       (sleep 2)
 
-      (let ((group-info (first (kf:group-info producer group-1))))
+      (let ((group-info (first (kf::group-info producer group-1))))
         (is (string= group-1 (cdr (assoc :group group-info)))))
 
-      (let ((group-info (kf:group-info producer nil)))
+      (let ((group-info (kf::group-info producer nil)))
         (is (< 1 (length group-info)))
         (is (find group-1
                   group-info
@@ -341,8 +341,8 @@
   (let* ((conf (list "bootstrap.servers" *bootstrap-servers*))
          (consumer (make-instance 'kf:consumer :conf conf))
          (producer (make-instance 'kf:producer :conf conf))
-         (lhs (kf:cluster-id consumer))
-         (rhs (kf:cluster-id producer)))
+         (lhs (kf::cluster-id consumer))
+         (rhs (kf::cluster-id producer)))
     (is (string= lhs rhs))
     (is (not (zerop (length lhs))))))
 
@@ -351,6 +351,6 @@
   (let* ((conf (list "bootstrap.servers" *bootstrap-servers*))
          (consumer (make-instance 'kf:consumer :conf conf))
          (producer (make-instance 'kf:producer :conf conf))
-         (lhs (kf:controller-id consumer))
-         (rhs (kf:controller-id producer)))
+         (lhs (kf::controller-id consumer))
+         (rhs (kf::controller-id producer)))
     (is (= lhs rhs))))
