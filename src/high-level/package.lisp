@@ -22,9 +22,16 @@
   (:use #:cl)
   (:shadow #:close)
   (:export
-   #:message #:key #:value #:topic
-   #:partition #:offset
-   #:timestamp #:headers
+
+   ;; message class
+   #:message
+   #:key
+   #:value
+   #:topic
+   #:partition
+   #:offset
+   #:timestamp
+   #:headers
 
    #:future #:donep
 

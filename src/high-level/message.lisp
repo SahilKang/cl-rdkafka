@@ -20,58 +20,83 @@
 (defclass message ()
   ((raw-key
     :initarg :raw-key
-    :initform nil
-    :documentation "Message's raw key in a byte vector.")
+    :type (and vector byte-seq)
+    :documentation "Message's serialized key as a byte vector.")
    (raw-value
     :initarg :raw-value
-    :initform nil
-    :documentation "Message's raw value in a byte vector.")
+    :type (and vector byte-seq)
+    :documentation "Message's serialized value as a byte vector.")
    (key
     :initarg :key
-    :initform nil
     :documentation "Message's deserialized key.")
    (value
     :initarg :value
-    :initform nil
     :documentation "Message's deserialized value.")
    (topic
     :initarg :topic
-    :initform nil
     :reader topic
+    :type string
     :documentation "The topic this message originated from.")
    (partition
     :initarg :partition
-    :initform nil
     :reader partition
+    :type integer
     :documentation "The partition this message originated from.")
    (offset
     :initarg :offset
-    :initform nil
     :reader offset
+    :type integer
     :documentation "Message offset.")
    (timestamp
     :initarg :timestamp
-    :initform nil
     :reader timestamp
-    :documentation "Message timestamp.")
+    :type (or null integer)
+    :documentation
+    "Message timestamp measured in milliseconds since the UTC epoch, or nil.")
    (latency
     ;; TODO this ends up being negative...figure out why and export
     :initarg :latency
-    :initform nil
-    :documentation "Message latency measured from the message produce call.")
+    :type (or null integer)
+    :documentation
+    "Message latency measured in microseconds from the produce call, or nil.")
    (headers
     :initarg :headers
-    :initform nil
     :reader headers
-    :documentation "Message headers as an alist.")))
-
-(defgeneric key (message)
+    :type (or null list)
+    :documentation "Message headers as an alist, or nil."))
   (:documentation
-   "Return (values deserialized-key serialized-key)."))
+   "A kafka message as returned by consumer's poll or producer's produce.
 
-(defgeneric value (message)
-  (:documentation
-   "Return (values deserialized-value serialized-value)."))
+Example:
+
+(let ((message (kf:poll consumer 5000)))
+  (kf:key message)
+  ;; => \"key-1\", #(107 101 121 45 49)
+
+  (kf:value message)
+  ;; => \"Hello\", #(72 101 108 108 111)
+
+  (kf:topic message)
+  ;; => \"foobar\"
+
+  (kf:partition message)
+  ;; => 0
+
+  (kf:offset message)
+  ;; => 0
+
+  (kf:timestamp message)
+  ;; => 1577002478269
+
+  (kf:headers message)
+  ;; => '((\"one\" . #(1 2 3))
+  ;;      (\"two\" . #(4 5 6)))
+
+  )"))
+
+(defgeneric key (message))
+
+(defgeneric value (message))
 
 (defun get-timestamp (rd-kafka-message)
   (cffi:with-foreign-object (ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-type)
@@ -173,9 +198,11 @@ key/value."
                      :value (funcall value-function raw-value)))))
 
 (defmethod key ((message message))
+  "Return (values deserialized-key serialized-key) from MESSAGE."
   (with-slots (key raw-key) message
     (values key raw-key)))
 
 (defmethod value ((message message))
+  "Return (values deserialized-value serialized-value) from MESSAGE."
   (with-slots (value raw-value) message
     (values value raw-value)))
