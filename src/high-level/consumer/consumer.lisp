@@ -76,9 +76,7 @@ Example:
 
 (defgeneric pause (consumer partitions))
 
-(defgeneric resume (consumer topic+partitions)
-  (:documentation
-   "Resume consumption from the TOPIC+PARTITIONS alist."))
+(defgeneric resume (consumer partitions))
 
 (defgeneric query-watermark-offsets (consumer topic partition &key timeout-ms)
   (:documentation
@@ -431,24 +429,41 @@ The PARTIAL-ERROR will have the slots:
                  :goodies (nreverse goodies)))
         partitions))))
 
-(defmethod resume ((consumer consumer) (topic+partitions list))
+(defmethod resume ((consumer consumer) (partitions sequence))
+  "Resume consumption from PARTITIONS.
+
+PARTITIONS should be a sequence of (topic . partition) cons cells.
+
+PARTITIONS is returned on success.
+
+On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+The PARTIAL-ERROR will have the slots:
+  * GOODIES: A list of (topic . partition) cons cells
+  * BADDIES: An alist mapping (topic . partition) to error strings"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
-        (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
+        (alloc-toppar-list partitions :topic #'car :partition #'cdr)
       (let ((err (cl-rdkafka/ll:rd-kafka-resume-partitions
                   rd-kafka-consumer
-                  toppar-list)))
+                  toppar-list))
+            goodies
+            baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'kafka-error
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))
         (foreach-toppar toppar-list (err topic partition)
-          (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-            (cerror "Continue checking resume status of other topic+partitions."
-                    'partition-error
-                    :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                    :topic topic
-                    :partition partition)))))))
+          (let ((toppar (cons topic partition)))
+            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                (push toppar goodies)
+                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
+                  (push (cons toppar error-string) baddies)))))
+        (when baddies
+          (error 'partial-error
+                 :description "Resume failed"
+                 :baddies (nreverse baddies)
+                 :goodies (nreverse goodies)))
+        partitions))))
 
 (defmethod query-watermark-offsets
     ((consumer consumer)
