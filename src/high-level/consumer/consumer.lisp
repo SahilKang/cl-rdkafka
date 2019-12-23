@@ -68,12 +68,7 @@ Example:
 
 (defgeneric committed (consumer partitions timeout-ms))
 
-(defgeneric assignment (consumer)
-  (:documentation
-   "Return an alist of assigned topic+partitions.
-
-Each element of the returned alist will look like:
-  * (topic . partition)"))
+(defgeneric assignment (consumer))
 
 (defgeneric assign (consumer topic+partitions)
   (:documentation
@@ -340,12 +335,13 @@ If ASYNCP is true, then a FUTURE will be returned instead."
       (cffi:mem-ref rd-list :pointer))))
 
 (defmethod assignment ((consumer consumer))
+  "Return a (topic . partition) list of partitions assigned to CONSUMER."
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list toppar-list (%assignment rd-kafka-consumer)
-      (let (alist-to-return)
+      (let (partitions)
         (foreach-toppar toppar-list (topic partition)
-          (push (cons topic partition) alist-to-return))
-        alist-to-return))))
+          (push (cons topic partition) partitions))
+        (nreverse partitions)))))
 
 (defmethod committed
     ((consumer consumer) (partitions sequence) (timeout-ms integer))
