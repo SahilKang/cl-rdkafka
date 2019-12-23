@@ -95,8 +95,8 @@ Example:
             (let* ((meta (pointer->bytes metadata metadata-size))
                    (offset+meta (cons offset meta)))
               (push (cons toppar offset+meta) goodies))
-            (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
-              (push (cons toppar error-string) baddies)))))
+            (let ((rdkafka-error (make-rdkafka-error err)))
+              (push (cons toppar rdkafka-error) baddies)))))
     (when baddies
       (error 'partial-error
              :description "Commit failed"
@@ -254,7 +254,7 @@ On success, an alist of committed offsets is returned, mapping
 On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: Same format as successful return value
-  * BADDIES: An alist mapping (topic . partition) to error strings
+  * BADDIES: An alist mapping (topic . partition) to RDKAFKA-ERROR
 
 If ASYNCP is true, then a FUTURE will be returned instead."
   (with-slots (rd-kafka-consumer rd-kafka-queue) consumer
@@ -306,7 +306,7 @@ On success, an alist of committed offsets is returned, mapping
 On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: Same format as successful return value
-  * BADDIES: An alist mapping (topic . partition) to error strings"
+  * BADDIES: An alist mapping (topic . partition) to RDKAFKA-ERROR"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
@@ -327,8 +327,8 @@ The PARTIAL-ERROR will have the slots:
                 (let* ((meta (pointer->bytes metadata metadata-size))
                        (offset+meta (cons offset meta)))
                   (push (cons toppar offset+meta) goodies))
-                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
-                  (push (cons toppar error-string) baddies)))))
+                (let ((rdkafka-error (make-rdkafka-error err)))
+                  (push (cons toppar rdkafka-error) baddies)))))
         (when baddies
           (error 'partial-error
                  :description "Committed failed"
@@ -363,7 +363,7 @@ PARTITIONS is returned on success.
 On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: A list of (topic . partition) cons cells
-  * BADDIES: An alist mapping (topic . partition) to error strings"
+  * BADDIES: An alist mapping (topic . partition) to RDKAFKA-ERROR"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
@@ -379,8 +379,8 @@ The PARTIAL-ERROR will have the slots:
           (let ((toppar (cons topic partition)))
             (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                 (push toppar goodies)
-                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
-                  (push (cons toppar error-string) baddies)))))
+                (let ((rdkafka-error (make-rdkafka-error err)))
+                  (push (cons toppar rdkafka-error) baddies)))))
         (when baddies
           (error 'partial-error
                  :description "Pause failed"
@@ -398,7 +398,7 @@ PARTITIONS is returned on success.
 On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: A list of (topic . partition) cons cells
-  * BADDIES: An alist mapping (topic . partition) to error strings"
+  * BADDIES: An alist mapping (topic . partition) to RDKAFKA-ERROR"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
@@ -414,8 +414,8 @@ The PARTIAL-ERROR will have the slots:
           (let ((toppar (cons topic partition)))
             (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                 (push toppar goodies)
-                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
-                  (push (cons toppar error-string) baddies)))))
+                (let ((rdkafka-error (make-rdkafka-error err)))
+                  (push (cons toppar rdkafka-error) baddies)))))
         (when baddies
           (error 'partial-error
                  :description "Resume failed"
@@ -464,7 +464,7 @@ On success, an alist of offsets is returned, mapping
 On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: Same format as successful return value
-  * BADDIES: An alist mapping (topic . partition) to error strings"
+  * BADDIES: An alist mapping (topic . partition) to RDKAFKA-ERROR"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
@@ -481,8 +481,8 @@ The PARTIAL-ERROR will have the slots:
           (let ((toppar (cons topic partition)))
             (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                 (push (cons toppar offset) goodies)
-                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
-                  (push (cons toppar error-string) baddies)))))
+                (let ((rdkafka-error (make-rdkafka-error err)))
+                  (push (cons toppar rdkafka-error) baddies)))))
         (when baddies
           (error 'partial-error
                  :description "Offsets for times error"
@@ -503,7 +503,7 @@ On success, an alist of positions is returned, mapping
 On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: Same format as successful return value
-  * BADDIES: An alist mapping (topic . partition) to error strings"
+  * BADDIES: An alist mapping (topic . partition) to RDKAFKA-ERROR"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
@@ -521,8 +521,8 @@ The PARTIAL-ERROR will have the slots:
                 (let ((position (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
                                   offset)))
                   (push (cons toppar position) goodies))
-                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
-                  (push (cons toppar error-string) baddies)))))
+                (let ((rdkafka-error (make-rdkafka-error err)))
+                  (push (cons toppar rdkafka-error) baddies)))))
         (when baddies
           (error 'partial-error
                  :description "Positions error"
