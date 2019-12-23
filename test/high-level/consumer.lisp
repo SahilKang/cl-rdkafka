@@ -247,8 +247,8 @@
                     collect (kf:value message)
                     do (kf:commit consumer)))))))
 
-(test query-watermark-offsets
-  (with-topics ((topic "query-watermark-offsets-topic" t))
+(test watermarks
+  (with-topics ((topic "watermarks-topic" t))
     (let ((consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
@@ -258,16 +258,16 @@
       (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
 
-      (is (equal '(0 . 0) (kf:query-watermark-offsets consumer topic 0 5000)))
-      (is (equal '(0 . 0) (kf:query-watermark-offsets consumer topic 1 5000)))
+      (is (equal '(0 . 0) (kf:watermarks consumer topic 0 5000)))
+      (is (equal '(0 . 0) (kf:watermarks consumer topic 1 5000)))
 
       (kf:produce producer topic #(2 4) :partition 0)
       (kf:produce producer topic #(1 2) :partition 1)
       (kf:produce producer topic #(3 4) :partition 1)
       (kf:flush producer)
 
-      (is (equal '(0 . 1) (kf:query-watermark-offsets consumer topic 0 5000)))
-      (is (equal '(0 . 2) (kf:query-watermark-offsets consumer topic 1 5000))))))
+      (is (equal '(0 . 1) (kf:watermarks consumer topic 0 5000)))
+      (is (equal '(0 . 2) (kf:watermarks consumer topic 1 5000))))))
 
 (test offsets-for-times
   (with-topics ((topic "offsets-for-times-topic"))

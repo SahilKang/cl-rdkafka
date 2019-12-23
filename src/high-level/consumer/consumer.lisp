@@ -77,7 +77,7 @@ Example:
 
 (defgeneric resume (consumer partitions))
 
-(defgeneric query-watermark-offsets (consumer topic partition timeout-ms))
+(defgeneric watermarks (consumer topic partition timeout-ms))
 
 (defgeneric offsets-for-times (consumer timestamps timeout-ms))
 
@@ -423,7 +423,7 @@ The PARTIAL-ERROR will have the slots:
                  :goodies (nreverse goodies)))
         partitions))))
 
-(defmethod query-watermark-offsets
+(defmethod watermarks
     ((consumer consumer)
      (topic string)
      (partition integer)

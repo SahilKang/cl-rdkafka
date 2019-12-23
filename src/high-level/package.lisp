@@ -52,7 +52,7 @@
    #:resume
    #:member-id
    #:offsets-for-times
-   #:query-watermark-offsets
+   #:watermarks
    #:positions
    #:close
 
