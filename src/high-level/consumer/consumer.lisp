@@ -82,25 +82,8 @@ Example:
 
 (defgeneric offsets-for-times (consumer timestamps timeout-ms))
 
+(defgeneric positions (consumer partitions))
 
-(defgeneric positions (consumer topic+partitions)
-  (:documentation
-   "Retrieve current positions (offsets) for TOPIC+PARTITIONS.
-
-TOPIC+PARTITIONS is an alist with elements that look like:
-  (\"topic\" . partition)
-
-and the returned alist contains elements that look like (offset will
-be nil if no previous message existed):
-  ((\"topic\" . partition) . offset)"))
-
-(defgeneric close (consumer)
-  (:documentation
-   "Close CONSUMER after revoking assignment, committing offsets, and leaving group.
-
-CONSUMER will be closed during garbage collection if it's still open;
-this method is provided if closing needs to occur at a well-defined
-time."))
 
 (defun get-good-commits-and-assert-no-bad-commits (rd-kafka-event)
   (let (goodies baddies)
@@ -521,36 +504,46 @@ The PARTIAL-ERROR will have the slots:
                  :goodies (nreverse goodies)))
         (nreverse goodies)))))
 
-(defmethod positions ((consumer consumer) (topic+partitions list))
+(defmethod positions ((consumer consumer) (partitions sequence))
+  "Retrieve current positions (offsets) for PARTITIONS.
+
+PARTITIONS should be a sequence of (topic . partition) cons cells.
+
+On success, an alist of positions is returned, mapping
+(topic . partition) to one of either:
+  * 1 plus the last consumed message offset
+  * nil if there was no previous message.
+
+On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+The PARTIAL-ERROR will have the slots:
+  * GOODIES: Same format as successful return value
+  * BADDIES: An alist mapping (topic . partition) to error strings"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
-        (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
+        (alloc-toppar-list partitions :topic #'car :partition #'cdr)
       (let ((err (cl-rdkafka/ll:rd-kafka-position
                   rd-kafka-consumer
                   toppar-list))
-            alist-to-return)
+            goodies
+            baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'kafka-error
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))
         (foreach-toppar toppar-list (topic partition offset err)
-          (let (skip-p)
-            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-              (cerror (format nil "Don't include `~A:~A` in the returned alist."
-                              topic
-                              partition)
-                      'partition-error
-                      :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                      :topic topic
-                      :partition partition)
-              (setf skip-p t))
-            (unless skip-p
-              (push
-               (cons `(,topic . ,partition)
-                     (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
-                       offset))
-               alist-to-return))))
-        alist-to-return))))
+          (let ((toppar (cons topic partition)))
+            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                (let ((position (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
+                                  offset)))
+                  (push (cons toppar position) goodies))
+                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
+                  (push (cons toppar error-string) baddies)))))
+        (when baddies
+          (error 'partial-error
+                 :description "Positions error"
+                 :baddies (nreverse baddies)
+                 :goodies (nreverse goodies)))
+        (nreverse goodies)))))
 
 (defmethod close ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
