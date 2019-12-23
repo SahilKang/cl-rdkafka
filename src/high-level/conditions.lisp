@@ -53,6 +53,25 @@
   (:documentation
    "Condition signalled for errors specific to a topic's partition."))
 
+(define-condition partial-error (kafka-error)
+  ((goodies
+    :initarg :goodies
+    :initform (error "Must supply goodies")
+    :reader goodies
+    :type sequence
+    :documentation "Successful results.")
+   (baddies
+    :initarg :baddies
+    :initform (error "Must supply baddies")
+    :reader baddies
+    :type sequence
+    :documentation "Unsuccessful results."))
+  (:report
+   (lambda (condition stream)
+     (format stream "~A: ~S" (description condition) (baddies condition))))
+  (:documentation
+   "Condition signalled for operations that partially failed."))
+
 (define-condition allocation-error (storage-condition)
   ((name
     :initarg :name

@@ -49,4 +49,7 @@
    #:description
    #:topic+partition-error
    #:allocation-error
-   #:name))
+   #:name
+   #:partial-error
+   #:goodies
+   #:baddies))
