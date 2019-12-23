@@ -80,19 +80,8 @@ Example:
 
 (defgeneric query-watermark-offsets (consumer topic partition timeout-ms))
 
-(defgeneric offsets-for-times (consumer timestamps &key timeout-ms)
-  (:documentation
-   "Look up the offsets for the given partitions by timestamp.
+(defgeneric offsets-for-times (consumer timestamps timeout-ms))
 
-The returned offset for each partition is the earliest offset whose
-timestamp is greater than or equal to the given timestamp in the
-corresponding partition.
-
-TIMESTAMPS is an alist with elements that look like:
-  ((\"topic\" . partition) . timestamp)
-
-and the returned alist contains elements that look like:
-  ((\"topic\" . partition) . offset)"))
 
 (defgeneric positions (consumer topic+partitions)
   (:documentation
@@ -489,7 +478,23 @@ A (low . high) cons cell is returned."
 (defmethod offsets-for-times
     ((consumer consumer)
      (timestamps list)
-     &key (timeout-ms 5000))
+     (timeout-ms integer))
+  "Look up the offsets for the given partitions by timestamp.
+
+The returned offset for each partition is the earliest offset whose
+timestamp is greater than or equal to the given timestamp in
+TIMESTAMPS.
+
+TIMESTAMPS should be an alist mapping (topic . partition) cons cells
+to timestamp values.
+
+On success, an alist of offsets is returned, mapping
+(topic . partition) cons cells to offset values.
+
+On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+The PARTIAL-ERROR will have the slots:
+  * GOODIES: Same format as successful return value
+  * BADDIES: An alist mapping (topic . partition) to error strings"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
@@ -498,24 +503,23 @@ A (low . high) cons cell is returned."
                   rd-kafka-consumer
                   toppar-list
                   timeout-ms))
-            alist-to-return)
+            goodies
+            baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'kafka-error
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))
         (foreach-toppar toppar-list (topic partition offset err)
-          (let (skip-p)
-            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-              (cerror (format nil "Don't include `~A:~A` in the returned alist."
-                              topic
-                              partition)
-                      'partition-error
-                      :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                      :topic topic
-                      :partition partition)
-              (setf skip-p t))
-            (unless skip-p
-              (push `((,topic . ,partition) . ,offset) alist-to-return))))
-        alist-to-return))))
+          (let ((toppar (cons topic partition)))
+            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                (push (cons toppar offset) goodies)
+                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
+                  (push (cons toppar error-string) baddies)))))
+        (when baddies
+          (error 'partial-error
+                 :description "Offsets for times error"
+                 :baddies (nreverse baddies)
+                 :goodies (nreverse goodies)))
+        (nreverse goodies)))))
 
 (defmethod positions ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer

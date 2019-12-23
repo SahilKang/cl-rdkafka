@@ -311,13 +311,15 @@
                (cdr (assoc (cons topic 0)
                            (kf:offsets-for-times
                             consumer
-                            `(((,topic . 0) . ,delay-timestamp)))
+                            `(((,topic . 0) . ,delay-timestamp))
+                            5000)
                            :test #'equal))))
         (is (= (1+ delay-offset)
                (cdr (assoc (cons topic 0)
                            (kf:offsets-for-times
                             consumer
-                            `(((,topic . 0) . ,(1+ delay-timestamp))))
+                            `(((,topic . 0) . ,(1+ delay-timestamp)))
+                            5000)
                            :test #'equal))))))))
 
 (test positions
