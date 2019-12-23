@@ -381,7 +381,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
               (cerror (format nil "Don't include `~A:~A` in the returned alist."
                               topic
                               partition)
-                      'topic+partition-error
+                      'partition-error
                       :description (cl-rdkafka/ll:rd-kafka-err2str err)
                       :topic topic
                       :partition partition)
@@ -424,7 +424,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
         (foreach-toppar toppar-list (err topic partition)
           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
             (cerror "Continue checking pause status of other topic+partitions."
-                    'topic+partition-error
+                    'partition-error
                     :description (cl-rdkafka/ll:rd-kafka-err2str err)
                     :topic topic
                     :partition partition)))))))
@@ -443,7 +443,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
         (foreach-toppar toppar-list (err topic partition)
           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
             (cerror "Continue checking resume status of other topic+partitions."
-                    'topic+partition-error
+                    'partition-error
                     :description (cl-rdkafka/ll:rd-kafka-err2str err)
                     :topic topic
                     :partition partition)))))))
@@ -463,7 +463,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
                   high
                   timeout-ms)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'topic+partition-error
+          (error 'partition-error
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)
                  :topic topic
                  :partition partition))
@@ -492,7 +492,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
               (cerror (format nil "Don't include `~A:~A` in the returned alist."
                               topic
                               partition)
-                      'topic+partition-error
+                      'partition-error
                       :description (cl-rdkafka/ll:rd-kafka-err2str err)
                       :topic topic
                       :partition partition)
@@ -519,7 +519,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
               (cerror (format nil "Don't include `~A:~A` in the returned alist."
                               topic
                               partition)
-                      'topic+partition-error
+                      'partition-error
                       :description (cl-rdkafka/ll:rd-kafka-err2str err)
                       :topic topic
                       :partition partition)

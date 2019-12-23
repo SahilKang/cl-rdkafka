@@ -108,7 +108,7 @@ The returned alist looks something like:
          (cerror (format nil "Skip `~A:~A` and continue with others."
                          topic-name
                          id)
-                 'topic+partition-error
+                 'partition-error
                  :topic topic-name
                  :partition id
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))))

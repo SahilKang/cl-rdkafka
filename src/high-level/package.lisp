@@ -47,7 +47,7 @@
 
    #:kafka-error
    #:description
-   #:topic+partition-error
+   #:partition-error
    #:allocation-error
    #:name
    #:partial-error

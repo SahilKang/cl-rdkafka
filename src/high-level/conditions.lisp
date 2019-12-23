@@ -31,7 +31,7 @@
   (:documentation
    "Generic condition signalled by cl-rdkafka for expected errors."))
 
-(define-condition topic+partition-error (kafka-error)
+(define-condition partition-error (kafka-error)
   ((topic
     :initarg :topic
     :initform (error "Must supply topic")

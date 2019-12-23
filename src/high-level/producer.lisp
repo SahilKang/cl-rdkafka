@@ -202,7 +202,7 @@ HEADERS should be an alist of (string . byte-vector) pairs."))
 
                       :int cl-rdkafka/ll:rd-kafka-vtype-end))
            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-             (error 'topic+partition-error
+             (error 'partition-error
                     :description (cl-rdkafka/ll:rd-kafka-err2str err)
                     :topic topic
                     :partition partition)))
