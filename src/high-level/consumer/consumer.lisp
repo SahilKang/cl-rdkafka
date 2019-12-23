@@ -78,11 +78,7 @@ Example:
 
 (defgeneric resume (consumer partitions))
 
-(defgeneric query-watermark-offsets (consumer topic partition &key timeout-ms)
-  (:documentation
-   "Query broker for low (oldest/beginning) and high (newest/end) offsets.
-
-A (low high) list is returned."))
+(defgeneric query-watermark-offsets (consumer topic partition timeout-ms))
 
 (defgeneric offsets-for-times (consumer timestamps &key timeout-ms)
   (:documentation
@@ -469,7 +465,10 @@ The PARTIAL-ERROR will have the slots:
     ((consumer consumer)
      (topic string)
      (partition integer)
-     &key (timeout-ms 5000))
+     (timeout-ms integer))
+  "Query broker for low (oldest/beginning) and high (newest/end) offsets.
+
+A (low . high) cons cell is returned."
   (cffi:with-foreign-objects ((low :int64) (high :int64))
     (with-slots (rd-kafka-consumer) consumer
       (let ((err (cl-rdkafka/ll:rd-kafka-query-watermark-offsets
@@ -484,7 +483,7 @@ The PARTIAL-ERROR will have the slots:
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)
                  :topic topic
                  :partition partition))
-        (list (cffi:mem-ref low :int64)
+        (cons (cffi:mem-ref low :int64)
               (cffi:mem-ref high :int64))))))
 
 (defmethod offsets-for-times
