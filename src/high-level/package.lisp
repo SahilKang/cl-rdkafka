@@ -38,10 +38,23 @@
    #:value
    #:donep
 
-   #:consumer #:subscribe #:unsubscribe #:subscription
-   #:poll #:commit #:committed #:assignment #:assign #:member-id
-   #:pause #:resume #:query-watermark-offsets #:offsets-for-times
-   #:positions #:close
+   ;; consumer class
+   #:consumer
+   #:poll
+   #:subscribe
+   #:unsubscribe
+   #:subscription
+   #:assign
+   #:assignment
+   #:commit
+   #:committed
+   #:pause
+   #:resume
+   #:member-id
+   #:offsets-for-times
+   #:query-watermark-offsets
+   #:positions
+   #:close
 
    #:producer #:produce #:flush
 

@@ -41,8 +41,7 @@ Example:
                          \"auto.offset.reset\" \"earliest\"
                          \"offset.store.method\" \"broker\"
                          \"enable.partition.eof\"  \"false\")
-                 :serde (lambda (bytes)
-                          (babel:octets-to-string bytes :encoding :utf-8)))))
+                 :serde #'babel:octets-to-string)))
   (kf:subscribe consumer '(\"topic-name\"))
 
   (loop
