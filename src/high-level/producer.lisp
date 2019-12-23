@@ -49,14 +49,7 @@ Example:
 
   (kf:flush producer))"))
 
-(defgeneric produce (producer topic value &key key partition headers)
-  (:documentation
-   "Asynchronously produce a message and return a MESSAGE FUTURE.
-
-If PARTITION is not specified, one is chosen using the topic's
-partitioner function.
-
-HEADERS should be an alist of (string . byte-vector) pairs."))
+(defgeneric produce (producer topic value &key key partition headers))
 
 (defgeneric flush (producer)
   (:documentation
@@ -219,6 +212,12 @@ HEADERS should be an alist of (string . byte-vector) pairs."))
      (topic string)
      value
      &key (key nil key-p) partition headers)
+  "Asynchronously produce a message and return a MESSAGE FUTURE.
+
+If PARTITION is not specified, one is chosen using the topic's
+partitioner function.
+
+HEADERS should be an alist of (string . byte-vector) pairs."
   (with-slots (rd-kafka-producer
                rd-kafka-queue
                key-serde
