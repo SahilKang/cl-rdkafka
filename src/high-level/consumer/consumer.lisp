@@ -84,6 +84,7 @@ Example:
 
 (defgeneric positions (consumer partitions))
 
+(defgeneric close (consumer))
 
 (defun get-good-commits-and-assert-no-bad-commits (rd-kafka-event)
   (let (goodies baddies)
@@ -546,6 +547,11 @@ The PARTIAL-ERROR will have the slots:
         (nreverse goodies)))))
 
 (defmethod close ((consumer consumer))
+  "Close CONSUMER after revoking assignment, committing offsets, and leaving group.
+
+CONSUMER will be closed during garbage collection if it's still open;
+this method is provided if closing needs to occur at a well-defined
+time."
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
