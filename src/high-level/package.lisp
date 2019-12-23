@@ -61,13 +61,14 @@
    #:produce
    #:flush
 
+   ;; conditions
    #:kafka-error
-   #:description
    #:rdkafka-error
-   #:enum
    #:partition-error
-   #:allocation-error
-   #:name
    #:partial-error
+   #:allocation-error
+   #:description
+   #:enum
    #:goodies
-   #:baddies))
+   #:baddies
+   #:name))
