@@ -73,3 +73,19 @@
                                    (destructuring-bind (key value) pair
                                      (kf:produce producer topic value :key key)))
                                  expected)))))))
+
+(test producer-timestamp
+  (with-topics ((topic "test-producer-timestamp"))
+    (let ((producer (make-instance
+                     'kf:producer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)))
+          (expected '(2 4 6)))
+      (is (equal expected
+                 (mapcar
+                  (lambda (future)
+                    (let ((message (kf:value future)))
+                      (kf:timestamp message)))
+                  (mapcar
+                   (lambda (timestamp)
+                     (kf:produce producer topic #(1 2 3) :timestamp timestamp))
+                   expected)))))))
