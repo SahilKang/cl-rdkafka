@@ -51,9 +51,7 @@ Example:
 
 (defgeneric produce (producer topic value &key key partition headers))
 
-(defgeneric flush (producer)
-  (:documentation
-   "Block while in-flight messages are sent to kafka cluster."))
+(defgeneric flush (producer))
 
 (defun process-produce-event (rd-kafka-event queue)
   (assert-expected-event rd-kafka-event cl-rdkafka/ll:rd-kafka-event-dr)
@@ -245,5 +243,7 @@ HEADERS should be an alist of (string . byte-vector) pairs."
 ;; rd_kafka_flush call. In either case, it's easy enough to implement
 ;; flush ourselves:
 (defmethod flush ((producer producer))
+  "Block while in-flight messages are sent to kafka cluster."
   (with-slots (last-promise) producer
-    (lparallel:force last-promise)))
+    (lparallel:force last-promise))
+  nil)
