@@ -37,8 +37,7 @@ Here are a few examples for the `kf` package:
 (let ((producer (make-instance
                  'kf:producer
                  :conf '("bootstrap.servers" "127.0.0.1:9092")
-                 :serde (lambda (string)
-                          (babel:string-to-octets string :encoding :utf-8))))
+                 :serde #'babel:string-to-octets))
       (messages '(("key-1" "value-1")
                   ("key-2" "value-2"))))
   (loop

@@ -56,7 +56,10 @@
    #:positions
    #:close
 
-   #:producer #:produce #:flush
+   ;; producer class
+   #:producer
+   #:produce
+   #:flush
 
    #:kafka-error
    #:description
