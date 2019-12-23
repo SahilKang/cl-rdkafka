@@ -110,7 +110,9 @@ Example:
        :create-time)
       ((eq *ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-log-append-time)
        :log-append-time)
-      (t (error "Unknown timestamp-type: ~A" *ts-type)))))
+      (t (error 'kafka-error
+                :description
+                (format nil "Unknown timestamp-type: `~A`" *ts-type))))))
 
 (defun get-timestamp (rd-kafka-message)
   (cffi:with-foreign-object (ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-type)

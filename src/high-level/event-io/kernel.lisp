@@ -39,14 +39,15 @@
                  while (and (= ret -1)
                             (= (cffi:mem-ref errno :int) eintr))
                  finally (return ret)))
-    (error "posix-poll failed")))
+    (error 'kafka-error :description "posix-poll failed")))
 
 (defun assert-good-revents (pollfd)
   (let ((revents (cffi:foreign-slot-value pollfd '(:struct pollfd) 'revents)))
     (unless (zerop (logand revents (logior pollerr pollhup pollnval)))
-      (error "posix-poll revents error"))
+      (error 'kafka-error :description "posix-poll revents error"))
     (when (zerop (logand revents pollin))
-      (error "posix-poll returned but fd is not ready to read"))))
+      (error 'kafka-error
+             :description "posix-poll returned but fd is not ready to read"))))
 
 (defun read-rd-kafka-queue-from-fd (pollfd)
   (wait-for-fd pollfd)
@@ -55,9 +56,12 @@
     (let* ((fd (cffi:foreign-slot-value pollfd '(:struct pollfd) 'fd))
            (bytes-read (posix-read fd buf +pointer-size+)))
       (when (= -1 bytes-read)
-        (error "posix-read failed"))
+        (error 'kafka-error :description "posix-read failed"))
       (unless (= bytes-read +pointer-size+)
-        (error "Read ~A bytes instead of ~A" bytes-read +pointer-size+)))
+        (error 'kafka-error
+               :description
+               (format nil "Read ~A bytes instead of ~A"
+                       bytes-read +pointer-size+))))
     (cffi:mem-ref buf :pointer)))
 
 (defun process-events (rd-kafka-queue)
@@ -88,12 +92,15 @@
 (defun assert-expected-event (rd-kafka-event expected)
   (let ((actual (cl-rdkafka/ll:rd-kafka-event-type rd-kafka-event)))
     (unless (= expected actual)
-      (error "Expected event-type `~A`, not `~A`" expected actual))))
+      (error 'kafka-error
+             :description
+             (format nil  "Expected event-type `~A`, not `~A`"
+                     expected actual)))))
 
 (defun init-fds ()
   (cffi:with-foreign-object (fds :int 2)
     (unless (zerop (posix-pipe fds))
-      (error "posix-pipe failed"))
+      (error 'kafka-error :description "posix-pipe failed"))
     (setf +read-fd+ (cffi:mem-aref fds :int 0)
           +write-fd+ (cffi:mem-aref fds :int 1))))
 
