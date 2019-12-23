@@ -60,9 +60,7 @@ Example:
 
 (defgeneric unsubscribe (consumer))
 
-(defgeneric subscription (consumer)
-  (:documentation
-   "Return a list of topic names that CONSUMER is subscribed to."))
+(defgeneric subscription (consumer))
 
 (defgeneric poll (consumer timeout-ms)
   (:documentation
@@ -270,12 +268,13 @@ cluster's topics."
       (cffi:mem-ref rd-list :pointer))))
 
 (defmethod subscription ((consumer consumer))
+  "Return a list of topic names that CONSUMER is subscribed to."
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list toppar-list (%subscription rd-kafka-consumer)
-      (let (return-me)
+      (let (topics)
         (foreach-toppar toppar-list (topic)
-          (push topic return-me))
-        return-me))))
+          (push topic topics))
+        (nreverse topics)))))
 
 (defmethod poll ((consumer consumer) (timeout-ms integer))
   (with-slots (rd-kafka-consumer key-serde value-serde) consumer
