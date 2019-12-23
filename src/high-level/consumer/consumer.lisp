@@ -62,11 +62,7 @@ Example:
 
 (defgeneric subscription (consumer))
 
-(defgeneric poll (consumer timeout-ms)
-  (:documentation
-   "Block for up to timeout-ms milliseconds and return a kf:message or nil"))
-
-
+(defgeneric poll (consumer timeout-ms))
 
 (defgeneric commit (consumer &key offsets asyncp))
 
@@ -277,6 +273,10 @@ cluster's topics."
         (nreverse topics)))))
 
 (defmethod poll ((consumer consumer) (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and return a MESSAGE or nil.
+
+May signal PARTITION-ERROR or condition from CONSUMER's serde. A
+STORE-FUNCTION restart will be provided if it's a serde condition."
   (with-slots (rd-kafka-consumer key-serde value-serde) consumer
     (let ((rd-kafka-message (cl-rdkafka/ll:rd-kafka-consumer-poll
                              rd-kafka-consumer
