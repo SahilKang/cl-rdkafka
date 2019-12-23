@@ -70,12 +70,7 @@ Example:
 
 (defgeneric assignment (consumer))
 
-(defgeneric assign (consumer topic+partitions)
-  (:documentation
-   "Assign TOPIC+PARTITIONS to CONSUMER.
-
-TOPIC+PARTITIONS is an alist with elements that look like:
-  * (topic . partition)"))
+(defgeneric assign (consumer partitions))
 
 (defgeneric member-id (consumer)
   (:documentation
@@ -386,11 +381,14 @@ The PARTIAL-ERROR will have the slots:
                  :goodies (nreverse goodies)))
         (nreverse goodies)))))
 
-(defmethod assign ((consumer consumer) (topic+partitions list))
+(defmethod assign ((consumer consumer) (partitions sequence))
+  "Assign PARTITIONS to CONSUMER.
+
+PARTITIONS should be a sequence of (topic . partition) cons cells."
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
-        (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
+        (alloc-toppar-list partitions :topic #'car :partition #'cdr)
       (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'kafka-error
