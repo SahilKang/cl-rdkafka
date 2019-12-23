@@ -72,16 +72,9 @@ Example:
   (:documentation
    "Block for up to timeout-ms milliseconds and return a kf:message or nil"))
 
-(defgeneric commit (consumer &key topic+partitions asyncp)
-  (:documentation
-   "Commit offsets to broker.
 
-TOPIC+PARTITIONS is an alist with elements that look like one of:
-  * ((topic . partition) . offset)
-  * ((topic . partition) . (offset . metadata))
 
-If TOPIC+PARTITIONS is nil (the default) then the current assignment
-is committed."))
+(defgeneric commit (consumer &key offsets asyncp))
 
 (defgeneric committed (consumer &optional topic+partitions)
   (:documentation
@@ -173,12 +166,11 @@ time."))
               (push (cons toppar offset+meta) goodies))
             (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
               (push (cons toppar error-string) baddies)))))
-    (unless (zerop (length baddies))
-      ;; TODO create nicer condition
-      (error 'kafka-error
-             :description
-             (format nil "Failed to commit topic+partitions: ~S"
-                     (nreverse baddies))))
+    (when baddies
+      (error 'partial-error
+             :description "Commit failed"
+             :baddies (nreverse baddies)
+             :goodies (nreverse goodies)))
     (nreverse goodies)))
 
 (defun process-commit-event (rd-kafka-event queue)
@@ -306,13 +298,28 @@ time."))
       (enqueue-payload rd-kafka-queue promise)
       promise)))
 
-(defmethod commit ((consumer consumer) &key topic+partitions asyncp)
+(defmethod commit ((consumer consumer) &key offsets asyncp)
+  "Commit OFFSETS to broker.
+
+If OFFSETS is nil, then the current assignment is committed;
+otherwise, OFFSETS should be an alist mapping (topic . partition) cons
+cells to either (offset . metadata) cons cells or lone offset values.
+
+On success, an alist of committed offsets is returned, mapping
+(topic . partition) to (offset . metadata).
+
+On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+The PARTIAL-ERROR will have the slots:
+  * GOODIES: Same format as successful return value
+  * BADDIES: An alist mapping (topic . partition) to error strings
+
+If ASYNCP is true, then a FUTURE will be returned instead."
   (with-slots (rd-kafka-consumer rd-kafka-queue) consumer
     (with-toppar-list
         toppar-list
-        (if (null topic+partitions)
+        (if (null offsets)
             (cffi:null-pointer)
-            (alloc-toppar-list topic+partitions
+            (alloc-toppar-list offsets
                                :topic #'caar
                                :partition #'cdar
                                :offset (lambda (pair)
@@ -322,10 +329,11 @@ time."))
                                :metadata (lambda (pair)
                                            (when (consp (cdr pair))
                                              (cddr pair)))))
-      (let ((promise (%commit rd-kafka-consumer toppar-list rd-kafka-queue)))
+      (let* ((promise (%commit rd-kafka-consumer toppar-list rd-kafka-queue))
+             (future (make-instance 'future :promise promise :client consumer)))
         (if asyncp
-            (make-instance 'future :promise promise :client consumer)
-            (lparallel:force promise))))))
+            future
+            (value future))))))
 
 (defun %assignment (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)

@@ -102,7 +102,7 @@
           (expected `(((,topic . 0) . (0 . #(2 4 6)))
                       ((,topic . 0) . (1 . #(8 10 12)))
                       ((,topic . 0) . (2 . #())))))
-      (is (equalp expected (kf:commit consumer :topic+partitions expected))))))
+      (is (equalp expected (kf:commit consumer :offsets expected))))))
 
 (test commit-async
   (with-topics ((topic "consumer-test-commit-async"))
@@ -116,7 +116,7 @@
            (expected `(((,topic . 0) . (0 . #(2 4 6)))
                        ((,topic . 0) . (1 . #(8 10 12)))
                        ((,topic . 0) . (2 . #()))))
-           (future (kf:commit consumer :asyncp t :topic+partitions expected)))
+           (future (kf:commit consumer :asyncp t :offsets expected)))
       (is (typep future 'kf:future))
       (is (equalp expected (kf:value future))))))
 
