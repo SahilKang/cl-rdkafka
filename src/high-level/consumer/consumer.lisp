@@ -66,18 +66,7 @@ Example:
 
 (defgeneric commit (consumer &key offsets asyncp))
 
-(defgeneric committed (consumer &optional topic+partitions)
-  (:documentation
-   "Return an alist of committed topic+partitions.
-
-TOPIC+PARTITIONS is an alist with elements that look like:
-  * (topic . partition)
-
-If TOPIC+PARTITIONS is nil (the default) then info about the current
-assignment is returned.
-
-The returned alist has elements that look like:
-  * ((topic . partition) . (offset . metadata))"))
+(defgeneric committed (consumer partitions timeout-ms))
 
 (defgeneric assignment (consumer)
   (:documentation
@@ -358,40 +347,48 @@ If ASYNCP is true, then a FUTURE will be returned instead."
           (push (cons topic partition) alist-to-return))
         alist-to-return))))
 
-(defmethod committed ((consumer consumer) &optional topic+partitions)
+(defmethod committed
+    ((consumer consumer) (partitions sequence) (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and return committed offsets for PARTITIONS.
+
+PARTITIONS should be a sequence of (topic . partition) cons cells.
+
+On success, an alist of committed offsets is returned, mapping
+(topic . partition) to (offset . metadata).
+
+On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+The PARTIAL-ERROR will have the slots:
+  * GOODIES: Same format as successful return value
+  * BADDIES: An alist mapping (topic . partition) to error strings"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
-        (if topic+partitions
-            (alloc-toppar-list topic+partitions :topic #'car :partition #'cdr)
-            (%assignment rd-kafka-consumer))
+        (alloc-toppar-list partitions :topic #'car :partition #'cdr)
       (let ((err (cl-rdkafka/ll:rd-kafka-committed
                   rd-kafka-consumer
                   toppar-list
-                  60000))
-            alist-to-return)
+                  timeout-ms))
+            goodies
+            baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'kafka-error
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))
         (foreach-toppar
             toppar-list
             (topic partition offset metadata metadata-size err)
-          (let (skip-p)
-            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-              (cerror (format nil "Don't include `~A:~A` in the returned alist."
-                              topic
-                              partition)
-                      'partition-error
-                      :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                      :topic topic
-                      :partition partition)
-              (setf skip-p t))
-            (unless skip-p
-              (let ((meta (unless (cffi:null-pointer-p metadata)
-                            (pointer->bytes metadata metadata-size))))
-                (push `((,topic . ,partition) . (,offset . ,meta))
-                      alist-to-return)))))
-        alist-to-return))))
+          (let ((toppar (cons topic partition)))
+            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                (let* ((meta (pointer->bytes metadata metadata-size))
+                       (offset+meta (cons offset meta)))
+                  (push (cons toppar offset+meta) goodies))
+                (let ((error-string (cl-rdkafka/ll:rd-kafka-err2str err)))
+                  (push (cons toppar error-string) baddies)))))
+        (when baddies
+          (error 'partial-error
+                 :description "Committed failed"
+                 :baddies (nreverse baddies)
+                 :goodies (nreverse goodies)))
+        (nreverse goodies)))))
 
 (defmethod assign ((consumer consumer) (topic+partitions list))
   (with-slots (rd-kafka-consumer) consumer

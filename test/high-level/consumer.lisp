@@ -83,12 +83,15 @@
       (sleep 2)
 
       (kf:subscribe consumer (list topic))
-      (is (equal expected (loop
-                             repeat (length expected)
-                             do
-                               (kf:poll consumer 5000)
-                               (kf:commit consumer)
-                             collect (cadar (kf:committed consumer))))))))
+      (sleep 5)
+      (is (equal expected
+                 (loop
+                    with assignment = (kf:assignment consumer)
+                    repeat (length expected)
+                    do
+                      (kf:poll consumer 5000)
+                      (kf:commit consumer)
+                    collect (cadar (kf:committed consumer assignment 5000))))))))
 
 (test commit-sync
   (with-topics ((topic "consumer-test-commit-sync"))
