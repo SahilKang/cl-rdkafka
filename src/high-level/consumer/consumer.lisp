@@ -56,9 +56,7 @@ Example:
 
      do (kf:commit consumer)))"))
 
-(defgeneric subscribe (consumer topics)
-  (:documentation
-   "Subscribe consumer to sequence of topic names."))
+(defgeneric subscribe (consumer topics))
 
 (defgeneric unsubscribe (consumer)
   (:documentation
@@ -235,7 +233,11 @@ time."))
                             :function (or value-serde serde)))
     (tg:finalize consumer (make-consumer-finalizer rd-kafka-consumer rd-kafka-queue))))
 
-(defmethod subscribe ((consumer consumer) topics)
+(defmethod subscribe ((consumer consumer) (topics sequence))
+  "Subscribe CONSUMER to TOPICS.
+
+Any topic prefixed with '^' will be regex-matched with the cluster's
+topics."
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list toppar-list (alloc-toppar-list topics)
       (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
@@ -243,6 +245,13 @@ time."))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error 'kafka-error
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+
+(defmethod subscribe ((consumer consumer) (topic string))
+  "Subscribe CONSUMER to TOPIC.
+
+If TOPIC starts with '^', then it will be regex-matched with the
+cluster's topics."
+  (subscribe consumer (list topic)))
 
 (defmethod unsubscribe ((consumer consumer))
   (with-slots (rd-kafka-consumer) consumer
