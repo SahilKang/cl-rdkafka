@@ -190,10 +190,7 @@ key/value."
          (topic (get-topic *rd-kafka-message))
          (partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error 'partition-error
-             :description (cl-rdkafka/ll:rd-kafka-err2str err)
-             :topic topic
-             :partition partition))
+      (error (make-partition-error err topic partition)))
     (let ((raw-key (get-key *rd-kafka-message))
           (raw-value (get-payload *rd-kafka-message))
           (timestamp-pair (get-timestamp rd-kafka-message)))

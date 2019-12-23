@@ -51,7 +51,7 @@
                   :enum (cl-rdkafka/ll:num err)
                   :description (cl-rdkafka/ll:rd-kafka-err2str err)))
 
-(define-condition partition-error (kafka-error)
+(define-condition partition-error (rdkafka-error)
   ((topic
     :initarg :topic
     :initform (error "Must supply topic")
@@ -66,12 +66,20 @@
     :documentation "Topic partition."))
   (:report
    (lambda (condition stream)
-     (format stream "Encountered error `~A` for topic:partition `~A:~A`"
-             (description condition)
+     (format stream "Encountered error `~A` for `~A:~A`: `~A`"
+             (enum condition)
              (topic condition)
-             (partition condition))))
+             (partition condition)
+             (description condition))))
   (:documentation
    "Condition signalled for errors specific to a topic's partition."))
+
+(defun make-partition-error (err topic partition)
+  (make-condition 'partition-error
+                  :enum (cl-rdkafka/ll:num err)
+                  :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                  :topic topic
+                  :partition partition))
 
 (define-condition partial-error (kafka-error)
   ((goodies

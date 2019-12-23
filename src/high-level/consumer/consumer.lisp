@@ -441,10 +441,7 @@ A (low . high) cons cell is returned."
                   high
                   timeout-ms)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'partition-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)
-                 :topic topic
-                 :partition partition))
+          (error (make-partition-error err topic partition)))
         (cons (cffi:mem-ref low :int64)
               (cffi:mem-ref high :int64))))))
 
