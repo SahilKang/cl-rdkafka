@@ -72,9 +72,7 @@ Example:
 
 (defgeneric assign (consumer partitions))
 
-(defgeneric member-id (consumer)
-  (:documentation
-   "Return CONSUMER's broker-assigned group member-id."))
+(defgeneric member-id (consumer))
 
 (defgeneric pause (consumer topic+partitions)
   (:documentation
@@ -395,6 +393,7 @@ PARTITIONS should be a sequence of (topic . partition) cons cells."
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
 
 (defmethod member-id ((consumer consumer))
+  "Return CONSUMER's broker-assigned group member-id."
   (with-slots (rd-kafka-consumer) consumer
     (cl-rdkafka/ll:rd-kafka-memberid rd-kafka-consumer)))
 
