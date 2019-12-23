@@ -58,9 +58,7 @@ Example:
 
 (defgeneric subscribe (consumer topics))
 
-(defgeneric unsubscribe (consumer)
-  (:documentation
-   "Unsubscribe consumer from its current topic subscription."))
+(defgeneric unsubscribe (consumer))
 
 (defgeneric subscription (consumer)
   (:documentation
@@ -254,6 +252,7 @@ cluster's topics."
   (subscribe consumer (list topic)))
 
 (defmethod unsubscribe ((consumer consumer))
+  "Unsubscribe CONSUMER from its current topic subscription."
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-unsubscribe rd-kafka-consumer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
