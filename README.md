@@ -42,7 +42,7 @@ Here are a few examples for the `kf` package:
                   ("key-2" "value-2"))))
   (loop
      for (k v) in messages
-     do (kf:produce producer "topic-name" v :key k))
+     do (kf:send producer "topic-name" v :key k))
 
   (kf:flush producer))
 ```

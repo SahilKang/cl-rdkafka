@@ -43,7 +43,7 @@
                               ("creative header 3" . #(14 16 18)))))
       (kf:subscribe consumer (list topic))
 
-      (kf:produce producer topic expected-message :headers expected-headers)
+      (kf:send producer topic expected-message :headers expected-headers)
       (kf:flush producer)
 
       (let ((message (kf:poll consumer 5000)))

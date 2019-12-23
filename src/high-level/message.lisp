@@ -61,14 +61,14 @@
     :initarg :latency
     :type (or null integer)
     :documentation
-    "Message latency measured in microseconds from the produce call, or nil.")
+    "Message latency measured in microseconds from the send call, or nil.")
    (headers
     :initarg :headers
     :reader headers
     :type (or null list)
     :documentation "Message headers as an alist, or nil."))
   (:documentation
-   "A kafka message as returned by consumer's poll or producer's produce.
+   "A kafka message as returned by consumer's poll or producer's send.
 
 Example:
 

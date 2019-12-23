@@ -58,7 +58,7 @@
 
    ;; producer class
    #:producer
-   #:produce
+   #:send
    #:flush
 
    ;; conditions

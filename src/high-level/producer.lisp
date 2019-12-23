@@ -24,7 +24,7 @@
     :documentation "Pointer to rd_kafka_queue_t struct.")
    (last-promise
     :initform nil
-    :documentation "Latest promise from produce call.")
+    :documentation "Latest promise from send call.")
    (key-serde
     :type serializer
     :documentation "Serializer to map object to byte sequence.")
@@ -44,21 +44,21 @@ Example:
                   (\"key-2\" \"value-2\"))))
   (loop
      for (k v) in messages
-     do (kf:produce producer \"topic-name\" v :key k))
+     do (kf:send producer \"topic-name\" v :key k))
 
   (kf:flush producer))"))
 
-(defgeneric produce (producer topic value &key key partition headers timestamp))
+(defgeneric send (producer topic value &key key partition headers timestamp))
 
 (defgeneric flush (producer))
 
-(defun process-produce-event (rd-kafka-event queue)
+(defun process-send-event (rd-kafka-event queue)
   (assert-expected-event rd-kafka-event cl-rdkafka/ll:rd-kafka-event-dr)
   (let ((err (cl-rdkafka/ll:rd-kafka-event-error rd-kafka-event)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (let ((promise (first (lparallel.queue:pop-queue queue))))
         (lparallel:fulfill promise (make-rdkafka-error err)))
-      (return-from process-produce-event)))
+      (return-from process-send-event)))
   (loop
      for message = (cl-rdkafka/ll:rd-kafka-event-message-next rd-kafka-event)
      until (cffi:null-pointer-p message)
@@ -109,7 +109,7 @@ Example:
       (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)
       (error 'allocation-error :name "queue"))
     (handler-case
-        (register-rd-kafka-queue rd-kafka-queue #'process-produce-event)
+        (register-rd-kafka-queue rd-kafka-queue #'process-send-event)
       (condition (c)
         (cl-rdkafka/ll:rd-kafka-queue-destroy rd-kafka-queue)
         (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)
@@ -149,7 +149,7 @@ Example:
         (cl-rdkafka/ll:rd-kafka-headers-destroy headers)
         (error c)))))
 
-(defun %produce
+(defun %send
     (rd-kafka-producer topic partition key-bytes value-bytes headers timestamp)
   (let ((msg-flags cl-rdkafka/ll:rd-kafka-msg-f-free)
         err
@@ -198,12 +198,12 @@ Example:
         (when headers-pointer
           (cl-rdkafka/ll:rd-kafka-headers-destroy headers-pointer))))))
 
-(defmethod produce
+(defmethod send
     ((producer producer)
      (topic string)
      value
      &key (key nil key-p) partition headers timestamp)
-  "Asynchronously produce a message and return a MESSAGE FUTURE.
+  "Asynchronously send a message and return a MESSAGE FUTURE.
 
 If PARTITION is not specified, one is chosen using the topic's
 partitioner function.
@@ -225,13 +225,13 @@ STORE-FUNCTION restart will be provided if it's a serde condition."
     (let ((key-bytes (if key-p (apply-serde key-serde key) (vector)))
           (value-bytes (apply-serde value-serde value))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
-      (%produce rd-kafka-producer
-                topic
-                partition
-                key-bytes
-                value-bytes
-                headers
-                (or timestamp 0))
+      (%send rd-kafka-producer
+             topic
+             partition
+             key-bytes
+             value-bytes
+             headers
+             (or timestamp 0))
       (let ((promise (lparallel:promise)))
         (enqueue-payload rd-kafka-queue (list promise key value))
         (setf last-promise promise)

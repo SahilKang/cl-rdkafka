@@ -182,10 +182,10 @@
       (kf:subscribe consumer (list topic))
 
       (mapcar (lambda (message)
-                (kf:produce producer topic message :partition good-partition))
+                (kf:send producer topic message :partition good-partition))
               messages)
       (mapcar (lambda (message)
-                (kf:produce producer topic message :partition bad-partition))
+                (kf:send producer topic message :partition bad-partition))
               '("These" "messages" "won't" "be" "consumed"))
       (kf:flush producer)
 
@@ -224,10 +224,10 @@
       (kf:subscribe consumer (list topic))
 
       (mapcar (lambda (message)
-                (kf:produce producer topic message :partition good-partition))
+                (kf:send producer topic message :partition good-partition))
               goodies)
       (mapcar (lambda (message)
-                (kf:produce producer topic message :partition bad-partition))
+                (kf:send producer topic message :partition bad-partition))
               baddies)
       (kf:flush producer)
 
@@ -261,9 +261,9 @@
       (is (equal '(0 . 0) (kf:watermarks consumer topic 0 5000)))
       (is (equal '(0 . 0) (kf:watermarks consumer topic 1 5000)))
 
-      (kf:produce producer topic #(2 4) :partition 0)
-      (kf:produce producer topic #(1 2) :partition 1)
-      (kf:produce producer topic #(3 4) :partition 1)
+      (kf:send producer topic #(2 4) :partition 0)
+      (kf:send producer topic #(1 2) :partition 1)
+      (kf:send producer topic #(3 4) :partition 1)
       (kf:flush producer)
 
       (is (equal '(0 . 1) (kf:watermarks consumer topic 0 5000)))
@@ -289,7 +289,7 @@
       (kf:subscribe consumer (list topic))
 
       (mapcar (lambda (message)
-                (kf:produce producer topic message)
+                (kf:send producer topic message)
                 (sleep 1))
               '("There" "is" "a" "delay" "between" "these" "messages"))
       (kf:flush producer)
@@ -342,7 +342,7 @@
       (kf:subscribe consumer (list topic))
 
       (mapcar (lambda (message)
-                (kf:produce producer topic message))
+                (kf:send producer topic message))
               '("Here" "are" "a" "few" "messages"))
       (kf:flush producer)
 

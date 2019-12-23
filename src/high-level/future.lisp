@@ -22,7 +22,7 @@
 ;;
 ;; (let (lparallel-promise)
 ;;   (let ((producer (make-instance 'kf:producer ...)))
-;;     (setf lparallel-promise (kf:produce producer ...)))
+;;     (setf lparallel-promise (kf:send producer ...)))
 ;;   ...
 ;;   (do-stuff lparallel-promise)
 ;;   ...)
@@ -46,7 +46,7 @@
 
 Example:
 
-(let ((future (kf:produce producer \"topic\" \"message\")))
+(let ((future (kf:send producer \"topic\" \"message\")))
   (kf:donep future) ;; => nil
   (kf:value future) ;; => #<MESSAGE {1005BE9D23}>
   (kf:donep future) ;; => t

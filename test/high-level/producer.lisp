@@ -40,7 +40,7 @@
           (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
       (loop
          for (k v) in expected
-         do (kf:produce producer topic v :key k)) ; TODO test partition here, too
+         do (kf:send producer topic v :key k)) ; TODO test partition here, too
 
       (kf:flush producer)
       (sleep 2)
@@ -71,7 +71,7 @@
                                  (list (kf:key message) (kf:value message)))))
                          (mapcar (lambda (pair)
                                    (destructuring-bind (key value) pair
-                                     (kf:produce producer topic value :key key)))
+                                     (kf:send producer topic value :key key)))
                                  expected)))))))
 
 (test producer-timestamp
@@ -87,5 +87,5 @@
                       (kf:timestamp message)))
                   (mapcar
                    (lambda (timestamp)
-                     (kf:produce producer topic #(1 2 3) :timestamp timestamp))
+                     (kf:send producer topic #(1 2 3) :timestamp timestamp))
                    expected)))))))
