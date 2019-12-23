@@ -57,9 +57,7 @@ Example:
   (let ((err (cl-rdkafka/ll:rd-kafka-event-error rd-kafka-event)))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (let ((promise (first (lparallel.queue:pop-queue queue))))
-        (lparallel:fulfill promise
-          (make-condition
-           'kafka-error :description (cl-rdkafka/ll:rd-kafka-err2str err))))
+        (lparallel:fulfill promise (make-rdkafka-error err)))
       (return-from process-produce-event)))
   (loop
      for message = (cl-rdkafka/ll:rd-kafka-event-message-next rd-kafka-event)
@@ -137,11 +135,7 @@ Example:
            ;; famous last words, so let's check the return value
            ;; anyway like the good engineers that we are
            (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-             (error 'kafka-error
-                    :description
-                    (format nil "Failed to set header value for `~A`: `~A`"
-                            name
-                            (cl-rdkafka/ll:rd-kafka-err2str err)))))
+             (error (make-rdkafka-error err))))
       (cffi:foreign-free value-pointer))))
 
 (defun make-headers (alist)

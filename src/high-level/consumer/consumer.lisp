@@ -115,8 +115,7 @@ Example:
           ((eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
            (lparallel:fulfill promise
              (get-good-commits-and-assert-no-bad-commits rd-kafka-event)))
-          (t (error 'kafka-error
-                    :description (cl-rdkafka/ll:rd-kafka-err2str err))))
+          (t (error (make-rdkafka-error err))))
       (condition (c)
         (lparallel:fulfill promise c)))))
 
@@ -176,8 +175,7 @@ topics."
       (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
                                                    toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'kafka-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+          (error (make-rdkafka-error err)))))))
 
 (defmethod subscribe ((consumer consumer) (topic string))
   "Subscribe CONSUMER to TOPIC.
@@ -191,8 +189,7 @@ cluster's topics."
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-unsubscribe rd-kafka-consumer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error 'kafka-error
-               :description (cl-rdkafka/ll:rd-kafka-err2str err))))))
+        (error (make-rdkafka-error err))))))
 
 (defun %subscription (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)
@@ -200,8 +197,7 @@ cluster's topics."
                 rd-kafka-consumer
                 rd-list)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error 'kafka-error
-               :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (error (make-rdkafka-error err)))
       (cffi:mem-ref rd-list :pointer))))
 
 (defmethod subscription ((consumer consumer))
@@ -240,8 +236,7 @@ STORE-FUNCTION restart will be provided if it's a serde condition."
               (cffi:null-pointer)
               (cffi:null-pointer))))
     (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error 'kafka-error
-             :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+      (error (make-rdkafka-error err)))
     (let ((promise (lparallel:promise)))
       (enqueue-payload rd-kafka-queue promise)
       promise)))
@@ -256,7 +251,7 @@ cells to either (offset . metadata) cons cells or lone offset values.
 On success, an alist of committed offsets is returned, mapping
 (topic . partition) to (offset . metadata).
 
-On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: Same format as successful return value
   * BADDIES: An alist mapping (topic . partition) to error strings
@@ -287,8 +282,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
   (cffi:with-foreign-object (rd-list :pointer)
     (let ((err (cl-rdkafka/ll:rd-kafka-assignment rd-kafka-consumer rd-list)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error 'kafka-error
-               :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+        (error (make-rdkafka-error err)))
       (cffi:mem-ref rd-list :pointer))))
 
 (defmethod assignment ((consumer consumer))
@@ -309,7 +303,7 @@ PARTITIONS should be a sequence of (topic . partition) cons cells.
 On success, an alist of committed offsets is returned, mapping
 (topic . partition) to (offset . metadata).
 
-On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: Same format as successful return value
   * BADDIES: An alist mapping (topic . partition) to error strings"
@@ -324,8 +318,7 @@ The PARTIAL-ERROR will have the slots:
             goodies
             baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'kafka-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error (make-rdkafka-error err)))
         (foreach-toppar
             toppar-list
             (topic partition offset metadata metadata-size err)
@@ -353,8 +346,7 @@ PARTITIONS should be a sequence of (topic . partition) cons cells."
         (alloc-toppar-list partitions :topic #'car :partition #'cdr)
       (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer toppar-list)))
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'kafka-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))))))
+          (error (make-rdkafka-error err)))))))
 
 (defmethod member-id ((consumer consumer))
   "Return CONSUMER's broker-assigned group member-id."
@@ -368,7 +360,7 @@ PARTITIONS should be a sequence of (topic . partition) cons cells.
 
 PARTITIONS is returned on success.
 
-On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: A list of (topic . partition) cons cells
   * BADDIES: An alist mapping (topic . partition) to error strings"
@@ -382,8 +374,7 @@ The PARTIAL-ERROR will have the slots:
             goodies
             baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'kafka-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error (make-rdkafka-error err)))
         (foreach-toppar toppar-list (err topic partition)
           (let ((toppar (cons topic partition)))
             (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
@@ -404,7 +395,7 @@ PARTITIONS should be a sequence of (topic . partition) cons cells.
 
 PARTITIONS is returned on success.
 
-On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: A list of (topic . partition) cons cells
   * BADDIES: An alist mapping (topic . partition) to error strings"
@@ -418,8 +409,7 @@ The PARTIAL-ERROR will have the slots:
             goodies
             baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'kafka-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error (make-rdkafka-error err)))
         (foreach-toppar toppar-list (err topic partition)
           (let ((toppar (cons topic partition)))
             (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
@@ -474,7 +464,7 @@ to timestamp values.
 On success, an alist of offsets is returned, mapping
 (topic . partition) cons cells to offset values.
 
-On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: Same format as successful return value
   * BADDIES: An alist mapping (topic . partition) to error strings"
@@ -489,8 +479,7 @@ The PARTIAL-ERROR will have the slots:
             goodies
             baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'kafka-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error (make-rdkafka-error err)))
         (foreach-toppar toppar-list (topic partition offset err)
           (let ((toppar (cons topic partition)))
             (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
@@ -514,7 +503,7 @@ On success, an alist of positions is returned, mapping
   * 1 plus the last consumed message offset
   * nil if there was no previous message.
 
-On failure, either a KAFKA-ERROR or PARTIAL-ERROR is signalled.
+On failure, either an RDKAFKA-ERROR or PARTIAL-ERROR is signalled.
 The PARTIAL-ERROR will have the slots:
   * GOODIES: Same format as successful return value
   * BADDIES: An alist mapping (topic . partition) to error strings"
@@ -528,8 +517,7 @@ The PARTIAL-ERROR will have the slots:
             goodies
             baddies)
         (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-          (error 'kafka-error
-                 :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+          (error (make-rdkafka-error err)))
         (foreach-toppar toppar-list (topic partition offset err)
           (let ((toppar (cons topic partition)))
             (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
@@ -554,4 +542,4 @@ time."
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)))
       (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-        (error 'kafka-error :description (cl-rdkafka/ll:rd-kafka-err2str err))))))
+        (error (make-rdkafka-error err))))))

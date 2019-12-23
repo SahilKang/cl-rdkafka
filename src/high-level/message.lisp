@@ -157,10 +157,7 @@ Example:
                   value
                   value-size)
        unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error 'kafka-error
-                 :description
-                 (format nil "Failed to get header pair: `~A`"
-                         (cl-rdkafka/ll:rd-kafka-err2str err)))
+       do (error (make-rdkafka-error err))
 
        collect (cons (cffi:mem-ref name :string)
                      (pointer->bytes
@@ -174,10 +171,7 @@ Example:
                 headers)))
       (unless (or (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                   (eq err cl-rdkafka/ll:rd-kafka-resp-err--noent))
-        (error 'kafka-error
-               :description
-               (format nil "Failed to get message headers: `~A`"
-                       (cl-rdkafka/ll:rd-kafka-err2str err))))
+        (error (make-rdkafka-error err)))
       (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
 

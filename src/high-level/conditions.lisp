@@ -31,6 +31,26 @@
   (:documentation
    "Generic condition signalled by cl-rdkafka for expected errors."))
 
+(define-condition rdkafka-error (kafka-error)
+  ((enum
+    :initarg :enum
+    :initform (error "Must supply enum")
+    :reader enum
+    :type integer
+    :documentation "Enum numeric value."))
+  (:report
+   (lambda (condition stream)
+     (format stream "librdkafka error `~A`: `~A`"
+             (enum condition)
+             (description condition))))
+  (:documentation
+   "Condition signalled for librdkafka errors."))
+
+(defun make-rdkafka-error (err)
+  (make-condition 'rdkafka-error
+                  :enum (cl-rdkafka/ll:num err)
+                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+
 (define-condition partition-error (kafka-error)
   ((topic
     :initarg :topic

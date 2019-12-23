@@ -63,6 +63,8 @@
 
    #:kafka-error
    #:description
+   #:rdkafka-error
+   #:enum
    #:partition-error
    #:allocation-error
    #:name
