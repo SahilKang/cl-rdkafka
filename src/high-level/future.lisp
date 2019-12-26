@@ -50,9 +50,17 @@ Example:
   (kf:donep future) ;; => nil
   (kf:value future) ;; => #<MESSAGE {1005BE9D23}>
   (kf:donep future) ;; => t
-  )"))
+
+  (let ((new-future (kf:then future
+                             (lambda (message err)
+                               (when err
+                                 (error err))
+                               (kf:value message)))))
+    (kf:value new-future))) ;; => \"message\""))
 
 (defgeneric donep (future))
+
+(defgeneric then (future callback))
 
 (defmethod value ((future future))
   "Wait until FUTURE is done and return its value or signal its condition."
@@ -66,3 +74,23 @@ Example:
   "Determine if FUTURE is done processing."
   (with-slots (promise) future
     (lparallel:fulfilledp promise)))
+
+(defmethod then ((future future) (callback function))
+  "Return a new FUTURE that calls CALLBACK when current future completes.
+
+CALLBACK should be a binary function accepting the positional args:
+  1) value: the value that the current future evaluates to, or nil
+            when it signals a condition.
+  2) condition: the condition signalled by the current future, or nil
+                when it does not signal a condition.
+
+CALLBACK is called in a background thread."
+  (with-slots (promise client) future
+    (make-instance 'future
+                   :client client
+                   :promise (let ((lparallel:*kernel* +kernel+))
+                              (lparallel:future
+                                (let ((value (lparallel:force promise)))
+                                  (if (typep value 'condition)
+                                      (funcall callback nil value)
+                                      (funcall callback value nil))))))))

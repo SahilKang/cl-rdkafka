@@ -37,6 +37,7 @@
    #:future
    #:value
    #:donep
+   #:then
 
    ;; consumer class
    #:consumer

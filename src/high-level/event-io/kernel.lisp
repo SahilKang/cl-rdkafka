@@ -105,7 +105,8 @@
           +write-fd+ (cffi:mem-aref fds :int 1))))
 
 (defun init-kernel ()
-  (setf +kernel+ (lparallel:make-kernel 1 :name "cl-rdkafka"))
+  ;; 2 threads: one for poll-loop and one for futures
+  (setf +kernel+ (lparallel:make-kernel 2 :name "cl-rdkafka"))
   (let* ((lparallel:*kernel* +kernel+)
          (channel (lparallel:make-channel :fixed-capacity 1)))
     (lparallel:submit-task channel #'poll-loop)))
