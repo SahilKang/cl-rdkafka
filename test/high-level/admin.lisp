@@ -283,7 +283,7 @@
                                     "group.id" group-2))))
       (kf:subscribe consumer-1 (list topic))
       (kf:subscribe consumer-2 (list topic))
-      (sleep 2)
+      (sleep 5)
 
       (let ((group-info (first (kf::group-info consumer-1 group-1))))
         (is (string= group-1 (cdr (assoc :group group-info)))))
@@ -318,7 +318,7 @@
                       :conf (list "bootstrap.servers" *bootstrap-servers*))))
       (kf:subscribe consumer-1 (list topic))
       (kf:subscribe consumer-2 (list topic))
-      (sleep 2)
+      (sleep 5)
 
       (let ((group-info (first (kf::group-info producer group-1))))
         (is (string= group-1 (cdr (assoc :group group-info)))))

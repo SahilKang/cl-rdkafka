@@ -77,15 +77,15 @@
                      :int cl-rdkafka/ll:rd-kafka-msg-f-copy
 
                      :int cl-rdkafka/ll:rd-kafka-vtype-end)))
-           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+           (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
              (error "Failed to produce message: `~A`"
                     (cl-rdkafka/ll:rd-kafka-err2str err)))))
     (cl-rdkafka/ll:rd-kafka-poll producer 0)))
 
 (defun flush (producer)
   (let ((err (cl-rdkafka/ll:rd-kafka-flush producer 5000)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (if (eq err cl-rdkafka/ll:rd-kafka-resp-err--timed-out)
+    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err--timed-out)
           (error "Flush timed out")
           (error "Flush error: `~A`" (cl-rdkafka/ll:rd-kafka-err2str err))))))
 

@@ -31,7 +31,7 @@
               timeout-ms
               errstr
               errstr-len)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (error 'kafka-error
              :description
              (format nil "Failed to set request timeout of admin-options: `~A`"
@@ -44,7 +44,7 @@
               (if validatep 1 0)
               errstr
               errstr-len)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (error 'kafka-error
              :description
              (format nil "Failed to set validate-only of admin-options: `~A`"
@@ -149,7 +149,7 @@ POINTER symbol is bound to each array elem for BODY to use."
        for errstr = (,get-errstr pointer)
        for name = (,get-name pointer)
 
-       unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+       unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
        do (error 'kafka-error
                  :description
                  (format nil "Failed to perform `~A` on `~A`: `~A`"

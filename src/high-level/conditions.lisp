@@ -36,20 +36,22 @@
     :initarg :enum
     :initform (error "Must supply enum")
     :reader enum
-    :type integer
-    :documentation "Enum numeric value."))
+    :type symbol
+    :documentation "cl-rdkafka/low-level:rd-kafka-resp-err enum symbol."))
   (:report
    (lambda (condition stream)
-     (format stream "librdkafka error `~A`: `~A`"
+     (format stream "librdkafka error ~S: ~S"
              (enum condition)
              (description condition))))
   (:documentation
    "Condition signalled for librdkafka errors."))
 
 (defun make-rdkafka-error (err)
+  (declare (symbol err))
   (make-condition 'rdkafka-error
-                  :enum (cl-rdkafka/ll:num err)
-                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))
+                  :enum err
+                  :description (cl-rdkafka/ll:rd-kafka-err2str
+                                (symbol-value err))))
 
 (define-condition partition-error (rdkafka-error)
   ((topic
@@ -66,7 +68,7 @@
     :documentation "Topic partition."))
   (:report
    (lambda (condition stream)
-     (format stream "Encountered error `~A` for `~A:~A`: `~A`"
+     (format stream "Encountered error ~S for `~A:~A`: ~S"
              (enum condition)
              (topic condition)
              (partition condition)
@@ -75,9 +77,13 @@
    "Condition signalled for errors specific to a topic's partition."))
 
 (defun make-partition-error (err topic partition)
+  (declare (symbol err)
+           (string topic)
+           (integer partition))
   (make-condition 'partition-error
-                  :enum (cl-rdkafka/ll:num err)
-                  :description (cl-rdkafka/ll:rd-kafka-err2str err)
+                  :enum err
+                  :description (cl-rdkafka/ll:rd-kafka-err2str
+                                (symbol-value err))
                   :topic topic
                   :partition partition))
 
@@ -117,7 +123,7 @@
     "Details about why the allocation may have failed."))
   (:report
    (lambda (condition stream)
-     (format stream "Failed to allocate new `~A`~@[: `~A`~]"
+     (format stream "Failed to allocate new `~A`~@[: ~S~]"
              (name condition)
              (description condition))))
   (:documentation

@@ -91,7 +91,7 @@ Example:
         (cl-rdkafka/ll:rd-kafka-event-topic-partition-list rd-kafka-event)
         (topic partition offset metadata metadata-size err)
       (let ((toppar (cons topic partition)))
-        (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
             (let* ((meta (pointer->bytes metadata metadata-size))
                    (offset+meta (cons offset meta)))
               (push (cons toppar offset+meta) goodies))
@@ -110,9 +110,9 @@ Example:
         (promise (lparallel.queue:pop-queue queue)))
     (handler-case
         (cond
-          ((eq err cl-rdkafka/ll:rd-kafka-resp-err--no-offset)
+          ((eq err 'cl-rdkafka/ll:rd-kafka-resp-err--no-offset)
            (lparallel:fulfill promise))
-          ((eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+          ((eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
            (lparallel:fulfill promise
              (get-good-commits-and-assert-no-bad-commits rd-kafka-event)))
           (t (error (make-rdkafka-error err))))
@@ -174,7 +174,7 @@ topics."
     (with-toppar-list toppar-list (alloc-toppar-list topics)
       (let ((err (cl-rdkafka/ll:rd-kafka-subscribe rd-kafka-consumer
                                                    toppar-list)))
-        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-rdkafka-error err)))))))
 
 (defmethod subscribe ((consumer consumer) (topic string))
@@ -188,7 +188,7 @@ cluster's topics."
   "Unsubscribe CONSUMER from its current topic subscription."
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-unsubscribe rd-kafka-consumer)))
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (error (make-rdkafka-error err))))))
 
 (defun %subscription (rd-kafka-consumer)
@@ -196,7 +196,7 @@ cluster's topics."
     (let ((err (cl-rdkafka/ll:rd-kafka-subscription
                 rd-kafka-consumer
                 rd-list)))
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (error (make-rdkafka-error err)))
       (cffi:mem-ref rd-list :pointer))))
 
@@ -235,7 +235,7 @@ STORE-FUNCTION restart will be provided if it's a serde condition."
               rd-kafka-queue
               (cffi:null-pointer)
               (cffi:null-pointer))))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (error (make-rdkafka-error err)))
     (let ((promise (lparallel:promise)))
       (enqueue-payload rd-kafka-queue promise)
@@ -281,7 +281,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
 (defun %assignment (rd-kafka-consumer)
   (cffi:with-foreign-object (rd-list :pointer)
     (let ((err (cl-rdkafka/ll:rd-kafka-assignment rd-kafka-consumer rd-list)))
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (error (make-rdkafka-error err)))
       (cffi:mem-ref rd-list :pointer))))
 
@@ -317,13 +317,13 @@ The PARTIAL-ERROR will have the slots:
                   timeout-ms))
             goodies
             baddies)
-        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-rdkafka-error err)))
         (foreach-toppar
             toppar-list
             (topic partition offset metadata metadata-size err)
           (let ((toppar (cons topic partition)))
-            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                 (let* ((meta (pointer->bytes metadata metadata-size))
                        (offset+meta (cons offset meta)))
                   (push (cons toppar offset+meta) goodies))
@@ -345,7 +345,7 @@ PARTITIONS should be a sequence of (topic . partition) cons cells."
         toppar-list
         (alloc-toppar-list partitions :topic #'car :partition #'cdr)
       (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer toppar-list)))
-        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-rdkafka-error err)))))))
 
 (defmethod member-id ((consumer consumer))
@@ -373,11 +373,11 @@ The PARTIAL-ERROR will have the slots:
                   toppar-list))
             goodies
             baddies)
-        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-rdkafka-error err)))
         (foreach-toppar toppar-list (err topic partition)
           (let ((toppar (cons topic partition)))
-            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                 (push toppar goodies)
                 (let ((rdkafka-error (make-rdkafka-error err)))
                   (push (cons toppar rdkafka-error) baddies)))))
@@ -408,11 +408,11 @@ The PARTIAL-ERROR will have the slots:
                   toppar-list))
             goodies
             baddies)
-        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-rdkafka-error err)))
         (foreach-toppar toppar-list (err topic partition)
           (let ((toppar (cons topic partition)))
-            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                 (push toppar goodies)
                 (let ((rdkafka-error (make-rdkafka-error err)))
                   (push (cons toppar rdkafka-error) baddies)))))
@@ -440,7 +440,7 @@ A (low . high) cons cell is returned."
                   low
                   high
                   timeout-ms)))
-        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-partition-error err topic partition)))
         (cons (cffi:mem-ref low :int64)
               (cffi:mem-ref high :int64))))))
@@ -475,11 +475,11 @@ The PARTIAL-ERROR will have the slots:
                   timeout-ms))
             goodies
             baddies)
-        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-rdkafka-error err)))
         (foreach-toppar toppar-list (topic partition offset err)
           (let ((toppar (cons topic partition)))
-            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                 (push (cons toppar offset) goodies)
                 (let ((rdkafka-error (make-rdkafka-error err)))
                   (push (cons toppar rdkafka-error) baddies)))))
@@ -513,11 +513,11 @@ The PARTIAL-ERROR will have the slots:
                   toppar-list))
             goodies
             baddies)
-        (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-rdkafka-error err)))
         (foreach-toppar toppar-list (topic partition offset err)
           (let ((toppar (cons topic partition)))
-            (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+            (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                 (let ((position (unless (= offset cl-rdkafka/ll:rd-kafka-offset-invalid)
                                   offset)))
                   (push (cons toppar position) goodies))
@@ -538,5 +538,5 @@ this method is provided if closing needs to occur at a well-defined
 time."
   (with-slots (rd-kafka-consumer) consumer
     (let ((err (cl-rdkafka/ll:rd-kafka-consumer-close rd-kafka-consumer)))
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (error (make-rdkafka-error err))))))

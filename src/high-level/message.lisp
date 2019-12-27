@@ -158,7 +158,7 @@ Example:
                   name
                   value
                   value-size)
-       unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+       unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
        do (error (make-rdkafka-error err))
 
        collect (cons (cffi:mem-ref name :string)
@@ -171,10 +171,10 @@ Example:
     (let ((err (cl-rdkafka/ll:rd-kafka-message-headers
                 rd-kafka-message
                 headers)))
-      (unless (or (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                  (eq err cl-rdkafka/ll:rd-kafka-resp-err--noent))
+      (unless (or (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                  (eq err 'cl-rdkafka/ll:rd-kafka-resp-err--noent))
         (error (make-rdkafka-error err)))
-      (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (when (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
 
 (defun rd-kafka-message->message (rd-kafka-message key-function value-function)
@@ -189,7 +189,7 @@ key/value."
          (err (getf *rd-kafka-message 'cl-rdkafka/ll:err))
          (topic (get-topic *rd-kafka-message))
          (partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (error (make-partition-error err topic partition)))
     (let ((raw-key (get-key *rd-kafka-message))
           (raw-value (get-payload *rd-kafka-message))
