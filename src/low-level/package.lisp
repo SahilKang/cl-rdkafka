@@ -17,55 +17,27 @@
 
 (in-package #:cl-user)
 
-(defmacro make-non-interned-keyword (atom)
-  `(let ((string (concatenate 'string "#:" (string ,atom))))
-     (read-from-string string)))
-
-(defmacro parse-to-export (sexp)
-  (let ((s (gensym)))
-    `(let ((,s ,sexp))
-       (when (listp ,s)
-         (cond
-           ((eq (first ,s) 'constant)
-            (list (make-non-interned-keyword (caadr ,s))))
-
-           ((find (first ,s) '(defctype ctype) :test #'eq)
-            (list (make-non-interned-keyword (second ,s))))
-
-           ((find (first ,s) '(defcenum defcstruct) :test #'eq)
-            (loop
-               for x in (rest ,s)
-               for y = (if (listp x) (first x) x)
-               collect (make-non-interned-keyword y)))
-
-           ((eq (first ,s) 'defcfun)
-            (let ((snake (substitute #\- #\_ (string (second ,s)))))
-              (list (make-non-interned-keyword snake)))))))))
-
-(defmacro exports-from-file (filename)
-  `(with-open-file (stream ,filename)
-     (loop
-        for sexp = (read stream nil 'eof)
-        until (eq sexp 'eof)
-        when (parse-to-export sexp)
-        nconc it)))
-
-(defmacro get-exports ()
-  `(let ((exports
-          (loop
-             with project-root = (asdf:system-source-directory :cl-rdkafka)
-             with glob-pattern = "src/low-level/librdkafka*.lisp"
-             with files = (directory
-                           (merge-pathnames glob-pattern project-root))
-
-             for file in files
-             append (exports-from-file file))))
-     (append '(:export) exports)))
-
+;; librdkafka-bindings.lisp will export its own symbols, so let's just
+;; export the librdkafka-grovel.lisp symbols here
 (macrolet
     ((create-package ()
-       `(defpackage #:cl-rdkafka/low-level
-          (:nicknames #:cl-rdkafka/ll)
-          (:use #:cl #:cffi)
-          ,(get-exports))))
+       (with-open-file (stream (merge-pathnames
+                                "src/low-level/librdkafka-grovel.lisp"
+                                (asdf:system-source-directory 'cl-rdkafka)))
+         (labels ((->export-symbol (symbol)
+                    (read-from-string (format nil "#:~A" symbol)))
+                  (get-export (sexp)
+                    (when (listp sexp)
+                      (case (first sexp)
+                        (constant (->export-symbol (caadr sexp)))
+                        (ctype (->export-symbol (second sexp)))))))
+           (let ((grovel-exports (loop
+                                    for sexp = (read stream nil nil)
+                                    while sexp
+                                    when (get-export sexp)
+                                    collect it)))
+             `(defpackage #:cl-rdkafka/low-level
+                (:nicknames #:cl-rdkafka/ll)
+                (:use #:cl)
+                (:export ,@grovel-exports)))))))
   (create-package))
