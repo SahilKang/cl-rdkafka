@@ -24,12 +24,29 @@
     :documentation "Pointer to rd_kafka_queue_t struct.")
    (key-serde
     :type deserializer
-    :documentation "Deserializer to map byte vector to object.")
+    :documentation "DESERIALIZER to map byte vector to object.")
    (value-serde
     :type deserializer
-    :documentation "Deserializer to map byte vector to object."))
+    :documentation "DESERIALIZER to map byte vector to object."))
   (:documentation
    "A client that consumes messages from kafka topics.
+
+MAKE-INSTANCE accepts the following keyword args:
+
+  * CONF: A required plist, alist, or hash-table mapping config keys
+          to their respective values; both keys and values should be
+          strings. The provided key-value pairs are passed as-is to
+          librdkafka, so consult the librdkafka config docs for more
+          info.
+
+  * SERDE: An optional unary function accepting a byte vector and
+           returning a deserialized value; defaults to #'identity.
+
+  * KEY-SERDE: An optional unary function used to deserialize message
+               keys; defaults to SERDE.
+
+  * VALUE-SERDE: An optional unary function used to deserialize
+                 message values; defaults to SERDE.
 
 Example:
 
@@ -126,7 +143,8 @@ Example:
     (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-consumer)))
 
 (defmethod initialize-instance :after
-    ((consumer consumer) &key conf (serde #'identity) key-serde value-serde)
+    ((consumer consumer)
+     &key conf (serde #'identity) (key-serde serde) (value-serde serde))
   (with-slots (rd-kafka-consumer
                rd-kafka-queue
                (ks key-serde)
@@ -159,10 +177,10 @@ Example:
         (error c)))
     (setf ks (make-instance 'deserializer
                             :name "key-serde"
-                            :function (or key-serde serde))
+                            :function key-serde)
           vs (make-instance 'deserializer
                             :name "value-serde"
-                            :function (or value-serde serde)))
+                            :function value-serde))
     (tg:finalize consumer (make-consumer-finalizer rd-kafka-consumer rd-kafka-queue))))
 
 (defmethod subscribe ((consumer consumer) (topics sequence))

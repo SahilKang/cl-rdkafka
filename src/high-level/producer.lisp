@@ -27,12 +27,29 @@
     :documentation "Latest promise from send call.")
    (key-serde
     :type serializer
-    :documentation "Serializer to map object to byte sequence.")
+    :documentation "SERIALIZER to map object to byte sequence.")
    (value-serde
     :type serializer
-    :documentation "Serializer to map object to byte sequence."))
+    :documentation "SERIALIZER to map object to byte sequence."))
   (:documentation
    "A client that produces messages to kafka topics.
+
+MAKE-INSTANCE accepts the following keyword args:
+
+  * CONF: A required plist, alist, or hash-table mapping config keys
+          to their respective values; both keys and values should be
+          strings. The provided key-value pairs are passed as-is to
+          librdkafka, so consult the librdkafka config docs for more
+          info.
+
+  * SERDE: An optional unary function accepting an object and
+           returning a byte sequence; defaults to #'identity.
+
+  * KEY-SERDE: An optional unary function used to serialize message
+               keys; defaults to SERDE.
+
+  * VALUE-SERDE: An optional unary function used to serialize message
+                 values; defaults to SERDE.
 
 Example:
 
@@ -83,7 +100,8 @@ Example:
     (cl-rdkafka/ll:rd-kafka-destroy rd-kafka-producer)))
 
 (defmethod initialize-instance :after
-    ((producer producer) &key conf (serde #'identity) key-serde value-serde)
+    ((producer producer)
+     &key conf (serde #'identity) (key-serde serde) (value-serde serde))
   (with-slots (rd-kafka-producer
                rd-kafka-queue
                (ks key-serde)
@@ -116,10 +134,10 @@ Example:
         (error c)))
     (setf ks (make-instance 'serializer
                             :name "key-serde"
-                            :function (or key-serde serde))
+                            :function key-serde)
           vs (make-instance 'serializer
                             :name "value-serde"
-                            :function (or value-serde serde)))
+                            :function value-serde))
     (tg:finalize producer (make-producer-finalizer rd-kafka-producer rd-kafka-queue))))
 
 (defun add-header (headers name value)
@@ -205,7 +223,7 @@ Example:
      &key (key nil key-p) partition headers timestamp)
   "Asynchronously send a message and return a MESSAGE FUTURE.
 
-If PARTITION is not specified, one is chosen using the topic's
+If PARTITION is not specified, one is chosen using the TOPIC's
 partitioner function.
 
 If specified, HEADERS should be an alist mapping strings to
