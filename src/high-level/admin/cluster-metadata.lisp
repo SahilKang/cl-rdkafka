@@ -93,7 +93,7 @@ The returned alist looks something like:
        for id = (getf partition 'cl-rdkafka/ll:id)
        for err = (getf partition 'cl-rdkafka/ll:err)
 
-       if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+       if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
        collect (mapcar #'cons
                        '(:id :leader :replicas :in-sync-replicas)
                        (list id
@@ -108,7 +108,7 @@ The returned alist looks something like:
          (cerror (format nil "Skip `~A:~A` and continue with others."
                          topic-name
                          id)
-                 'topic+partition-error
+                 'partition-error
                  :topic topic-name
                  :partition id
                  :description (cl-rdkafka/ll:rd-kafka-err2str err)))))
@@ -128,7 +128,7 @@ The returned alist looks something like:
      for name = (getf topic 'cl-rdkafka/ll:topic)
      for err = (getf topic 'cl-rdkafka/ll:err)
 
-     if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+     if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
      collect (mapcar #'cons
                      '(:topic :partitions)
                      (list name (parse-partitions-metadata topic)))
@@ -162,7 +162,7 @@ The returned alist looks something like:
                 topic-handle
                 metadata
                 timeout-ms)))
-      (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (error 'kafka-error
                :description (cl-rdkafka/ll:rd-kafka-err2str err)))
       (let ((*metadata (cffi:mem-ref metadata :pointer)))

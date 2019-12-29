@@ -79,7 +79,7 @@
   (let ((toppar-list (make-toppar-list topics)))
     (unwind-protect
          (let ((err (cl-rdkafka/ll:rd-kafka-subscribe consumer toppar-list)))
-           (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+           (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
              (error "Failed to subscribe to topics `~A`: `~A`"
                     topics
                     (cl-rdkafka/ll:rd-kafka-err2str err))))
@@ -89,7 +89,7 @@
   (let ((payload (getf message 'cl-rdkafka/ll:payload))
         (len (getf message 'cl-rdkafka/ll:len))
         (err (getf message 'cl-rdkafka/ll:err)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (error "Bad message: `~A`" (cl-rdkafka/ll:rd-kafka-err2str err)))
     (cffi:foreign-string-to-lisp payload :max-chars len)))
 
@@ -103,7 +103,7 @@
 
 (defun commit (consumer)
   (let ((err (cl-rdkafka/ll:rd-kafka-commit consumer (cffi:null-pointer) 0)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
       (error "Commit error: `~A`" (cl-rdkafka/ll:rd-kafka-err2str err)))))
 
 

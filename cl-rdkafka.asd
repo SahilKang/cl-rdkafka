@@ -17,11 +17,11 @@
 
 (asdf:defsystem #:cl-rdkafka
   :description
-  "CFFI bindings for librdkafka to enable interaction with a Kafka cluster."
+  "A client library for Apache Kafka based on librdkafka CFFI bindings."
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :license "GPLv3"
-  :depends-on (#:cffi #:trivial-garbage)
+  :depends-on (#:cffi #:trivial-garbage #:bordeaux-threads #:lparallel)
   :defsystem-depends-on (#:cffi-grovel)
   :in-order-to ((test-op (test-op #:cl-rdkafka/test)))
   :build-pathname "cl-rdkafka"
@@ -38,16 +38,33 @@
             :components
             ((:file "package")
              (:file "common" :depends-on ("package"))
-             (:file "conf" :depends-on ("common"))
              (:file "conditions" :depends-on ("package"))
-             (:file "serde" :depends-on ("package"))
-             (:file "producer" :depends-on ("conf" "conditions" "serde"))
+             (:file "conf" :depends-on ("common"))
+             (:file "serde" :depends-on ("common"))
+             (:file "message" :depends-on ("common" "conditions"))
+             (:module "event-io"
+                      :depends-on ("package" "conditions")
+                      :components
+                      ((:cffi-grovel-file "posix-grovel")
+                       (:file "posix" :depends-on ("posix-grovel"))
+                       (:file "kernel" :depends-on ("posix"))))
+             (:file "future" :depends-on ("event-io"))
+             (:file "producer" :depends-on ("conf"
+                                            "conditions"
+                                            "serde"
+                                            "message"
+                                            "event-io"
+                                            "future"))
              (:module "consumer"
-                      :depends-on ("conf" "conditions" "serde")
+                      :depends-on ("conf"
+                                   "conditions"
+                                   "serde"
+                                   "message"
+                                   "event-io"
+                                   "future")
                       :components
                       ((:file "toppar")
-                       (:file "message")
-                       (:file "consumer" :depends-on ("toppar" "message"))))
+                       (:file "consumer" :depends-on ("toppar"))))
              (:module "admin"
                       :depends-on ("consumer" "producer")
                       :components
@@ -84,8 +101,3 @@
              (:file "produce->consume")
              (:file "admin")
              (:file "headers")))))
-
-
-#+sb-core-compression
-(defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))
-  (uiop:dump-image (asdf:output-file op sys) :executable t :compression 9))

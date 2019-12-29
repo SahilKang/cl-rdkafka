@@ -31,7 +31,29 @@
   (:documentation
    "Generic condition signalled by cl-rdkafka for expected errors."))
 
-(define-condition topic+partition-error (kafka-error)
+(define-condition rdkafka-error (kafka-error)
+  ((enum
+    :initarg :enum
+    :initform (error "Must supply enum")
+    :reader enum
+    :type symbol
+    :documentation "cl-rdkafka/low-level:rd-kafka-resp-err enum symbol."))
+  (:report
+   (lambda (condition stream)
+     (format stream "librdkafka error ~S: ~S"
+             (enum condition)
+             (description condition))))
+  (:documentation
+   "Condition signalled for librdkafka errors."))
+
+(defun make-rdkafka-error (err)
+  (declare (symbol err))
+  (make-condition 'rdkafka-error
+                  :enum err
+                  :description (cl-rdkafka/ll:rd-kafka-err2str
+                                (symbol-value err))))
+
+(define-condition partition-error (rdkafka-error)
   ((topic
     :initarg :topic
     :initform (error "Must supply topic")
@@ -46,12 +68,43 @@
     :documentation "Topic partition."))
   (:report
    (lambda (condition stream)
-     (format stream "Encountered error `~A` for topic:partition `~A:~A`"
-             (description condition)
+     (format stream "Encountered error ~S for `~A:~A`: ~S"
+             (enum condition)
              (topic condition)
-             (partition condition))))
+             (partition condition)
+             (description condition))))
   (:documentation
    "Condition signalled for errors specific to a topic's partition."))
+
+(defun make-partition-error (err topic partition)
+  (declare (symbol err)
+           (string topic)
+           (integer partition))
+  (make-condition 'partition-error
+                  :enum err
+                  :description (cl-rdkafka/ll:rd-kafka-err2str
+                                (symbol-value err))
+                  :topic topic
+                  :partition partition))
+
+(define-condition partial-error (kafka-error)
+  ((goodies
+    :initarg :goodies
+    :initform (error "Must supply goodies")
+    :reader goodies
+    :type sequence
+    :documentation "Successful results.")
+   (baddies
+    :initarg :baddies
+    :initform (error "Must supply baddies")
+    :reader baddies
+    :type sequence
+    :documentation "Unsuccessful results."))
+  (:report
+   (lambda (condition stream)
+     (format stream "~A: ~S" (description condition) (baddies condition))))
+  (:documentation
+   "Condition signalled for operations that partially failed."))
 
 (define-condition allocation-error (storage-condition)
   ((name
@@ -65,12 +118,12 @@
     :initarg :description
     :initform nil
     :reader description
-    :type string
+    :type (or null string)
     :documentation
     "Details about why the allocation may have failed."))
   (:report
    (lambda (condition stream)
-     (format stream "Failed to allocate new `~A`~@[: `~A`~]"
+     (format stream "Failed to allocate new `~A`~@[: ~S~]"
              (name condition)
              (description condition))))
   (:documentation

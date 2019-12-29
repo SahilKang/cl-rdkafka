@@ -20,31 +20,56 @@
 (defpackage #:cl-rdkafka
   (:nicknames #:kf)
   (:use #:cl)
+  (:shadow #:close)
   (:export
-   #:message #:key #:value #:topic
-   #:partition #:offset
-   #:timestamp #:latency #:headers
 
-   #:consumer #:subscribe #:unsubscribe #:subscription
-   #:poll #:commit #:committed #:assignment #:assign #:member-id
-   #:pause #:resume #:query-watermark-offsets #:offsets-for-times
+   ;; message class
+   #:message
+   #:key
+   #:value
+   #:topic
+   #:partition
+   #:offset
+   #:timestamp
+   #:headers
+
+   ;; future class
+   #:future
+   #:value
+   #:donep
+   #:then
+
+   ;; consumer class
+   #:consumer
+   #:poll
+   #:subscribe
+   #:unsubscribe
+   #:subscription
+   #:assign
+   #:assignment
+   #:commit
+   #:committed
+   #:pause
+   #:resume
+   #:member-id
+   #:offsets-for-times
+   #:watermarks
    #:positions
+   #:close
 
-   #:producer #:produce #:flush
+   ;; producer class
+   #:producer
+   #:send
+   #:flush
 
-   #:create-topic
-   #:delete-topic
-   #:create-partitions
-   #:describe-config
-   #:alter-config
-   #:cluster-metadata
-   #:group-info
-   #:cluster-id
-   #:controller-id
-   #:get-conf
-
+   ;; conditions
    #:kafka-error
-   #:description
-   #:topic+partition-error
+   #:rdkafka-error
+   #:partition-error
+   #:partial-error
    #:allocation-error
+   #:description
+   #:enum
+   #:goodies
+   #:baddies
    #:name))

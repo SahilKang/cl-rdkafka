@@ -125,7 +125,7 @@ Each alist looks something like:
      for group-info =
        (let* ((group-info (parse-group-info group))
               (err (cdr (assoc :err group-info))))
-         (if (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+         (if (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
              (delete :err group-info :key #'car)
              (let ((group (cdr (assoc :group group-info)))
                    (broker (cdr (assoc :broker group-info))))
@@ -155,8 +155,8 @@ Each alist looks something like:
       (unwind-protect
            (progn
              (setf partial-errors-p
-                   (eq err cl-rdkafka/ll:rd-kafka-resp-err--partial))
-             (unless (or (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                   (eq err 'cl-rdkafka/ll:rd-kafka-resp-err--partial))
+             (unless (or (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
                          partial-errors-p)
                (error 'kafka-error
                       :description (cl-rdkafka/ll:rd-kafka-err2str err)))

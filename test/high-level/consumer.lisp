@@ -65,8 +65,8 @@
                              for message = (kf:poll consumer 5000)
                              collect (kf:value message)))))))
 
-(test commit
-  (with-topics ((topic "consumer-commit-topic"))
+(test committed
+  (with-topics ((topic "consumer-committed-topic"))
     (let ((consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*
@@ -83,12 +83,45 @@
       (sleep 2)
 
       (kf:subscribe consumer (list topic))
-      (is (equal expected (loop
-                             repeat (length expected)
-                             do
-                               (kf:poll consumer 5000)
-                               (kf:commit consumer)
-                             collect (cadar (kf:committed consumer))))))))
+      (sleep 5)
+      (is (equal expected
+                 (loop
+                    with assignment = (kf:assignment consumer)
+                    repeat (length expected)
+                    do
+                      (kf:poll consumer 5000)
+                      (kf:commit consumer)
+                    collect (cadar (kf:committed consumer assignment 5000))))))))
+
+(test commit-sync
+  (with-topics ((topic "consumer-test-commit-sync"))
+    (let ((consumer (make-instance
+                     'kf:consumer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "group.id" "consumer-commit-sync-group"
+                                 "enable.auto.commit" "false"
+                                 "auto.offset.reset" "earliest"
+                                 "offset.store.method" "broker")))
+          (expected `(((,topic . 0) . (0 . #(2 4 6)))
+                      ((,topic . 0) . (1 . #(8 10 12)))
+                      ((,topic . 0) . (2 . #())))))
+      (is (equalp expected (kf:commit consumer :offsets expected))))))
+
+(test commit-async
+  (with-topics ((topic "consumer-test-commit-async"))
+    (let* ((consumer (make-instance
+                      'kf:consumer
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
+                                  "group.id" "consumer-commit-async-group"
+                                  "enable.auto.commit" "false"
+                                  "auto.offset.reset" "earliest"
+                                  "offset.store.method" "broker")))
+           (expected `(((,topic . 0) . (0 . #(2 4 6)))
+                       ((,topic . 0) . (1 . #(8 10 12)))
+                       ((,topic . 0) . (2 . #()))))
+           (future (kf:commit consumer :asyncp t :offsets expected)))
+      (is (typep future 'kf:future))
+      (is (equalp expected (kf:value future))))))
 
 (test assign
   (with-topics ((topic "foobar"))
@@ -117,7 +150,7 @@
       (sleep 2)
 
       (let ((member-id (kf:member-id consumer))
-            (group-info (first (kf:group-info consumer group))))
+            (group-info (first (kf::group-info consumer group))))
         (is (find member-id
                   (cdr (assoc :members group-info))
                   :test #'string=
@@ -144,17 +177,17 @@
           (good-partition 1)
           (bad-partition 0)
           (messages '("Here" "are" "some" "messages")))
-      (is (string= topic (kf:create-topic producer topic :partitions 2)))
+      (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
       (kf:subscribe consumer (list topic))
 
       (mapcar (lambda (message)
-                (kf:produce producer topic message :partition good-partition))
+                (kf:send producer topic message :partition good-partition))
               messages)
       (mapcar (lambda (message)
-                (kf:produce producer topic message :partition bad-partition))
+                (kf:send producer topic message :partition bad-partition))
               '("These" "messages" "won't" "be" "consumed"))
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (kf:pause consumer (list (cons topic bad-partition)))
 
@@ -186,17 +219,17 @@
           (bad-partition 0)
           (goodies '("Here" "are" "some" "messages"))
           (baddies '("Here" "are" "some" "more" "messages")))
-      (is (string= topic (kf:create-topic producer topic :partitions 2)))
+      (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
       (kf:subscribe consumer (list topic))
 
       (mapcar (lambda (message)
-                (kf:produce producer topic message :partition good-partition))
+                (kf:send producer topic message :partition good-partition))
               goodies)
       (mapcar (lambda (message)
-                (kf:produce producer topic message :partition bad-partition))
+                (kf:send producer topic message :partition bad-partition))
               baddies)
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (kf:pause consumer (list (cons topic bad-partition)))
       (is (equal goodies
@@ -214,27 +247,27 @@
                     collect (kf:value message)
                     do (kf:commit consumer)))))))
 
-(test query-watermark-offsets
-  (with-topics ((topic "query-watermark-offsets-topic" t))
+(test watermarks
+  (with-topics ((topic "watermarks-topic" t))
     (let ((consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (producer (make-instance
                      'kf:producer
                      :conf (list "bootstrap.servers" *bootstrap-servers*))))
-      (is (string= topic (kf:create-topic producer topic :partitions 2)))
+      (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
 
-      (is (equal '(0 0) (kf:query-watermark-offsets consumer topic 0)))
-      (is (equal '(0 0) (kf:query-watermark-offsets consumer topic 1)))
+      (is (equal '(0 . 0) (kf:watermarks consumer topic 0 5000)))
+      (is (equal '(0 . 0) (kf:watermarks consumer topic 1 5000)))
 
-      (kf:produce producer topic #(2 4) :partition 0)
-      (kf:produce producer topic #(1 2) :partition 1)
-      (kf:produce producer topic #(3 4) :partition 1)
-      (kf:flush producer 5000)
+      (kf:send producer topic #(2 4) :partition 0)
+      (kf:send producer topic #(1 2) :partition 1)
+      (kf:send producer topic #(3 4) :partition 1)
+      (kf:flush producer)
 
-      (is (equal '(0 1) (kf:query-watermark-offsets consumer topic 0)))
-      (is (equal '(0 2) (kf:query-watermark-offsets consumer topic 1))))))
+      (is (equal '(0 . 1) (kf:watermarks consumer topic 0 5000)))
+      (is (equal '(0 . 2) (kf:watermarks consumer topic 1 5000))))))
 
 (test offsets-for-times
   (with-topics ((topic "offsets-for-times-topic"))
@@ -256,10 +289,10 @@
       (kf:subscribe consumer (list topic))
 
       (mapcar (lambda (message)
-                (kf:produce producer topic message)
+                (kf:send producer topic message)
                 (sleep 1))
               '("There" "is" "a" "delay" "between" "these" "messages"))
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (let (delay-offset
             delay-timestamp)
@@ -278,13 +311,15 @@
                (cdr (assoc (cons topic 0)
                            (kf:offsets-for-times
                             consumer
-                            `(((,topic . 0) . ,delay-timestamp)))
+                            `(((,topic . 0) . ,delay-timestamp))
+                            5000)
                            :test #'equal))))
         (is (= (1+ delay-offset)
                (cdr (assoc (cons topic 0)
                            (kf:offsets-for-times
                             consumer
-                            `(((,topic . 0) . ,(1+ delay-timestamp))))
+                            `(((,topic . 0) . ,(1+ delay-timestamp)))
+                            5000)
                            :test #'equal))))))))
 
 (test positions
@@ -307,9 +342,9 @@
       (kf:subscribe consumer (list topic))
 
       (mapcar (lambda (message)
-                (kf:produce producer topic message))
+                (kf:send producer topic message))
               '("Here" "are" "a" "few" "messages"))
-      (kf:flush producer 5000)
+      (kf:flush producer)
 
       (loop
          for i from 0

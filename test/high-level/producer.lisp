@@ -40,9 +40,9 @@
           (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
       (loop
          for (k v) in expected
-         do (kf:produce producer topic v :key k)) ; TODO test partition here, too
+         do (kf:send producer topic v :key k)) ; TODO test partition here, too
 
-      (kf:flush producer 5000)
+      (kf:flush producer)
       (sleep 2)
 
       (let* ((kafkacat-output-lines
@@ -55,3 +55,37 @@
                :output :lines))
              (actual (parse-kafkacat kafkacat-output-lines)))
         (is (equal expected actual))))))
+
+(test producer-futures
+  (with-topics ((topic "test-producer-futures"))
+    (let ((producer (make-instance
+                     'kf:producer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :serde #'babel:string-to-octets))
+          (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
+      (is (equal expected
+                 (mapcar (lambda (future)
+                           (let ((message (kf:value future)))
+                             (if (typep message 'condition)
+                                 (error message)
+                                 (list (kf:key message) (kf:value message)))))
+                         (mapcar (lambda (pair)
+                                   (destructuring-bind (key value) pair
+                                     (kf:send producer topic value :key key)))
+                                 expected)))))))
+
+(test producer-timestamp
+  (with-topics ((topic "test-producer-timestamp"))
+    (let ((producer (make-instance
+                     'kf:producer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*)))
+          (expected '(2 4 6)))
+      (is (equal expected
+                 (mapcar
+                  (lambda (future)
+                    (let ((message (kf:value future)))
+                      (kf:timestamp message)))
+                  (mapcar
+                   (lambda (timestamp)
+                     (kf:send producer topic #(1 2 3) :timestamp timestamp))
+                   expected)))))))

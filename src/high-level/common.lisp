@@ -41,3 +41,11 @@ functions.")
   (if (zerop (length bytes))
       (cffi:null-pointer)
       (cffi:foreign-alloc :uint8 :initial-contents bytes)))
+
+(defun byte-seq-p (seq)
+  (and (typep seq 'sequence)
+       (every (lambda (elt)
+                (typep elt '(unsigned-byte 8)))
+              seq)))
+
+(deftype byte-seq () '(satisfies byte-seq-p))

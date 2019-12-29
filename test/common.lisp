@@ -71,7 +71,7 @@ Each of the topics in BINDINGS will be deleted once BODY evaluates."
                 ,@(unless (zerop (length topics-to-create))
                     `((map nil
                            (lambda (topic)
-                             (kf:create-topic ,client topic))
+                             (kf::create-topic ,client topic))
                            (list ,@topics-to-create))
                       (sleep 2)))
                 ,@body)
@@ -79,7 +79,7 @@ Each of the topics in BINDINGS will be deleted once BODY evaluates."
              (map nil
                   (lambda (topic)
                     (handler-case
-                        (kf:delete-topic ,client topic)
+                        (kf::delete-topic ,client topic)
                       (kf:kafka-error ())))
                   (list ,@(mapcar #'first let-bindings)))
              (sleep 2)))))))

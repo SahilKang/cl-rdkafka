@@ -17,10 +17,47 @@
 
 (in-package #:cl-rdkafka/low-level)
 
-(define-foreign-library librdkafka
-  (t (:default "librdkafka")))
+;; wrap cffi macros to export symbols
 
-(use-foreign-library librdkafka)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun get-name (name-and-options)
+    (if (listp name-and-options)
+        (first name-and-options)
+        name-and-options)))
+
+(defmacro defcfun (name-and-options return-type &body args)
+  (let ((name (cffi:translate-name-from-foreign
+               (get-name name-and-options)
+               *package*)))
+    `(progn
+       (cffi:defcfun ,name-and-options ,return-type ,@args)
+       (export ',name))))
+
+(defmacro defctype (name base-type &optional documentation)
+  `(progn
+     (cffi:defctype ,name ,base-type ,documentation)
+     (export ',name)))
+
+(defmacro defcenum (name-and-options &body enum-list)
+  (let ((name (get-name name-and-options))
+        (enums (mapcar #'get-name enum-list)))
+    `(progn
+       (cffi:defcenum ,name-and-options ,@enum-list)
+       (export ',(cons name enums)))))
+
+(defmacro defcstruct (name-and-options &body fields)
+  (let ((name (get-name name-and-options))
+        (field-names (mapcar #'first fields)))
+    `(progn
+       (cffi:defcstruct ,name-and-options ,@fields)
+       (export ',(cons name field-names)))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (cffi:define-foreign-library librdkafka
+    (t (:default "librdkafka")))
+
+  (cffi:use-foreign-library librdkafka))
 
 (defcfun "rd_kafka_version" :int)
 
@@ -37,75 +74,43 @@
 
 (defcfun "rd_kafka_get_debug_contexts" :string)
 
-(defctype rd-kafka-resp-err :int)
-(export 'rd-kafka-resp-err)
-
-(define-foreign-type rd-kafka-resp-err ()
-  ((num
-    :reader num
-    :initarg :num))
-  (:actual-type :int)
-  (:simple-parser rd-kafka-resp-err))
-(export 'num)
-
 (defcstruct rd-kafka-err-desc
-  (code rd-kafka-resp-err)
+  (code :int)
   (name :string)
   (desc :string))
 
-(defcfun "rd_kafka_get_err_descs" :void
-  (rd-kafka-err-desc :pointer)
-  (cntp :pointer))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defcfun "rd_kafka_get_err_descs" :void
+    (rd-kafka-err-desc :pointer)
+    (cntp :pointer)))
 
-(defvar *num->err* (make-hash-table :test #'eq)
-  "Hash-table to map enum numbers to rd-kafka-resp-err objects.")
+(macrolet
+    ((def-rd-kafka-resp-err-enum ()
+       (flet ((name->symbol (name)
+                (cffi:translate-name-from-foreign
+                 (format nil "RD_KAFKA_RESP_ERR_~A" name)
+                 *package*)))
+         (cffi:with-foreign-objects
+             ((desc :pointer)
+              (count :pointer))
+           (rd-kafka-get-err-descs desc count)
+           `(defcenum rd-kafka-resp-err
+              ,@(loop
+                   with *count = (cffi:mem-ref count 'size-t)
+                   with *desc = (cffi:mem-ref desc :pointer)
 
-;; populate *num->err* with data returned from rd-kafka-get-err-descs
-(macrolet ((dashes (name)
-             `(substitute #\- #\_ ,name))
+                   for i below *count
 
-           (full-name (name)
-             `(concatenate 'string "RD_KAFKA_RESP_ERR_" ,name))
+                   for **desc = (cffi:mem-aref
+                                 *desc
+                                 '(:struct rd-kafka-err-desc)
+                                 i)
+                   for enum = (getf **desc 'code)
+                   for name = (getf **desc 'name)
 
-           (name->enum (name)
-             `(read-from-string (dashes (full-name ,name))))
-
-           (fill-table (table num name)
-             `(let ((enum-symbol (name->enum ,name))
-                    (err (make-instance 'rd-kafka-resp-err :num ,num)))
-                (setf
-                 (symbol-value enum-symbol) err
-                 (gethash ,num ,table) err)
-                (export enum-symbol)
-                (proclaim `(special ,enum-symbol)))))
-
-  (with-foreign-objects
-      ((desc :pointer)
-       (count :pointer))
-
-    (rd-kafka-get-err-descs desc count)
-
-    (loop
-       with *count = (mem-ref count 'size-t)
-       with *desc = (mem-ref desc :pointer)
-
-       for i below *count
-
-       for **desc = (mem-aref *desc '(:struct rd-kafka-err-desc) i)
-       for num = (getf **desc 'code)
-       for name = (getf **desc 'name)
-
-       when name
-       do (fill-table *num->err* num name))))
-
-(defmethod translate-to-foreign (rd-kafka-resp-err (type rd-kafka-resp-err))
-  (num rd-kafka-resp-err))
-
-(defmethod translate-from-foreign (num (type rd-kafka-resp-err))
-  (multiple-value-bind (err exists-p) (gethash num *num->err*)
-    (if exists-p
-        err
-        (error "Unknown rd-kafka-resp-err number: ~A~%" num))))
+                   when name
+                   collect (list (name->symbol name) enum)))))))
+  (def-rd-kafka-resp-err-enum))
 
 (defcfun "rd_kafka_err2str" :string
   (err rd-kafka-resp-err))

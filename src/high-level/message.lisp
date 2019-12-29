@@ -20,66 +20,108 @@
 (defclass message ()
   ((raw-key
     :initarg :raw-key
-    :initform nil
-    :documentation "Message's raw key in a byte vector.")
+    :type (and vector byte-seq)
+    :documentation "Message's serialized key as a byte vector.")
    (raw-value
     :initarg :raw-value
-    :initform nil
-    :documentation "Message's raw value in a byte vector.")
+    :type (and vector byte-seq)
+    :documentation "Message's serialized value as a byte vector.")
    (key
     :initarg :key
-    :initform nil
     :documentation "Message's deserialized key.")
    (value
     :initarg :value
-    :initform nil
     :documentation "Message's deserialized value.")
    (topic
     :initarg :topic
-    :initform nil
     :reader topic
+    :type string
     :documentation "The topic this message originated from.")
    (partition
     :initarg :partition
-    :initform nil
     :reader partition
+    :type integer
     :documentation "The partition this message originated from.")
    (offset
     :initarg :offset
-    :initform nil
     :reader offset
+    :type integer
     :documentation "Message offset.")
    (timestamp
     :initarg :timestamp
-    :initform nil
-    :reader timestamp
-    :documentation "Message timestamp.")
+    :type (or null integer)
+    :documentation
+    "Message timestamp measured in milliseconds since the UTC epoch, or nil.")
+   (timestamp-type
+    :initarg :timestamp-type
+    :type (member nil :create-time :log-append-time)
+    :documentation "Type of message timestamp, or nil.")
    (latency
+    ;; TODO this ends up being negative...figure out why and export
     :initarg :latency
-    :initform nil
-    :reader latency
-    :documentation "Message latency measured from the message produce call.")
+    :type (or null integer)
+    :documentation
+    "Message latency measured in microseconds from the send call, or nil.")
    (headers
     :initarg :headers
-    :initform nil
     :reader headers
-    :documentation "Message headers as an alist.")))
-
-(defgeneric key (message)
+    :type (or null list)
+    :documentation "Message headers as an alist, or nil."))
   (:documentation
-   "Return (values deserialized-key serialized-key)."))
+   "A kafka message as returned by consumer's poll or producer's send.
 
-(defgeneric value (message)
-  (:documentation
-   "Return (values deserialized-value serialized-value)."))
+Example:
+
+(let ((message (kf:poll consumer 5000)))
+  (kf:key message)
+  ;; => \"key-1\", #(107 101 121 45 49)
+
+  (kf:value message)
+  ;; => \"Hello\", #(72 101 108 108 111)
+
+  (kf:topic message)
+  ;; => \"foobar\"
+
+  (kf:partition message)
+  ;; => 0
+
+  (kf:offset message)
+  ;; => 0
+
+  (kf:timestamp message)
+  ;; => 1577002478269, :CREATE-TIME
+
+  (kf:headers message)
+  ;; => '((\"one\" . #(1 2 3))
+  ;;      (\"two\" . #(4 5 6)))
+
+  )"))
+
+(defgeneric key (message))
+
+(defgeneric value (message))
+
+(defgeneric timestamp (message))
+
+(defun parse-timestamp-type (ts-type)
+  (let ((*ts-type (cffi:mem-ref ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-type)))
+    (cond
+      ((eq *ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-create-time)
+       :create-time)
+      ((eq *ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-log-append-time)
+       :log-append-time)
+      (t (error 'kafka-error
+                :description
+                (format nil "Unknown timestamp-type: `~A`" *ts-type))))))
 
 (defun get-timestamp (rd-kafka-message)
   (cffi:with-foreign-object (ts-type 'cl-rdkafka/ll:rd-kafka-timestamp-type)
     (let ((timestamp (cl-rdkafka/ll:rd-kafka-message-timestamp
                       rd-kafka-message
                       ts-type)))
-      (unless (= -1 timestamp)
-        timestamp))))
+      (if (= -1 timestamp)
+          (cons nil nil)
+          (cons timestamp (parse-timestamp-type ts-type))))))
 
 (defun get-latency (rd-kafka-message)
   (handler-case
@@ -116,11 +158,8 @@
                   name
                   value
                   value-size)
-       unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-       do (error 'kafka-error
-                 :description
-                 (format nil "Failed to get header pair: `~A`"
-                         (cl-rdkafka/ll:rd-kafka-err2str err)))
+       unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+       do (error (make-rdkafka-error err))
 
        collect (cons (cffi:mem-ref name :string)
                      (pointer->bytes
@@ -132,45 +171,58 @@
     (let ((err (cl-rdkafka/ll:rd-kafka-message-headers
                 rd-kafka-message
                 headers)))
-      (unless (or (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-                  (eq err cl-rdkafka/ll:rd-kafka-resp-err--noent))
-        (error 'kafka-error
-               :description
-               (format nil "Failed to get message headers: `~A`"
-                       (cl-rdkafka/ll:rd-kafka-err2str err))))
-      (when (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (unless (or (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+                  (eq err 'cl-rdkafka/ll:rd-kafka-resp-err--noent))
+        (error (make-rdkafka-error err)))
+      (when (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
         (headers->alist (cffi:mem-ref headers :pointer))))))
 
-(defun rd-kafka-message->message (rd-kafka-message key-serde value-serde)
+(defun rd-kafka-message->message (rd-kafka-message key-function value-function)
+  "Transform a struct rd-kafka-message pointer to a MESSAGE object.
+
+KEY-FUNCTION and VALUE-FUNCTION are both unary functions that are
+expected to output the deserialized key/value given the serialized
+key/value."
   (let* ((*rd-kafka-message (cffi:mem-ref
                              rd-kafka-message
                              '(:struct cl-rdkafka/ll:rd-kafka-message)))
          (err (getf *rd-kafka-message 'cl-rdkafka/ll:err))
          (topic (get-topic *rd-kafka-message))
          (partition (getf *rd-kafka-message 'cl-rdkafka/ll:partition)))
-    (unless (eq err cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error 'topic+partition-error
-             :description (cl-rdkafka/ll:rd-kafka-err2str err)
-             :topic topic
-             :partition partition))
+    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+      (error (make-partition-error err topic partition)))
     (let ((raw-key (get-key *rd-kafka-message))
-          (raw-value (get-payload *rd-kafka-message)))
+          (raw-value (get-payload *rd-kafka-message))
+          (timestamp-pair (get-timestamp rd-kafka-message)))
       (make-instance 'message
                      :topic topic
                      :partition partition
                      :offset (getf *rd-kafka-message 'cl-rdkafka/ll:offset)
-                     :timestamp (get-timestamp rd-kafka-message)
+                     :timestamp (car timestamp-pair)
+                     :timestamp-type (cdr timestamp-pair)
                      :latency (get-latency rd-kafka-message)
                      :headers (get-headers rd-kafka-message)
                      :raw-key raw-key
                      :raw-value raw-value
-                     :key (apply-serde key-serde raw-key)
-                     :value (apply-serde value-serde raw-value)))))
+                     :key (funcall key-function raw-key)
+                     :value (funcall value-function raw-value)))))
 
 (defmethod key ((message message))
+  "Return (values deserialized-key serialized-key) from MESSAGE."
   (with-slots (key raw-key) message
     (values key raw-key)))
 
 (defmethod value ((message message))
+  "Return (values deserialized-value serialized-value) from MESSAGE."
   (with-slots (value raw-value) message
     (values value raw-value)))
+
+(defmethod timestamp ((message message))
+  "Return (values timestamp timestamp-type) from MESSAGE.
+
+If timestamp is not available, then nil is returned. Otherwise:
+  * timestamp is the number of milliseconds since the UTC epoch
+  * timestamp-type is either :create-time or :log-append-time"
+  (with-slots (timestamp timestamp-type) message
+    (when timestamp
+      (values timestamp timestamp-type))))

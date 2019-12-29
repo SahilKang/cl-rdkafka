@@ -31,9 +31,9 @@
         (messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
     (loop
        for (k v) in messages
-       do (kf:produce producer topic v :key k))
+       do (kf:send producer topic v :key k))
 
-    (kf:flush producer 5000)
+    (kf:flush producer)
     messages))
 
 (defun consume-messages (topic)
