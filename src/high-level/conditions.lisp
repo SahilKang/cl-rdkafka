@@ -118,7 +118,7 @@
     :initarg :description
     :initform nil
     :reader description
-    :type string
+    :type (or null string)
     :documentation
     "Details about why the allocation may have failed."))
   (:report
