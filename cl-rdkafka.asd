@@ -17,7 +17,7 @@
 
 (asdf:defsystem #:cl-rdkafka
   :description
-  "CFFI bindings for librdkafka to enable interaction with a Kafka cluster."
+  "A client library for Apache Kafka based on librdkafka CFFI bindings."
   :version (:read-file-form "version.lisp")
   :author "Sahil Kang <sahil.kang@asilaycomputing.com>"
   :license "GPLv3"
@@ -101,8 +101,3 @@
              (:file "produce->consume")
              (:file "admin")
              (:file "headers")))))
-
-
-#+sb-core-compression
-(defmethod asdf:perform ((op asdf:image-op) (sys asdf:system))
-  (uiop:dump-image (asdf:output-file op sys) :executable t :compression 9))
