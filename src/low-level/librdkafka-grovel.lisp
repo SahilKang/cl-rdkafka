@@ -17,6 +17,9 @@
 
 (in-package #:cl-rdkafka/low-level)
 
+#+darwin 
+(cc-flags "-I" "/usr/local/include")
+
 (include "librdkafka/rdkafka.h")
 
 (ctype size-t "size_t")
