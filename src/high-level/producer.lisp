@@ -243,17 +243,18 @@ STORE-FUNCTION restart will be provided if it's a serde condition."
     (let ((key-bytes (if key-p (apply-serde key-serde key) (vector)))
           (value-bytes (apply-serde value-serde value))
           (partition (or partition cl-rdkafka/ll:rd-kafka-partition-ua)))
-      (%send rd-kafka-producer
-             topic
-             partition
-             key-bytes
-             value-bytes
-             headers
-             (or timestamp 0))
-      (let ((promise (lparallel:promise)))
-        (enqueue-payload rd-kafka-queue (list promise key value))
-        (setf last-promise promise)
-        (make-instance 'future :promise promise :client producer)))))
+      (bt:with-lock-held (+address->queue-lock+)
+        (%send rd-kafka-producer
+               topic
+               partition
+               key-bytes
+               value-bytes
+               headers
+               (or timestamp 0))
+        (let ((promise (lparallel:promise)))
+          (enqueue-payload rd-kafka-queue (list promise key value))
+          (setf last-promise promise)
+          (make-instance 'future :promise promise :client producer))))))
 
 ;; using rd_kafka_flush with rd_kafka_event_dr would cause a sporadic
 ;; NULL dereference for some reason. My gut feeling is that some race

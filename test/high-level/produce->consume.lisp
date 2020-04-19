@@ -65,3 +65,56 @@
     (let ((expected (produce-messages topic))
           (actual (consume-messages topic)))
       (is (equal expected actual)))))
+
+
+(test deadlock
+  (with-topics ((topic "deadlock-topic"))
+    (let* ((expected-messages 100000)
+           (actual-messages 0)
+           (lock (bt:make-lock "deadlock"))
+           (kernel (lparallel:make-kernel 5 :name "deadlock"))
+           (channel (let ((lparallel:*kernel* kernel))
+                      (lparallel:make-channel)))
+           (producer (make-instance
+                      'kf:producer
+                      :conf (list "bootstrap.servers" *bootstrap-servers*)
+                      :serde #'babel:string-to-octets))
+           (consumer (make-instance
+                      'kf:consumer
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
+                                  "group.id" "deadlock-group-id"
+                                  "enable.auto.commit" "false"
+                                  "auto.offset.reset" "earliest"
+                                  "offset.store.method" "broker"
+                                  "enable.partition.eof" "false")
+                      :serde #'babel:octets-to-string)))
+      (labels ((process ()
+                 (bt:with-lock-held (lock)
+                   (incf actual-messages)
+                   (kf:commit consumer :asyncp t)))
+               (poll ()
+                 (let (message)
+                   (bt:with-lock-held (lock)
+                     (setf message (kf:poll consumer 5)))
+                   (when message
+                     (lparallel:submit-task channel #'process))))
+               (poll-loop ()
+                 (loop
+                    initially (kf:subscribe consumer topic)
+                    repeat expected-messages
+                    do (kf:send producer topic "deadlock-message")
+                    finally (kf:flush producer))
+                 (loop
+                    repeat (* 2 expected-messages)
+                    until (= expected-messages actual-messages)
+                    do (poll))))
+        (unwind-protect
+             ;; pass or fail within 1 minute
+             (loop
+                initially (lparallel:submit-task channel #'poll-loop)
+                repeat 30
+                until (= expected-messages actual-messages)
+                do (sleep 2)
+                finally (is (= expected-messages actual-messages)))
+          (let ((lparallel:*kernel* kernel))
+            (lparallel:end-kernel)))))))
