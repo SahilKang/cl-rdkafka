@@ -136,10 +136,9 @@
       (error c))))
 
 (defun enqueue-payload (rd-kafka-queue payload)
-  (bt:with-lock-held (+address->queue-lock+)
-    (let* ((address (cffi:pointer-address rd-kafka-queue))
-           (queue (cdr (gethash address +address->queue+))))
-      (lparallel.queue:push-queue payload queue))))
+  (let* ((address (cffi:pointer-address rd-kafka-queue))
+         (queue (cdr (gethash address +address->queue+))))
+    (lparallel.queue:push-queue payload queue)))
 
 (defun deregister-rd-kafka-queue (rd-kafka-queue)
   (let ((address (cffi:pointer-address rd-kafka-queue)))

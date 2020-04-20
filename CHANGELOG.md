@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2] - 2020-04-20
+
+### Fixed
+
+ * Fix deadlock bug described in
+   [issue #58](https://github.com/SahilKang/cl-rdkafka/issues/58) from
+   [@kat-co](https://github.com/kat-co).
+
 ## [1.0.1] - 2020-01-14
 
 ### Fixed

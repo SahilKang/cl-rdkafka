@@ -247,17 +247,18 @@ STORE-FUNCTION restart will be provided if it's a serde condition."
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
 (defun %commit (rd-kafka-consumer toppar-list rd-kafka-queue)
-  (let ((err (cl-rdkafka/ll:rd-kafka-commit-queue
-              rd-kafka-consumer
-              toppar-list
-              rd-kafka-queue
-              (cffi:null-pointer)
-              (cffi:null-pointer))))
-    (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
-      (error (make-rdkafka-error err)))
-    (let ((promise (lparallel:promise)))
-      (enqueue-payload rd-kafka-queue promise)
-      promise)))
+  (bt:with-lock-held (+address->queue-lock+)
+    (let ((err (cl-rdkafka/ll:rd-kafka-commit-queue
+                rd-kafka-consumer
+                toppar-list
+                rd-kafka-queue
+                (cffi:null-pointer)
+                (cffi:null-pointer))))
+      (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+        (error (make-rdkafka-error err)))
+      (let ((promise (lparallel:promise)))
+        (enqueue-payload rd-kafka-queue promise)
+        promise))))
 
 (defmethod commit ((consumer consumer) &key offsets asyncp)
   "Commit OFFSETS to broker.
