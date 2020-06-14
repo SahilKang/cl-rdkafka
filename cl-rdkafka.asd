@@ -49,22 +49,15 @@
                        (:file "posix" :depends-on ("posix-grovel"))
                        (:file "kernel" :depends-on ("posix"))))
              (:file "future" :depends-on ("event-io"))
-             (:file "producer" :depends-on ("conf"
+             (:file "toppar" :depends-on ("common" "conditions"))
+             (:file "consumer" :depends-on ("conf"
                                             "conditions"
                                             "serde"
                                             "message"
                                             "event-io"
-                                            "future"))
-             (:module "consumer"
-                      :depends-on ("conf"
-                                   "conditions"
-                                   "serde"
-                                   "message"
-                                   "event-io"
-                                   "future")
-                      :components
-                      ((:file "toppar")
-                       (:file "consumer" :depends-on ("toppar"))))
+                                            "future"
+                                            "toppar"))
+             (:file "producer" :depends-on ("consumer"))
              (:module "admin"
                       :depends-on ("consumer" "producer")
                       :components

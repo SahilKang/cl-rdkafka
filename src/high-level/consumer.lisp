@@ -279,16 +279,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
         toppar-list
         (if (null offsets)
             (cffi:null-pointer)
-            (alloc-toppar-list offsets
-                               :topic #'caar
-                               :partition #'cdar
-                               :offset (lambda (pair)
-                                         (if (consp (cdr pair))
-                                             (cadr pair)
-                                             (cdr pair)))
-                               :metadata (lambda (pair)
-                                           (when (consp (cdr pair))
-                                             (cddr pair)))))
+            (alloc-toppar-list-from-alist offsets))
       (let* ((promise (%commit rd-kafka-consumer toppar-list rd-kafka-queue))
              (future (make-instance 'future :promise promise :client consumer)))
         (if asyncp
