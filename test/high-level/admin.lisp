@@ -285,10 +285,10 @@
       (kf:subscribe consumer-2 (list topic))
       (sleep 5)
 
-      (let ((group-info (first (kf::group-info consumer-1 group-1))))
+      (let ((group-info (first (kf::group-info consumer-1 group-1 :timeout-ms 10000))))
         (is (string= group-1 (cdr (assoc :group group-info)))))
 
-      (let ((group-info (kf::group-info consumer-1 nil)))
+      (let ((group-info (kf::group-info consumer-1 nil :timeout-ms 10000)))
         (is (< 1 (length group-info)))
         (is (find group-1
                   group-info
@@ -320,10 +320,10 @@
       (kf:subscribe consumer-2 (list topic))
       (sleep 5)
 
-      (let ((group-info (first (kf::group-info producer group-1))))
+      (let ((group-info (first (kf::group-info producer group-1 :timeout-ms 10000))))
         (is (string= group-1 (cdr (assoc :group group-info)))))
 
-      (let ((group-info (kf::group-info producer nil)))
+      (let ((group-info (kf::group-info producer nil :timeout-ms 10000)))
         (is (< 1 (length group-info)))
         (is (find group-1
                   group-info

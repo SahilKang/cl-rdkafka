@@ -23,8 +23,8 @@
 (in-package #:test/high-level/consumer)
 
 (test consumer-subscribe
-  (with-topics ((topic-1 "consumer-test-topic")
-                (topic-2 "foobar"))
+  (with-topics ((topic-1 "consumer-subscribe-topic-1")
+                (topic-2 "consumer-subscribe-topic-2"))
     (let ((consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*
@@ -58,6 +58,7 @@
       (sleep 2)
 
       (kf:subscribe consumer (list topic))
+      (sleep 5)
       (is (equal expected (loop
                              repeat (length expected)
                              for message = (kf:poll consumer 5000)
@@ -119,7 +120,7 @@
       (is (equalp expected (kf:value future))))))
 
 (test assign
-  (with-topics ((topic "foobar"))
+  (with-topics ((topic "consumer-assign-topic"))
     (let ((consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*
@@ -141,7 +142,7 @@
                       :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" group))))
       (kf:subscribe consumer (list topic))
-      (sleep 2)
+      (sleep 5)
 
       (let ((member-id (kf:member-id consumer))
             (group-info (first (kf::group-info consumer group))))
@@ -173,6 +174,7 @@
       (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
       (kf:subscribe consumer (list topic))
+      (sleep 5)
 
       (mapcar (lambda (message)
                 (kf:send producer topic message :partition good-partition))
@@ -214,6 +216,7 @@
       (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
       (kf:subscribe consumer (list topic))
+      (sleep 5)
 
       (mapcar (lambda (message)
                 (kf:send producer topic message :partition good-partition))
@@ -279,6 +282,7 @@
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8)))))
       (kf:subscribe consumer (list topic))
+      (sleep 5)
 
       (mapcar (lambda (message)
                 (kf:send producer topic message)
@@ -331,6 +335,7 @@
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8)))))
       (kf:subscribe consumer (list topic))
+      (sleep 5)
 
       (mapcar (lambda (message)
                 (kf:send producer topic message))
