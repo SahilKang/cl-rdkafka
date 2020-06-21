@@ -55,7 +55,8 @@ Example:
 
 (let ((producer (make-instance
                  'kf:producer
-                 :conf '(\"bootstrap.servers\" \"127.0.0.1:9092\")
+                 :conf '(\"bootstrap.servers\" \"127.0.0.1:9092\"
+                         \"enable.idempotence\" \"true\")
                  :serde #'babel:string-to-octets))
       (messages '((\"key-1\" \"value-1\")
                   (\"key-2\" \"value-2\"))))

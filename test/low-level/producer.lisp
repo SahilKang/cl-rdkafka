@@ -105,7 +105,8 @@
           producer)
       (unwind-protect
            (cffi:with-foreign-object (errstr :char errstr-len)
-             (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*))
+             (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*)
+                                     ("enable.idempotence" . "true"))
                                    errstr
                                    errstr-len)
                    producer (make-producer conf errstr errstr-len))

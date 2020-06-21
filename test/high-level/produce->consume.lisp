@@ -25,7 +25,8 @@
 (defun produce-messages (topic)
   (let ((producer (make-instance
                    'kf:producer
-                   :conf (list "bootstrap.servers" *bootstrap-servers*)
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "enable.idempotence" "true")
                    :serde (lambda (x)
                             (babel:string-to-octets x :encoding :utf-8))))
         (messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
@@ -75,7 +76,8 @@
                       (lparallel:make-channel)))
            (producer (make-instance
                       'kf:producer
-                      :conf (list "bootstrap.servers" *bootstrap-servers*)
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
+                                  "enable.idempotence" "true")
                       :serde #'babel:string-to-octets))
            (consumer (make-instance
                       'kf:consumer

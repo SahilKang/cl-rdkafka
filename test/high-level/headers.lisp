@@ -26,7 +26,8 @@
   (with-topics ((topic "headers-topic"))
     (let ((producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8))))
           (consumer (make-instance

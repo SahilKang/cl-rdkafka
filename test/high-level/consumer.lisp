@@ -163,7 +163,8 @@
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8))))
           (good-partition 1)
@@ -202,7 +203,8 @@
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8))))
           (good-partition 1)
@@ -244,7 +246,8 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*))))
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true"))))
       (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
 
@@ -271,7 +274,8 @@
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8)))))
       (kf:subscribe consumer (list topic))
@@ -322,7 +326,8 @@
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8)))))
       (kf:subscribe consumer (list topic))

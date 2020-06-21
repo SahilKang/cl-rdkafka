@@ -34,7 +34,8 @@
   (with-topics ((topic "test-producer-produce"))
     (let ((producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (x)
                               (babel:string-to-octets x :encoding :utf-8))))
           (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
@@ -60,7 +61,8 @@
   (with-topics ((topic "test-producer-futures"))
     (let ((producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde #'babel:string-to-octets))
           (expected '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
       (is (equal expected
@@ -78,7 +80,8 @@
   (with-topics ((topic "test-producer-timestamp"))
     (let ((producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)))
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")))
           (expected '(2 4 6)))
       (is (equal expected
                  (mapcar
