@@ -53,6 +53,56 @@
                   :description (cl-rdkafka/ll:rd-kafka-err2str
                                 (symbol-value err))))
 
+(define-condition fatal-error (rdkafka-error)
+  ()
+  (:report
+   (lambda (condition stream)
+     (format stream "Fatal error ~S: ~S"
+             (enum condition)
+             (description condition))))
+  (:documentation
+   "Condition signalled for librdkafka fatal errors.
+
+These conditions indicate that the PRODUCER or CONSUMER instance should
+no longer be used."))
+
+(define-condition transaction-error (rdkafka-error)
+  ()
+  (:report
+   (lambda (condition stream)
+     (format stream "Transaction error ~S: ~S"
+             (enum condition)
+             (description condition))))
+  (:documentation
+   "Condition signalled for errors related to transactions."))
+
+(define-condition retryable-operation-error (transaction-error)
+  ()
+  (:report
+   (lambda (condition stream)
+     (format stream "Retryable operation failed ~S: ~S"
+             (enum condition)
+             (description condition))))
+  (:documentation
+   "Condition signalled by retryable operations that fail during transactions."))
+
+(define-condition abort-required-error (transaction-error)
+  ()
+  (:report
+   (lambda (condition stream)
+     (format stream "Transaction failed and must be aborted ~S: ~S"
+             (enum condition)
+             (description condition))))
+  (:documentation
+   "Condition signalled when a transaction fails and must be aborted."))
+
+(defun error->condition (condition-type error)
+  (declare (symbol condition-type)
+           (cffi:foreign-pointer error))
+  (make-condition condition-type
+                  :enum (cl-rdkafka/ll:rd-kafka-error-code error)
+                  :description (cl-rdkafka/ll:rd-kafka-error-string error)))
+
 (define-condition partition-error (rdkafka-error)
   ((topic
     :initarg :topic

@@ -70,6 +70,46 @@ Example:
 
 (defgeneric flush (producer))
 
+(defgeneric initialize-transactions (producer timeout-ms))
+
+(defgeneric begin-transaction (producer))
+
+(defgeneric commit-transaction (producer timeout-ms))
+
+(defgeneric abort-transaction (producer timeout-ms))
+
+(defgeneric send-offsets-to-transaction (producer consumer offsets timeout-ms)
+  (:documentation
+   "Send OFFSETS to CONSUMER group coordinator and mark them as part of the ongoing transaction.
+
+A transaction must have been started by BEGIN-TRANSACTION.
+
+This method will block for up to TIMEOUT-MS milliseconds.
+
+OFFSETS should be associated with CONSUMER, and will be considered
+committed only if the ongoing transaction is committed
+successfully. Each offset should refer to the next message that the
+CONSUMER POLL method should return: the last processed message's
+offset + 1. Invalid offsets will be ignored.
+
+CONSUMER should have enable.auto.commit set to false and should not
+commit offsets itself through the COMMIT method.
+
+This method should be called at the end of a
+consume->transform->produce cycle, before calling COMMIT-TRANSACTION.
+
+May signal:
+
+  * RETRYABLE-OPERATION-ERROR, in which case a RETRY-OPERATION and
+    ABORT restart will be provided.
+
+  * ABORT-REQUIRED-ERROR, in which case an ABORT restart will be
+    provided.
+
+  * TRANSACTION-ERROR
+
+  * FATAL-ERROR"))
+
 (defun process-send-event (rd-kafka-event queue)
   (assert-expected-event rd-kafka-event cl-rdkafka/ll:rd-kafka-event-dr)
   (let ((err (cl-rdkafka/ll:rd-kafka-event-error rd-kafka-event)))
@@ -268,3 +308,261 @@ STORE-FUNCTION restart will be provided if it's a serde condition."
   (with-slots (last-promise) producer
     (lparallel:force last-promise))
   nil)
+
+(defmethod initialize-transactions ((producer producer) (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and initialize transactions for PRODUCER.
+
+When transactional.id is configured, this method needs to be called
+exactly once before any other methods on PRODUCER.
+
+This method:
+
+  1) Ensures any transactions initiated by previous producer instances
+     with the same transactional.id are completed:
+
+       * If the previous instance had failed with an in-progress
+         transaction, it will be aborted.
+
+       * If the previous transaction had started committing, but had
+         not yet finished, this method waits for it to finish.
+
+  2) Acquires the internal producer id and epoch to use with all
+     future transactional messages sent by PRODUCER. This will be used
+     to fence out any previous instances.
+
+May signal a FATAL-ERROR, TRANSACTION-ERROR, or
+RETRYABLE-OPERATION-ERROR. A RETRY-OPERATION restart will be provided
+if it's a RETRYABLE-OPERATION-ERROR."
+  (with-slots (rd-kafka-producer) producer
+    (let ((err (cl-rdkafka/ll:rd-kafka-init-transactions
+                rd-kafka-producer
+                timeout-ms)))
+      (unless (cffi:null-pointer-p err)
+        (unwind-protect
+             (restart-case
+                 (cond
+                   ((cl-rdkafka/ll:rd-kafka-error-is-retriable err)
+                    (error (error->condition 'retryable-operation-error err)))
+                   ((cl-rdkafka/ll:rd-kafka-error-is-fatal err)
+                    (error (error->condition 'fatal-error err)))
+                   (t
+                    (error (error->condition 'transaction-error err))))
+               (retry-operation ()
+                 :report "Retry initializing transactions."
+                 :test (lambda (condition)
+                         (typep condition 'retryable-operation-error))
+                 (initialize-transactions producer timeout-ms)))
+          (cl-rdkafka/ll:rd-kafka-error-destroy err))))))
+
+(defmethod begin-transaction ((producer producer))
+  "Begin a transaction.
+
+INITIALIZE-TRANSACTIONS must have been called exactly once before this
+method, and only one transaction can be in progress at a time for
+PRODUCER.
+
+The transaction can be committed with COMMIT-TRANSACTION or aborted
+with ABORT-TRANSACTION.
+
+May signal FATAL-ERROR or TRANSACTION-ERROR."
+  (with-slots (rd-kafka-producer) producer
+    (let ((err (cl-rdkafka/ll:rd-kafka-begin-transaction rd-kafka-producer)))
+      (unless (cffi:null-pointer-p err)
+        (unwind-protect
+             (if (cl-rdkafka/ll:rd-kafka-error-is-fatal err)
+                 (error (error->condition 'fatal-error err))
+                 (error (error->condition 'transaction-error err)))
+          (cl-rdkafka/ll:rd-kafka-error-destroy err))))))
+
+(defmethod commit-transaction ((producer producer) (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and commit the ongoing transaction.
+
+A transaction must have been started by BEGIN-TRANSACTION.
+
+This method will flush all enqueued messages before issuing the
+commit. If any of the messages fails to be sent, an
+ABORT-REQUIRED-ERROR will be signalled.
+
+May signal:
+
+  * RETRYABLE-OPERATION-ERROR, in which case a RETRY-OPERATION and
+    ABORT restart will be provided.
+
+  * ABORT-REQUIRED-ERROR, in which case an ABORT restart will be
+    provided.
+
+  * TRANSACTION-ERROR
+
+  * FATAL-ERROR"
+  (with-slots (rd-kafka-producer) producer
+    (let ((err (cl-rdkafka/ll:rd-kafka-commit-transaction
+                rd-kafka-producer
+                timeout-ms)))
+      (unless (cffi:null-pointer-p err)
+        (unwind-protect
+             (restart-case
+                 (cond
+                   ((cl-rdkafka/ll:rd-kafka-error-is-retriable err)
+                    (error (error->condition 'retryable-operation-error err)))
+                   ((cl-rdkafka/ll:rd-kafka-error-txn-requires-abort err)
+                    (error (error->condition 'abort-required-error err)))
+                   ((cl-rdkafka/ll:rd-kafka-error-is-fatal err)
+                    (error (error->condition 'fatal-error err)))
+                   (t
+                    (error (error->condition 'transaction-error err))))
+               (retry-operation ()
+                 :report "Retry committing transaction."
+                 :test (lambda (condition)
+                         (typep condition 'retryable-operation-error))
+                 (commit-transaction producer timeout-ms))
+               (abort ()
+                 :report "Abort transaction."
+                 :test (lambda (condition)
+                         (typep condition
+                                '(or retryable-operation-error abort-required-error)))
+                 (handler-case
+                     (abort-transaction producer 0)
+                   (retryable-operation-error () nil))))
+          (cl-rdkafka/ll:rd-kafka-error-destroy err))))))
+
+(defmethod abort-transaction ((producer producer) (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and abort the ongoing transaction.
+
+A transaction must have been started by BEGIN-TRANSACTION.
+
+This method will purge all enqueued messages before issuing the
+abort.
+
+May signal a FATAL-ERROR, TRANSACTION-ERROR, or
+RETRYABLE-OPERATION-ERROR. A RETRY-OPERATION and CONTINUE restart will
+be provided if it's a RETRYABLE-OPERATION-ERROR."
+  (with-slots (rd-kafka-producer) producer
+    (let ((err (cl-rdkafka/ll:rd-kafka-abort-transaction
+                rd-kafka-producer
+                timeout-ms)))
+      (unless (cffi:null-pointer-p err)
+        (unwind-protect
+             (restart-case
+                 (cond
+                   ((cl-rdkafka/ll:rd-kafka-error-is-retriable err)
+                    (error (error->condition 'retryable-operation-error err)))
+                   ((cl-rdkafka/ll:rd-kafka-error-is-fatal err)
+                    (error (error->condition 'fatal-error err)))
+                   (t
+                    (error (error->condition 'transaction-error err))))
+               (retry-operation ()
+                 :report "Try aborting again."
+                 :test (lambda (condition)
+                         (typep condition 'retryable-operation-error))
+                 (abort-transaction producer timeout-ms))
+               (continue ()
+                 :report "Ignore and continue."
+                 :test (lambda (condition)
+                         (typep condition 'retryable-operation-error))
+                 nil))
+          (cl-rdkafka/ll:rd-kafka-error-destroy err))))))
+
+(defmacro with-consumer-group-metadata (metadata consumer &body body)
+  (let ((rd-kafka-consumer (gensym)))
+    `(with-slots ((,rd-kafka-consumer rd-kafka-consumer)) ,consumer
+       (let ((,metadata (cl-rdkafka/ll:rd-kafka-consumer-group-metadata
+                         ,rd-kafka-consumer)))
+         (unwind-protect
+              (progn
+                ,@body)
+           (unless (cffi:null-pointer-p ,metadata)
+             (cl-rdkafka/ll:rd-kafka-consumer-group-metadata-destroy ,metadata)))))))
+
+(defun %send-offsets-to-transaction (producer consumer offsets timeout-ms)
+  (with-consumer-group-metadata metadata consumer
+    (with-slots (rd-kafka-producer) producer
+      (let ((err (cl-rdkafka/ll:rd-kafka-send-offsets-to-transaction
+                  rd-kafka-producer
+                  offsets
+                  metadata
+                  timeout-ms)))
+        (unless (cffi:null-pointer-p err)
+          (unwind-protect
+               (restart-case
+                   (cond
+                     ((cl-rdkafka/ll:rd-kafka-error-is-retriable err)
+                      (error (error->condition 'retryable-operation-error err)))
+                     ((cl-rdkafka/ll:rd-kafka-error-txn-requires-abort err)
+                      (error (error->condition 'abort-required-error err)))
+                     ((cl-rdkafka/ll:rd-kafka-error-is-fatal err)
+                      (error (error->condition 'fatal-error err)))
+                     (t
+                      (error (error->condition 'transaction-error err))))
+                 (retry-operation ()
+                   :report "Retry sending offsets to transaction."
+                   :test (lambda (condition)
+                           (typep condition 'retryable-operation-error))
+                   (%send-offsets-to-transaction producer consumer offsets timeout-ms))
+                 (abort ()
+                   :report "Abort transaction."
+                   :test (lambda (condition)
+                           (typep condition
+                                  '(or retryable-operation-error abort-required-error)))
+                   (handler-case
+                       (abort-transaction producer 0)
+                     (retryable-operation-error () nil))))
+            (cl-rdkafka/ll:rd-kafka-error-destroy err)))))))
+
+(defmethod send-offsets-to-transaction
+    ((producer producer)
+     (consumer consumer)
+     (offsets list)
+     (timeout-ms integer))
+  "OFFSETS should be an alist mapping (topic . partition) cons cells
+to either (offset . metadata) cons cells or lone offset values."
+  (etypecase (first offsets)
+    ((or message null) (call-next-method))
+    (cons
+     (with-toppar-list toppar-list (alloc-toppar-list-from-alist offsets)
+       (%send-offsets-to-transaction producer consumer toppar-list timeout-ms)))))
+
+(defmethod send-offsets-to-transaction
+    ((producer producer)
+     (consumer consumer)
+     (offsets hash-table)
+     (timeout-ms integer))
+  "OFFSETS should be a hash-table mapping (topic . partition) cons
+cells to either (offset . metadata) cons cells or lone offset values."
+  (let ((vector (make-array (hash-table-count offsets)
+                            :adjustable nil
+                            :fill-pointer 0)))
+    (maphash (lambda (k v)
+               (vector-push (cons k v) vector))
+             offsets)
+    (with-toppar-list toppar-list (alloc-toppar-list-from-alist vector)
+      (%send-offsets-to-transaction producer consumer toppar-list timeout-ms))))
+
+(defun messages->toppar-list (messages)
+  (let* ((hash-table (reduce
+                      (lambda (agg message)
+                        (let* ((new-offset (1+ (offset message)))
+                               (toppar (cons (topic message) (partition message)))
+                               (current-offset (gethash toppar agg new-offset)))
+                          (setf (gethash toppar agg) (max current-offset new-offset))
+                          agg))
+                      messages
+                      :initial-value (make-hash-table :test #'equal)))
+         (vector (make-array (hash-table-count hash-table)
+                             :adjustable nil
+                             :fill-pointer 0)))
+    (maphash (lambda (k v)
+               (vector-push (cons k v) vector))
+             hash-table)
+    (alloc-toppar-list vector :topic #'caar :partition #'cdar :offset #'cdr)))
+
+(defmethod send-offsets-to-transaction
+    ((producer producer)
+     (consumer consumer)
+     (offsets sequence)
+     (timeout-ms integer))
+  "OFFSETS should be a sequence of MESSAGES processed by CONSUMER.
+
+This method will figure out the correct offsets to send to the
+consumer group coordinator."
+  (with-toppar-list toppar-list (messages->toppar-list offsets)
+    (%send-offsets-to-transaction producer consumer toppar-list timeout-ms)))

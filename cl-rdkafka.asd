@@ -93,4 +93,5 @@
              (:file "producer")
              (:file "produce->consume")
              (:file "admin")
-             (:file "headers")))))
+             (:file "headers")
+             (:file "transactions")))))

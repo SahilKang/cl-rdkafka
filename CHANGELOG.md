@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0] - 2020-07-04
+
+### Added
+
+ * Add `seek`, `seek-to-beginning` and `seek-to-end` consumer methods.
+
+ * Add support for transactions.
+
 ## [1.0.2] - 2020-04-20
 
 ### Fixed
