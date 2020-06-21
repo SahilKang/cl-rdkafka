@@ -47,7 +47,7 @@
 
       (let* ((kafkacat-output-lines
               (uiop:run-program
-               (format nil "kafkacat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A'"
+               (format nil "timeout 5 kafkacat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A' || exit 0"
                        #\newline
                        *bootstrap-servers*
                        topic)

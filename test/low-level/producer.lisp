@@ -92,7 +92,7 @@
 
 (defun consume-messages (bootstrap-servers topic)
   (uiop:run-program
-   (format nil "kafkacat -Ce -b '~A' -t '~A'" bootstrap-servers topic)
+   (format nil "timeout 5 kafkacat -Ce -b '~A' -t '~A' || exit 0" bootstrap-servers topic)
    :force-shell t
    :output :lines))
 

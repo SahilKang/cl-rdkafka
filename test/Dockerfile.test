@@ -2,6 +2,11 @@ FROM debian:stable
 
 # kafka bootstrap.servers that tests will use
 ARG bootstrap_servers
+ARG librdkafka_commit
+ARG install_dir=/usr/local
+
+ENV LD_LIBRARY_PATH=$install_dir/lib
+ENV C_INCLUDE_PATH=$install_dir/include
 
 WORKDIR /root/quicklisp/local-projects/cl-rdkafka/
 
@@ -10,7 +15,12 @@ COPY src src
 COPY test test
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    sbcl cl-quicklisp gcc libc6-dev librdkafka-dev libffi-dev kafkacat \
+    ca-certificates build-essential coreutils libffi-dev python3 git \
+    kafkacat sbcl cl-quicklisp \
+    && git clone https://github.com/edenhill/librdkafka.git \
+    && cd ./librdkafka && git checkout $librdkafka_commit \
+    && ./configure --prefix $install_dir && make && make install \
+    && cd .. && rm -rf ./librdkafka \
     && sbcl --noinform --end-runtime-options \
             --no-sysinit --no-userinit \
             --load $(find / -name 'quicklisp.lisp' -type f) \
@@ -21,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
             --eval "(sb-ext:save-lisp-and-die \
                       \"test-image\" \
                       :toplevel (lambda () \
-                                  (sleep 5) \
+                                  (sleep 10) \
                                   (let ((test:*bootstrap-servers* \"$bootstrap_servers\")) \
                                     (asdf:operate :test-op :cl-rdkafka))))" \
             --end-toplevel-options \
