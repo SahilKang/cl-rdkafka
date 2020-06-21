@@ -42,6 +42,9 @@
    ;; consumer class
    #:consumer
    #:poll
+   #:seek
+   #:seek-to-beginning
+   #:seek-to-end
    #:subscribe
    #:unsubscribe
    #:subscription

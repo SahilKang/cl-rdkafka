@@ -64,6 +64,53 @@
                              for message = (kf:poll consumer 5000)
                              collect (kf:value message)))))))
 
+(test seek
+  (with-topics ((topic "consumer-seek-topic"))
+    (let ((consumer (make-instance
+                     'kf:consumer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "group.id" "consumer-seek-group"
+                                 "enable.auto.commit" "false"
+                                 "auto.offset.reset" "earliest")
+                     :serde #'babel:octets-to-string))
+          (expected '("one" "two" "three")))
+      (uiop:run-program
+       (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
+               (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
+               *bootstrap-servers*
+               topic)
+       :force-shell t)
+      (sleep 2)
+      (kf:subscribe consumer topic)
+      (sleep 5)
+      (is (equal expected
+                 (loop
+                   for message = (kf:poll consumer 5000)
+                   while message
+                   collect (kf:value message)
+                   do (kf:commit consumer))))
+      (kf:seek consumer topic 0 0 5000)
+      (is (equal expected
+                 (loop
+                   for message = (kf:poll consumer 5000)
+                   while message
+                   collect (kf:value message)
+                   do (kf:commit consumer))))
+      (kf:seek-to-beginning consumer topic 0 5000)
+      (is (equal expected
+                 (loop
+                   for message = (kf:poll consumer 5000)
+                   while message
+                   collect (kf:value message)
+                   do (kf:commit consumer))))
+      (kf:seek-to-beginning consumer topic 0 5000)
+      (kf:seek-to-end consumer topic 0 5000)
+      (is (null (loop
+                  for message = (kf:poll consumer 5000)
+                  while message
+                  collect (kf:value message)
+                  do (kf:commit consumer)))))))
+
 (test committed
   (with-topics ((topic "consumer-committed-topic"))
     (let ((consumer (make-instance

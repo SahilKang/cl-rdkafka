@@ -109,6 +109,9 @@ $ docker system prune -fa && docker volume prune -f
     * [flush](#flush)
 * [consumer class](#consumer-class)
     * [poll](#poll)
+    * [seek](#seek)
+    * [seek-to-beginning](#seek-to-beginning)
+    * [seek-to-end](#seek-to-end)
     * [subscribe](#subscribe)
     * [unsubscribe](#unsubscribe)
     * [subscription](#subscription)
@@ -288,6 +291,36 @@ Block for up to `timeout-ms` milliseconds and return a `message` or nil.
 
 May signal `partition-error` or condition from `consumer`'s serde. A
 `store-function` restart will be provided if it's a serde condition.
+
+---
+
+### seek
+
+```lisp
+((consumer consumer) (topic string) (partition integer) (offset integer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and seek `consumer` to `offset`.
+
+---
+
+### seek-to-beginning
+
+```lisp
+((consumer consumer) (topic string) (partition integer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and seek `consumer` to beginning of `partition`.
+
+---
+
+### seek-to-end
+
+```lisp
+((consumer consumer) (topic string) (partition integer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and seek `consumer` to end of `partition`.
 
 ---
 

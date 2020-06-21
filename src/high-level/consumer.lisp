@@ -78,6 +78,12 @@ Example:
 
 (defgeneric poll (consumer timeout-ms))
 
+(defgeneric seek (consumer topic partition offset timeout-ms))
+
+(defgeneric seek-to-beginning (consumer topic partition timeout-ms))
+
+(defgeneric seek-to-end (consumer topic partition timeout-ms))
+
 (defgeneric commit (consumer &key offsets asyncp))
 
 (defgeneric committed (consumer partitions timeout-ms))
@@ -243,6 +249,49 @@ STORE-FUNCTION restart will be provided if it's a serde condition."
                                           (apply-serde value-serde bytes))))
         (unless (cffi:null-pointer-p rd-kafka-message)
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
+
+(defun %seek (consumer topic partition offset timeout-ms)
+  (with-slots (rd-kafka-consumer) consumer
+    (let ((rkt (cl-rdkafka/ll:rd-kafka-topic-new
+                rd-kafka-consumer
+                topic
+                (cffi:null-pointer))))
+      (when (cffi:null-pointer-p rkt)
+        (error (make-rdkafka-error (cl-rdkafka/ll:rd-kafka-last-error))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-seek
+                       rkt
+                       partition
+                       offset
+                       timeout-ms)))
+             (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error (make-rdkafka-error err))))
+        (cl-rdkafka/ll:rd-kafka-topic-destroy rkt)))))
+
+(defmethod seek
+    ((consumer consumer)
+     (topic string)
+     (partition integer)
+     (offset integer)
+     (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and seek CONSUMER to OFFSET."
+  (%seek consumer topic partition offset timeout-ms))
+
+(defmethod seek-to-beginning
+    ((consumer consumer)
+     (topic string)
+     (partition integer)
+     (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and seek CONSUMER to beginning of PARTITION."
+  (%seek consumer topic partition cl-rdkafka/ll:rd-kafka-offset-beginning timeout-ms))
+
+(defmethod seek-to-end
+    ((consumer consumer)
+     (topic string)
+     (partition integer)
+     (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and seek CONSUMER to end of PARTITION."
+  (%seek consumer topic partition cl-rdkafka/ll:rd-kafka-offset-end timeout-ms))
 
 (defun %commit (rd-kafka-consumer toppar-list rd-kafka-queue)
   (bt:with-lock-held (+address->queue-lock+)
