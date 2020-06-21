@@ -130,9 +130,7 @@
              (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*)
                                      ("group.id" . ,group-id)
                                      ("enable.auto.commit" . "false")
-                                     ("auto.offset.reset" . "earliest")
-                                     ("offset.store.method" . "broker")
-                                     ("enable.partition.eof" . "false"))
+                                     ("auto.offset.reset" . "earliest"))
                                    errstr
                                    errstr-len)
                    consumer (make-consumer conf errstr errstr-len))

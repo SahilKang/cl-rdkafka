@@ -33,8 +33,7 @@
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "headers-group-id"
-                                 "auto.offset.reset" "earliest"
-                                 "enable.partition.eof" "false")
+                                 "auto.offset.reset" "earliest")
                      :serde (lambda (bytes)
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (expected-message "some clever message")

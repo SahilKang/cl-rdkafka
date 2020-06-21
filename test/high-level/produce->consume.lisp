@@ -42,9 +42,7 @@
                    :conf (list "bootstrap.servers" *bootstrap-servers*
                                "group.id" "consume-messages-group-id"
                                "enable.auto.commit" "false"
-                               "auto.offset.reset" "earliest"
-                               "offset.store.method" "broker"
-                               "enable.partition.eof" "false")
+                               "auto.offset.reset" "earliest")
                    :serde (lambda (x)
                             (babel:octets-to-string x :encoding :utf-8)))))
     (kf:subscribe consumer (list topic))
@@ -84,9 +82,7 @@
                       :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" "deadlock-group-id"
                                   "enable.auto.commit" "false"
-                                  "auto.offset.reset" "earliest"
-                                  "offset.store.method" "broker"
-                                  "enable.partition.eof" "false")
+                                  "auto.offset.reset" "earliest")
                       :serde #'babel:octets-to-string)))
       (labels ((process ()
                  (bt:with-lock-held (lock)

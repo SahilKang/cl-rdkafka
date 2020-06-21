@@ -55,9 +55,7 @@ and `kf` is documented under the [API section](#API).
                  :conf '("bootstrap.servers" "127.0.0.1:9092"
                          "group.id" "consumer-group-id"
                          "enable.auto.commit" "false"
-                         "auto.offset.reset" "earliest"
-                         "offset.store.method" "broker"
-                         "enable.partition.eof"  "false")
+                         "auto.offset.reset" "earliest")
                  :serde #'babel:octets-to-string)))
   (kf:subscribe consumer "topic-name")
 
@@ -260,9 +258,7 @@ Example:
                  :conf '("bootstrap.servers" "127.0.0.1:9092"
                          "group.id" "consumer-group-id"
                          "enable.auto.commit" "false"
-                         "auto.offset.reset" "earliest"
-                         "offset.store.method" "broker"
-                         "enable.partition.eof"  "false")
+                         "auto.offset.reset" "earliest")
                  :serde #'babel:octets-to-string)))
   (kf:subscribe consumer "topic-name")
 
