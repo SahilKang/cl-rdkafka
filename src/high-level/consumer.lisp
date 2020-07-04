@@ -55,9 +55,7 @@ Example:
                  :conf '(\"bootstrap.servers\" \"127.0.0.1:9092\"
                          \"group.id\" \"consumer-group-id\"
                          \"enable.auto.commit\" \"false\"
-                         \"auto.offset.reset\" \"earliest\"
-                         \"offset.store.method\" \"broker\"
-                         \"enable.partition.eof\"  \"false\")
+                         \"auto.offset.reset\" \"earliest\")
                  :serde #'babel:octets-to-string)))
   (kf:subscribe consumer '(\"topic-name\"))
 
@@ -79,6 +77,12 @@ Example:
 (defgeneric subscription (consumer))
 
 (defgeneric poll (consumer timeout-ms))
+
+(defgeneric seek (consumer topic partition offset timeout-ms))
+
+(defgeneric seek-to-beginning (consumer topic partition timeout-ms))
+
+(defgeneric seek-to-end (consumer topic partition timeout-ms))
 
 (defgeneric commit (consumer &key offsets asyncp))
 
@@ -246,6 +250,49 @@ STORE-FUNCTION restart will be provided if it's a serde condition."
         (unless (cffi:null-pointer-p rd-kafka-message)
           (cl-rdkafka/ll:rd-kafka-message-destroy rd-kafka-message))))))
 
+(defun %seek (consumer topic partition offset timeout-ms)
+  (with-slots (rd-kafka-consumer) consumer
+    (let ((rkt (cl-rdkafka/ll:rd-kafka-topic-new
+                rd-kafka-consumer
+                topic
+                (cffi:null-pointer))))
+      (when (cffi:null-pointer-p rkt)
+        (error (make-rdkafka-error (cl-rdkafka/ll:rd-kafka-last-error))))
+      (unwind-protect
+           (let ((err (cl-rdkafka/ll:rd-kafka-seek
+                       rkt
+                       partition
+                       offset
+                       timeout-ms)))
+             (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
+               (error (make-rdkafka-error err))))
+        (cl-rdkafka/ll:rd-kafka-topic-destroy rkt)))))
+
+(defmethod seek
+    ((consumer consumer)
+     (topic string)
+     (partition integer)
+     (offset integer)
+     (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and seek CONSUMER to OFFSET."
+  (%seek consumer topic partition offset timeout-ms))
+
+(defmethod seek-to-beginning
+    ((consumer consumer)
+     (topic string)
+     (partition integer)
+     (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and seek CONSUMER to beginning of PARTITION."
+  (%seek consumer topic partition cl-rdkafka/ll:rd-kafka-offset-beginning timeout-ms))
+
+(defmethod seek-to-end
+    ((consumer consumer)
+     (topic string)
+     (partition integer)
+     (timeout-ms integer))
+  "Block for up to TIMEOUT-MS milliseconds and seek CONSUMER to end of PARTITION."
+  (%seek consumer topic partition cl-rdkafka/ll:rd-kafka-offset-end timeout-ms))
+
 (defun %commit (rd-kafka-consumer toppar-list rd-kafka-queue)
   (bt:with-lock-held (+address->queue-lock+)
     (let ((err (cl-rdkafka/ll:rd-kafka-commit-queue
@@ -281,16 +328,7 @@ If ASYNCP is true, then a FUTURE will be returned instead."
         toppar-list
         (if (null offsets)
             (cffi:null-pointer)
-            (alloc-toppar-list offsets
-                               :topic #'caar
-                               :partition #'cdar
-                               :offset (lambda (pair)
-                                         (if (consp (cdr pair))
-                                             (cadr pair)
-                                             (cdr pair)))
-                               :metadata (lambda (pair)
-                                           (when (consp (cdr pair))
-                                             (cddr pair)))))
+            (alloc-toppar-list-from-alist offsets))
       (let* ((promise (%commit rd-kafka-consumer toppar-list rd-kafka-queue))
              (future (make-instance 'future :promise promise :client consumer)))
         (if asyncp

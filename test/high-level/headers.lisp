@@ -26,15 +26,15 @@
   (with-topics ((topic "headers-topic"))
     (let ((producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8))))
           (consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "headers-group-id"
-                                 "auto.offset.reset" "earliest"
-                                 "enable.partition.eof" "false")
+                                 "auto.offset.reset" "earliest")
                      :serde (lambda (bytes)
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (expected-message "some clever message")

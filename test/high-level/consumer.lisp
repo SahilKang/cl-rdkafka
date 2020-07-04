@@ -23,15 +23,14 @@
 (in-package #:test/high-level/consumer)
 
 (test consumer-subscribe
-  (with-topics ((topic-1 "consumer-test-topic")
-                (topic-2 "foobar"))
+  (with-topics ((topic-1 "consumer-subscribe-topic-1")
+                (topic-2 "consumer-subscribe-topic-2"))
     (let ((consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "consumer-subscribe-group"
                                  "enable.auto.commit" "true"
-                                 "auto.offset.reset" "earliest"
-                                 "offset.store.method" "broker")))
+                                 "auto.offset.reset" "earliest")))
           (expected (list topic-1 topic-2)))
       (kf:subscribe consumer expected)
       (is (equal expected (sort (kf:subscription consumer) #'string<)))
@@ -46,8 +45,7 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "consumer-poll-group"
                                  "enable.auto.commit" "true"
-                                 "auto.offset.reset" "earliest"
-                                 "offset.store.method" "broker")
+                                 "auto.offset.reset" "earliest")
                      :value-serde (lambda (x)
                                     (babel:octets-to-string x :encoding :utf-8))))
           (expected '("Hello" "World" "!")))
@@ -60,10 +58,58 @@
       (sleep 2)
 
       (kf:subscribe consumer (list topic))
+      (sleep 5)
       (is (equal expected (loop
                              repeat (length expected)
                              for message = (kf:poll consumer 5000)
                              collect (kf:value message)))))))
+
+(test seek
+  (with-topics ((topic "consumer-seek-topic"))
+    (let ((consumer (make-instance
+                     'kf:consumer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "group.id" "consumer-seek-group"
+                                 "enable.auto.commit" "false"
+                                 "auto.offset.reset" "earliest")
+                     :serde #'babel:octets-to-string))
+          (expected '("one" "two" "three")))
+      (uiop:run-program
+       (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
+               (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
+               *bootstrap-servers*
+               topic)
+       :force-shell t)
+      (sleep 2)
+      (kf:subscribe consumer topic)
+      (sleep 5)
+      (is (equal expected
+                 (loop
+                   for message = (kf:poll consumer 5000)
+                   while message
+                   collect (kf:value message)
+                   do (kf:commit consumer))))
+      (kf:seek consumer topic 0 0 5000)
+      (is (equal expected
+                 (loop
+                   for message = (kf:poll consumer 5000)
+                   while message
+                   collect (kf:value message)
+                   do (kf:commit consumer))))
+      (kf:seek-to-beginning consumer topic 0 5000)
+      (is (equal expected
+                 (loop
+                   for message = (kf:poll consumer 5000)
+                   while message
+                   collect (kf:value message)
+                   do (kf:commit consumer))))
+      (kf:seek-to-beginning consumer topic 0 5000)
+      (kf:seek-to-end consumer topic 0 5000)
+      (is (null (loop
+                  for message = (kf:poll consumer 5000)
+                  while message
+                  collect (kf:value message)
+                  do (kf:commit consumer)))))))
 
 (test committed
   (with-topics ((topic "consumer-committed-topic"))
@@ -72,8 +118,7 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "consumer-commit-group"
                                  "enable.auto.commit" "false"
-                                 "auto.offset.reset" "earliest"
-                                 "offset.store.method" "broker")))
+                                 "auto.offset.reset" "earliest")))
           (expected '(1 2 3)))
       (uiop:run-program
        (format nil "echo -n 'Live|Laugh|Hack' | kafkacat -P -D '|' -b '~A' -t '~A'"
@@ -100,8 +145,7 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "consumer-commit-sync-group"
                                  "enable.auto.commit" "false"
-                                 "auto.offset.reset" "earliest"
-                                 "offset.store.method" "broker")))
+                                 "auto.offset.reset" "earliest")))
           (expected `(((,topic . 0) . (0 . #(2 4 6)))
                       ((,topic . 0) . (1 . #(8 10 12)))
                       ((,topic . 0) . (2 . #())))))
@@ -114,8 +158,7 @@
                       :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" "consumer-commit-async-group"
                                   "enable.auto.commit" "false"
-                                  "auto.offset.reset" "earliest"
-                                  "offset.store.method" "broker")))
+                                  "auto.offset.reset" "earliest")))
            (expected `(((,topic . 0) . (0 . #(2 4 6)))
                        ((,topic . 0) . (1 . #(8 10 12)))
                        ((,topic . 0) . (2 . #()))))
@@ -124,14 +167,13 @@
       (is (equalp expected (kf:value future))))))
 
 (test assign
-  (with-topics ((topic "foobar"))
+  (with-topics ((topic "consumer-assign-topic"))
     (let ((consumer (make-instance
                      'kf:consumer
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "consumer-assign-group"
                                  "enable.auto.commit" "true"
-                                 "auto.offset.reset" "earliest"
-                                 "offset.store.method" "broker")))
+                                 "auto.offset.reset" "earliest")))
           (partition 35))
       (kf:assign consumer (list (cons topic partition)))
       (destructuring-bind
@@ -147,7 +189,7 @@
                       :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" group))))
       (kf:subscribe consumer (list topic))
-      (sleep 2)
+      (sleep 5)
 
       (let ((member-id (kf:member-id consumer))
             (group-info (first (kf::group-info consumer group))))
@@ -164,14 +206,13 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "consumer-pause-group"
                                  "auto.offset.reset" "earliest"
-                                 "enable.auto.commit" "false"
-                                 "offset.store.method" "broker"
-                                 "enable.partition.eof" "false")
+                                 "enable.auto.commit" "false")
                      :serde (lambda (bytes)
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8))))
           (good-partition 1)
@@ -180,6 +221,7 @@
       (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
       (kf:subscribe consumer (list topic))
+      (sleep 5)
 
       (mapcar (lambda (message)
                 (kf:send producer topic message :partition good-partition))
@@ -205,14 +247,13 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "consumer-resume-group"
                                  "auto.offset.reset" "earliest"
-                                 "enable.auto.commit" "false"
-                                 "offset.store.method" "broker"
-                                 "enable.partition.eof" "false")
+                                 "enable.auto.commit" "false")
                      :serde (lambda (bytes)
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8))))
           (good-partition 1)
@@ -222,6 +263,7 @@
       (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
       (kf:subscribe consumer (list topic))
+      (sleep 5)
 
       (mapcar (lambda (message)
                 (kf:send producer topic message :partition good-partition))
@@ -254,7 +296,8 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*))))
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true"))))
       (is (string= topic (kf::create-topic producer topic :partitions 2)))
       (sleep 2)
 
@@ -276,17 +319,17 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "offsets-for-times-group"
                                  "auto.offset.reset" "earliest"
-                                 "enable.auto.commit" "false"
-                                 "offset.store.method" "broker"
-                                 "enable.partition.eof" "false")
+                                 "enable.auto.commit" "false")
                      :serde (lambda (bytes)
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8)))))
       (kf:subscribe consumer (list topic))
+      (sleep 5)
 
       (mapcar (lambda (message)
                 (kf:send producer topic message)
@@ -329,17 +372,17 @@
                      :conf (list "bootstrap.servers" *bootstrap-servers*
                                  "group.id" "positions-group"
                                  "auto.offset.reset" "earliest"
-                                 "enable.auto.commit" "false"
-                                 "offset.store.method" "broker"
-                                 "enable.partition.eof" "false")
+                                 "enable.auto.commit" "false")
                      :serde (lambda (bytes)
                               (babel:octets-to-string bytes :encoding :utf-8))))
           (producer (make-instance
                      'kf:producer
-                     :conf (list "bootstrap.servers" *bootstrap-servers*)
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "enable.idempotence" "true")
                      :serde (lambda (string)
                               (babel:string-to-octets string :encoding :utf-8)))))
       (kf:subscribe consumer (list topic))
+      (sleep 5)
 
       (mapcar (lambda (message)
                 (kf:send producer topic message))

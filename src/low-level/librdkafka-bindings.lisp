@@ -126,9 +126,40 @@
 (defcfun "rd_kafka_errno" :int)
 
 (defcfun "rd_kafka_fatal_error" rd-kafka-resp-err
-  (rdk :pointer)
+  (rk :pointer)
   (errstr :string)
   (errstr-size size-t))
+
+(defcfun "rd_kafka_test_fatal_error" rd-kafka-resp-err
+  (rk :pointer)
+  (err rd-kafka-resp-err)
+  (reason :string))
+
+(defcfun "rd_kafka_error_code" rd-kafka-resp-err
+  (error :pointer))
+
+(defcfun "rd_kafka_error_name" :string
+  (error :pointer))
+
+(defcfun "rd_kafka_error_string" :string
+  (error :pointer))
+
+(defcfun "rd_kafka_error_is_fatal" :boolean
+  (error :pointer))
+
+(defcfun "rd_kafka_error_is_retriable" :boolean
+  (error :pointer))
+
+(defcfun "rd_kafka_error_txn_requires_abort" :boolean
+  (error :pointer))
+
+(defcfun "rd_kafka_error_destroy" :void
+  (error :pointer))
+
+(defcfun "rd_kafka_error_new" :pointer
+  (code rd-kafka-resp-err)
+  (fmt :string)
+  &rest)
 
 (defcstruct rd-kafka-topic-partition
   (topic :string)
@@ -732,6 +763,25 @@
   (rk :pointer)
   (partitions :pointer))
 
+(defcfun "rd_kafka_consumer_group_metadata" :pointer
+  (rk :pointer))
+
+(defcfun "rd_kafka_consumer_group_metadata_new" :pointer
+  (rk :string))
+
+(defcfun "rd_kafka_consumer_group_metadata_destroy" :void
+  (cgmd :pointer))
+
+(defcfun "rd_kafka_consumer_group_metadata_write" :pointer
+  (cgmd :pointer)
+  (bufferp :pointer)
+  (sizep :pointer))
+
+(defcfun "rd_kafka_consumer_group_metadata_read" :pointer
+  (cgmd :pointer)
+  (buffer :pointer)
+  (size size-t))
+
 (defcfun "rd_kafka_produce" :int
   (rkt :pointer)
   (partition :int32)
@@ -911,6 +961,11 @@
   (fac :pointer)
   (str :pointer)
   (level :int))
+
+(defcfun "rd_kafka_event_debug_contexts" :int
+  (rkev :pointer)
+  (dst :string)
+  (dstsize size-t))
 
 (defcfun "rd_kafka_event_stats" :string
   (rkev :pointer))
@@ -1277,3 +1332,24 @@
 (defcfun "rd_kafka_DescribeConfigs_result_resources" :pointer
   (result :pointer)
   (cntp :pointer))
+
+(defcfun "rd_kafka_init_transactions" :pointer
+  (rk :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_begin_transaction" :pointer
+  (rk :pointer))
+
+(defcfun "rd_kafka_send_offsets_to_transaction" :pointer
+  (rk :pointer)
+  (offsets :pointer)
+  (cgmetadata :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_commit_transaction" :pointer
+  (rk :pointer)
+  (timeout-ms :int))
+
+(defcfun "rd_kafka_abort_transaction" :pointer
+  (rk :pointer)
+  (timeout-ms :int))

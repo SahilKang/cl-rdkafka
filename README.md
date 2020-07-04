@@ -2,7 +2,6 @@
 
 [![CircleCI](https://circleci.com/gh/SahilKang/cl-rdkafka.svg?style=shield)](https://circleci.com/gh/SahilKang/cl-rdkafka)
 [![tag](https://img.shields.io/github/tag/SahilKang/cl-rdkafka.svg)](https://github.com/SahilKang/cl-rdkafka/tags)
-[![quicklisp](http://quickdocs.org/badge/cl-rdkafka.svg)](http://quickdocs.org/cl-rdkafka)
 [![license](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](https://github.com/SahilKang/cl-rdkafka/blob/master/LICENSE)
 
 A Common Lisp client library for [Apache Kafka](https://kafka.apache.org/).
@@ -34,7 +33,8 @@ and `kf` is documented under the [API section](#API).
 
 (let ((producer (make-instance
                  'kf:producer
-                 :conf '("bootstrap.servers" "127.0.0.1:9092")
+                 :conf '("bootstrap.servers" "127.0.0.1:9092"
+                         "enable.idempotence" "true")
                  :serde #'babel:string-to-octets))
       (messages '(("key-1" "value-1")
                   ("key-2" "value-2"))))
@@ -55,9 +55,7 @@ and `kf` is documented under the [API section](#API).
                  :conf '("bootstrap.servers" "127.0.0.1:9092"
                          "group.id" "consumer-group-id"
                          "enable.auto.commit" "false"
-                         "auto.offset.reset" "earliest"
-                         "offset.store.method" "broker"
-                         "enable.partition.eof"  "false")
+                         "auto.offset.reset" "earliest")
                  :serde #'babel:octets-to-string)))
   (kf:subscribe consumer "topic-name")
 
@@ -73,6 +71,82 @@ and `kf` is documented under the [API section](#API).
      do (kf:commit consumer)))
 
 ;; => (("key-1" "message-1") ("key-2" "message-2"))
+```
+
+## Transactions :sparkles:
+
+Here's an example which atomically:
+
+1. Consumes a batch of messages from an input topic
+2. Processes the messages by prefixing them with `"processed-"`
+3. Produces the processed batch to an output topic
+
+```lisp
+(ql:quickload '(cl-rdkafka babel))
+
+(defun get-next-batch (consumer max-batch-size)
+  (loop
+    with batch = (make-array 0 :adjustable t :fill-pointer 0)
+
+    repeat max-batch-size
+    for message = (kf:poll consumer 5000)
+    while message
+    do (vector-push-extend message batch)
+
+    finally (return batch)))
+
+(defun process-message (message producer output-topic)
+  (let ((new-value (format nil "processed-~A" (kf:value message))))
+    (kf:send producer output-topic new-value)))
+
+(defun process-batch (consumer producer output-topic)
+  (let ((messages (get-next-batch consumer 5)))
+    (map nil
+         (lambda (message)
+           (process-message message producer output-topic))
+         messages)
+    (kf:send-offsets-to-transaction producer consumer messages 5000)))
+
+(defun rewind-consumer (consumer)
+  (let ((committed (kf:committed consumer (kf:assignment consumer) 5000)))
+    (flet ((rewind (topic&partition->offset&metadata)
+             (let ((topic (caar topic&partition->offset&metadata))
+                   (partition (cdar topic&partition->offset&metadata))
+                   (offset (cadr topic&partition->offset&metadata)))
+               (if (< offset 0)
+                   (kf:seek-to-beginning consumer topic partition 5000)
+                   (kf:seek consumer topic partition offset 5000)))))
+      (map nil #'rewind committed))))
+
+(let ((consumer (make-instance
+                 'kf:consumer
+                 :conf '("bootstrap.servers" "127.0.0.1:9092"
+                         "group.id" "some-group-id"
+                         "enable.auto.commit" "false"
+                         "auto.offset.reset" "earliest")
+                 :serde #'babel:octets-to-string))
+      (producer (make-instance
+                 'kf:producer
+                 :conf '("bootstrap.servers" "127.0.0.1:9092"
+                         "transactional.id" "some-transaction-id")
+                 :serde #'babel:string-to-octets)))
+  (kf:subscribe consumer "some-input-topic")
+  (kf:initialize-transactions producer 5000)
+
+  (kf:begin-transaction producer)
+  (handler-case
+      (progn
+        (process-batch consumer producer "some-output-topic")
+        (kf:commit-transaction producer 5000))
+    (kf:fatal-error (c)
+      (error c))
+    (condition (c)
+      ;; in case of abort, must seek consumer back to its committed offsets
+      ;; this is only needed if the consumer object will continue to be used
+      ;; after the abort
+      (rewind-consumer consumer)
+      (kf:abort-transaction producer 5000)
+      (error c))))
 ```
 
 # Contributing and Hacking
@@ -108,8 +182,16 @@ $ docker system prune -fa && docker volume prune -f
 * [producer class](#producer-class)
     * [send](#send)
     * [flush](#flush)
+    * [initialize-transactions](#initialize-transactions)
+    * [begin-transaction](#begin-transaction)
+    * [commit-transaction](#commit-transaction)
+    * [abort-transaction](#abort-transaction)
+    * [send-offsets-to-transaction](#send-offsets-to-transaction)
 * [consumer class](#consumer-class)
     * [poll](#poll)
+    * [seek](#seek)
+    * [seek-to-beginning](#seek-to-beginning)
+    * [seek-to-end](#seek-to-end)
     * [subscribe](#subscribe)
     * [unsubscribe](#unsubscribe)
     * [subscription](#subscription)
@@ -140,6 +222,10 @@ $ docker system prune -fa && docker volume prune -f
     * [kafka-error](#kafka-error)
     * [rdkafka-error](#rdkafka-error)
     * [partition-error](#partition-error)
+    * [transaction-error](#transaction-error)
+    * [retryable-operation-error](#retryable-operation-error)
+    * [abort-required-error](#abort-required-error)
+    * [fatal-error](#fatal-error)
     * [partial-error](#partial-error)
     * [allocation-error](#allocation-error)
 * [admin api :construction:](#admin-api)
@@ -178,7 +264,8 @@ Example:
 ```lisp
 (let ((producer (make-instance
                  'kf:producer
-                 :conf '("bootstrap.servers" "127.0.0.1:9092")
+                 :conf '("bootstrap.servers" "127.0.0.1:9092"
+                         "enable.idempotence" "true")
                  :serde #'babel:string-to-octets))
       (messages '(("key-1" "value-1")
                   ("key-2" "value-2"))))
@@ -223,6 +310,171 @@ Block while in-flight messages are sent to kafka cluster.
 
 ---
 
+### initialize-transactions
+
+```lisp
+((producer producer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and initialize transactions for `producer`.
+
+When `transactional.id` is configured, this method needs to be called
+exactly once before any other methods on `producer`.
+
+This method:
+
+  1) Ensures any transactions initiated by previous producer instances
+     with the same `transactional.id` are completed:
+
+       * If the previous instance had failed with an in-progress
+         transaction, it will be aborted.
+
+       * If the previous transaction had started committing, but had
+         not yet finished, this method waits for it to finish.
+
+  2) Acquires the internal producer id and epoch to use with all
+     future transactional messages sent by `producer`. This will be used
+     to fence out any previous instances.
+
+May signal a `fatal-error`, `transaction-error`, or
+`retryable-operation-error`. A `retry-operation` restart will be provided
+if it's a `retryable-operation-error`.
+
+---
+
+### begin-transaction
+
+```lisp
+((producer producer))
+```
+
+Begin a transaction.
+
+`initialize-transactions` must have been called exactly once before this
+method, and only one transaction can be in progress at a time for
+`producer`.
+
+The transaction can be committed with `commit-transaction` or aborted
+with `abort-transaction`.
+
+May signal `fatal-error` or `transaction-error`.
+
+---
+
+### commit-transaction
+
+```lisp
+((producer producer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and commit the ongoing transaction.
+
+A transaction must have been started by `begin-transaction`.
+
+This method will flush all enqueued messages before issuing the
+commit. If any of the messages fails to be sent, an
+`abort-required-error` will be signalled.
+
+May signal:
+
+  * `retryable-operation-error`, in which case a `retry-operation` and
+    `abort` restart will be provided.
+
+  * `abort-required-error`, in which case an `abort` restart will be
+    provided.
+
+  * `transaction-error`
+
+  * `fatal-error`
+
+---
+
+### abort-transaction
+
+```lisp
+((producer producer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and abort the ongoing transaction.
+
+A transaction must have been started by `begin-transaction`.
+
+This method will purge all enqueued messages before issuing the
+abort.
+
+May signal a `fatal-error`, `transaction-error`, or
+`retryable-operation-error`. A `retry-operation` and `continue` restart will
+be provided if it's a `retryable-operation-error`.
+
+---
+
+### send-offsets-to-transaction
+
+```lisp
+(producer consumer offsets timeout-ms)
+```
+
+Send `offsets` to `consumer` group coordinator and mark them as part of the ongoing transaction.
+
+A transaction must have been started by `begin-transaction`.
+
+This method will block for up to `timeout-ms` milliseconds.
+
+`offsets` should be associated with `consumer`, and will be considered
+committed only if the ongoing transaction is committed
+successfully. Each offset should refer to the next message that the
+`consumer` `poll` method should return: the last processed message's
+offset + 1. Invalid offsets will be ignored.
+
+`consumer` should have `enable.auto.commit` set to false and should not
+commit offsets itself through the `commit` method.
+
+This method should be called at the end of a
+consume->transform->produce cycle, before calling `commit-transaction`.
+
+May signal:
+
+  * `retryable-operation-error`, in which case a `retry-operation` and
+    `abort` restart will be provided.
+
+  * `abort-required-error`, in which case an `abort` restart will be
+    provided.
+
+  * `transaction-error`
+
+  * `fatal-error`
+
+#### list specialization
+
+```lisp
+((producer producer) (consumer consumer) (offsets list) (timeout-ms integer))
+```
+
+`offsets` should be an alist mapping `(topic . partition)` cons cells
+to either `(offset . metadata)` cons cells or lone offset values.
+
+#### hash-table specialization
+
+```lisp
+((producer producer) (consumer consumer) (offsets hash-table) (timeout-ms integer))
+```
+
+`offsets` should be a hash-table mapping `(topic . partition)` cons
+cells to either `(offset . metadata)` cons cells or lone offset values.
+
+#### sequence specialization
+
+```lisp
+((producer producer) (consumer consumer) (offsets sequence) (timeout-ms integer))
+```
+
+`offsets` should be a sequence of `messages` processed by `consumer`.
+
+This method will figure out the correct offsets to send to the
+consumer group coordinator.
+
+---
+
 ## consumer class
 
 A client that consumes messages from kafka topics.
@@ -260,9 +512,7 @@ Example:
                  :conf '("bootstrap.servers" "127.0.0.1:9092"
                          "group.id" "consumer-group-id"
                          "enable.auto.commit" "false"
-                         "auto.offset.reset" "earliest"
-                         "offset.store.method" "broker"
-                         "enable.partition.eof"  "false")
+                         "auto.offset.reset" "earliest")
                  :serde #'babel:octets-to-string)))
   (kf:subscribe consumer "topic-name")
 
@@ -290,6 +540,36 @@ Block for up to `timeout-ms` milliseconds and return a `message` or nil.
 
 May signal `partition-error` or condition from `consumer`'s serde. A
 `store-function` restart will be provided if it's a serde condition.
+
+---
+
+### seek
+
+```lisp
+((consumer consumer) (topic string) (partition integer) (offset integer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and seek `consumer` to `offset`.
+
+---
+
+### seek-to-beginning
+
+```lisp
+((consumer consumer) (topic string) (partition integer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and seek `consumer` to beginning of `partition`.
+
+---
+
+### seek-to-end
+
+```lisp
+((consumer consumer) (topic string) (partition integer) (timeout-ms integer))
+```
+
+Block for up to `timeout-ms` milliseconds and seek `consumer` to end of `partition`.
 
 ---
 
@@ -708,9 +988,13 @@ The conditions are structured in the following class hierarchy:
     * `allocation-error`
   * `cl:error`
     * `kafka-error`
+      * `partial-error`
       * `rdkafka-error`
         * `partition-error`
-      * `partial-error`
+        * `fatal-error`
+        * `transaction-error`
+          * `retryable-operation-error`
+          * `abort-required-error`
 
 ---
 
@@ -740,6 +1024,48 @@ Condition signalled for errors specific to a topic's partition.
 Slot readers:
 * `topic`: Topic name
 * `partition`: Topic partition
+* `enum`: `cl-rdkafka/ll:rd-kafka-resp-err` enum symbol (inherited)
+* `description`: `enum` description (inherited)
+
+---
+
+### transaction-error
+
+Condition signalled for errors related to transactions.
+
+Slot readers:
+* `enum`: `cl-rdkafka/ll:rd-kafka-resp-err` enum symbol (inherited)
+* `description`: `enum` description (inherited)
+
+---
+
+### retryable-operation-error
+
+Condition signalled by retryable operations that fail during transactions.
+
+Slot readers:
+* `enum`: `cl-rdkafka/ll:rd-kafka-resp-err` enum symbol (inherited)
+* `description`: `enum` description (inherited)
+
+---
+
+### abort-required-error
+
+Condition signalled when a transaction fails and must be aborted.
+
+Slot readers:
+* `enum`: `cl-rdkafka/ll:rd-kafka-resp-err` enum symbol (inherited)
+* `description`: `enum` description (inherited)
+
+---
+
+### fatal-error
+
+Condition signalled for librdkafka fatal errors.
+
+These conditions indicate that the `producer` or `consumer` instance
+should no longer be used.
+
 * `enum`: `cl-rdkafka/ll:rd-kafka-resp-err` enum symbol (inherited)
 * `description`: `enum` description (inherited)
 

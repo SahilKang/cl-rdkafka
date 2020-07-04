@@ -25,7 +25,8 @@
 (defun produce-messages (topic)
   (let ((producer (make-instance
                    'kf:producer
-                   :conf (list "bootstrap.servers" *bootstrap-servers*)
+                   :conf (list "bootstrap.servers" *bootstrap-servers*
+                               "enable.idempotence" "true")
                    :serde (lambda (x)
                             (babel:string-to-octets x :encoding :utf-8))))
         (messages '(("key-1" "Hello") ("key-2" "World") ("key-3" "!"))))
@@ -42,9 +43,7 @@
                    :conf (list "bootstrap.servers" *bootstrap-servers*
                                "group.id" "consume-messages-group-id"
                                "enable.auto.commit" "false"
-                               "auto.offset.reset" "earliest"
-                               "offset.store.method" "broker"
-                               "enable.partition.eof" "false")
+                               "auto.offset.reset" "earliest")
                    :serde (lambda (x)
                             (babel:octets-to-string x :encoding :utf-8)))))
     (kf:subscribe consumer (list topic))
@@ -77,16 +76,15 @@
                       (lparallel:make-channel)))
            (producer (make-instance
                       'kf:producer
-                      :conf (list "bootstrap.servers" *bootstrap-servers*)
+                      :conf (list "bootstrap.servers" *bootstrap-servers*
+                                  "enable.idempotence" "true")
                       :serde #'babel:string-to-octets))
            (consumer (make-instance
                       'kf:consumer
                       :conf (list "bootstrap.servers" *bootstrap-servers*
                                   "group.id" "deadlock-group-id"
                                   "enable.auto.commit" "false"
-                                  "auto.offset.reset" "earliest"
-                                  "offset.store.method" "broker"
-                                  "enable.partition.eof" "false")
+                                  "auto.offset.reset" "earliest")
                       :serde #'babel:octets-to-string)))
       (labels ((process ()
                  (bt:with-lock-held (lock)

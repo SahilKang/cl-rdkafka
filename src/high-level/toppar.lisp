@@ -109,6 +109,23 @@ cl-rdkafka/ll:rd-kafka-topic-partition struct field."
         (cl-rdkafka/ll:rd-kafka-topic-partition-list-destroy toppar-list)
         (error c)))))
 
+(defun alloc-toppar-list-from-alist (seq)
+  "Convenience wrapper for ALLOC-TOPPAR-LIST.
+
+The elements of SEQ should look like either:
+  * ((topic . partition) . (offset . metadata))
+  * ((topic . partition) . offset)"
+  (alloc-toppar-list seq
+                     :topic #'caar
+                     :partition #'cdar
+                     :offset (lambda (pair)
+                               (if (consp (cdr pair))
+                                   (cadr pair)
+                                   (cdr pair)))
+                     :metadata (lambda (pair)
+                                 (when (consp (cdr pair))
+                                   (cddr pair)))))
+
 
 (defmacro with-toppar-list (symbol alloc-form &body body)
   `(let ((,symbol ,alloc-form))

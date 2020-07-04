@@ -42,6 +42,9 @@
    ;; consumer class
    #:consumer
    #:poll
+   #:seek
+   #:seek-to-beginning
+   #:seek-to-end
    #:subscribe
    #:unsubscribe
    #:subscription
@@ -61,6 +64,11 @@
    #:producer
    #:send
    #:flush
+   #:initialize-transactions
+   #:begin-transaction
+   #:commit-transaction
+   #:abort-transaction
+   #:send-offsets-to-transaction
 
    ;; conditions
    #:kafka-error
@@ -68,6 +76,10 @@
    #:partition-error
    #:partial-error
    #:allocation-error
+   #:fatal-error
+   #:transaction-error
+   #:retryable-operation-error
+   #:abort-required-error
    #:description
    #:enum
    #:goodies

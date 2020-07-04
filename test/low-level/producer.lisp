@@ -92,7 +92,7 @@
 
 (defun consume-messages (bootstrap-servers topic)
   (uiop:run-program
-   (format nil "kafkacat -Ce -b '~A' -t '~A'" bootstrap-servers topic)
+   (format nil "timeout 5 kafkacat -Ce -b '~A' -t '~A' || exit 0" bootstrap-servers topic)
    :force-shell t
    :output :lines))
 
@@ -105,7 +105,8 @@
           producer)
       (unwind-protect
            (cffi:with-foreign-object (errstr :char errstr-len)
-             (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*))
+             (setf conf (make-conf `(("bootstrap.servers" . ,*bootstrap-servers*)
+                                     ("enable.idempotence" . "true"))
                                    errstr
                                    errstr-len)
                    producer (make-producer conf errstr errstr-len))
