@@ -17,10 +17,10 @@
 
 (in-package #:cl-user)
 
-(defpackage #:test/high-level/produce->consume
+(defpackage #:test/high-level/produce-consume
   (:use #:cl #:1am #:test))
 
-(in-package #:test/high-level/produce->consume)
+(in-package #:test/high-level/produce-consume)
 
 (defun produce-messages (topic)
   (let ((producer (make-instance
@@ -59,7 +59,7 @@
 
        do (kf:commit consumer))))
 
-(test produce->consume
+(test produce-consume
   (with-topics ((topic "test-produce-to-consume"))
     (let ((expected (produce-messages topic))
           (actual (consume-messages topic)))
