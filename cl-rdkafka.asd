@@ -91,7 +91,7 @@
             :components
             ((:file "consumer")
              (:file "producer")
-             (:file "produce->consume")
+             (:file "produce-consume")
              (:file "admin")
              (:file "headers")
              (:file "transactions")))))
