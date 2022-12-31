@@ -156,6 +156,15 @@ with any questions :incoming_envelope:
 
 To run the tests:
 
+:warning: Some of the following commands below, such as `--rmi` and `prune`,
+will remove all local docker images and volumes. If this may be a problem,
+consult the
+[docker compose](https://docs.docker.com/engine/reference/commandline/compose_down/),
+[docker system](https://docs.docker.com/engine/reference/commandline/system_prune/),
+and
+[docker volume](https://docs.docker.com/engine/reference/commandline/volume_prune/)
+docs.
+
 ```bash
 $ docker-compose -f ./test/docker-compose.test.yml \
 >   up --build --remove-orphans --abort-on-container-exit test
@@ -626,17 +635,23 @@ Return a list of topic names that `consumer` is subscribed to.
 
 Assign `partitions` to `consumer`.
 
-`partitions` should be a sequence of `(topic . partition)` cons cells.
+`partitions` should be a sequence of either:
+  * `(topic . partition)` cons cells
+  * `((topic . partition) . offset)` cons cells
 
 ---
 
 ### assignment
 
 ```lisp
-((consumer consumer))
+((consumer consumer) &key offsetsp)
 ```
 
-Return a `(topic . partition)` list of partitions assigned to `consumer`.
+Return a list of partitions assigned to `consumer`.
+
+The elements of the returned list will be either:
+  * `(topic . partition)` cons cells if `offsetsp` is nil
+  * `((topic . partition) . offset)` cons cells otherwise
 
 ---
 

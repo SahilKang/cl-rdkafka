@@ -6,7 +6,7 @@ services:
       - "2181:2181"
 
   kafka:
-    image: wurstmeister/kafka
+    image: wurstmeister/kafka:2.12-2.4.0
     ports:
       - "9092:9092"
     environment:
@@ -22,6 +22,6 @@ services:
       dockerfile: ./test/Dockerfile.test
       args:
         bootstrap_servers: "kafka:9092"
-        librdkafka_commit: "v1.4.2"
+        librdkafka_commit: "v1.6.0"
     links:
       - kafka

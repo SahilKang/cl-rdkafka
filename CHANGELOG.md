@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0] - 2022-12-30
+
+### Added
+
+ * Add support for offsets to `assign` and `assignment` consumer methods.
+   [issue #67](https://github.com/SahilKang/cl-rdkafka/issues/67) from
+   [@Uthar](https://github.com/Uthar).
+
 ## [1.1.0] - 2020-07-04
 
 ### Added

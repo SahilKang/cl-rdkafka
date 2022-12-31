@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2022 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -103,14 +104,14 @@
                     do (kf:send producer topic "deadlock-message")
                     finally (kf:flush producer))
                  (loop
-                    repeat (* 2 expected-messages)
+                    repeat (* 20 expected-messages)
                     until (= expected-messages actual-messages)
                     do (poll))))
         (unwind-protect
-             ;; pass or fail within 1 minute
+             ;; pass or fail within 2 minutes
              (loop
                 initially (lparallel:submit-task channel #'poll-loop)
-                repeat 30
+                repeat 60
                 until (= expected-messages actual-messages)
                 do (sleep 2)
                 finally (is (= expected-messages actual-messages)))
