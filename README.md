@@ -635,17 +635,23 @@ Return a list of topic names that `consumer` is subscribed to.
 
 Assign `partitions` to `consumer`.
 
-`partitions` should be a sequence of `(topic . partition)` cons cells.
+`partitions` should be a sequence of either:
+  * `(topic . partition)` cons cells
+  * `((topic . partition) . offset)` cons cells
 
 ---
 
 ### assignment
 
 ```lisp
-((consumer consumer))
+((consumer consumer) &key offsetsp)
 ```
 
-Return a `(topic . partition)` list of partitions assigned to `consumer`.
+Return a list of partitions assigned to `consumer`.
+
+The elements of the returned list will be either:
+  * `(topic . partition)` cons cells if `offsetsp` is nil
+  * `((topic . partition) . offset)` cons cells otherwise
 
 ---
 

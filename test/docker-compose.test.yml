@@ -22,6 +22,6 @@ services:
       dockerfile: ./test/Dockerfile.test
       args:
         bootstrap_servers: "kafka:9092"
-        librdkafka_commit: "v1.4.2"
+        librdkafka_commit: "v1.6.0"
     links:
       - kafka

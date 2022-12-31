@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2022 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -88,7 +89,7 @@ Example:
 
 (defgeneric committed (consumer partitions timeout-ms))
 
-(defgeneric assignment (consumer))
+(defgeneric assignment (consumer &key offsetsp))
 
 (defgeneric assign (consumer partitions))
 
@@ -342,13 +343,20 @@ If ASYNCP is true, then a FUTURE will be returned instead."
         (error (make-rdkafka-error err)))
       (cffi:mem-ref rd-list :pointer))))
 
-(defmethod assignment ((consumer consumer))
-  "Return a (topic . partition) list of partitions assigned to CONSUMER."
+(defmethod assignment ((consumer consumer) &key offsetsp)
+  "Return a list of partitions assigned to CONSUMER.
+
+The elements of the returned list will be either:
+  * (topic . partition) cons cells if OFFSETSP is nil
+  * ((topic . partition) . offset) cons cells otherwise"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list toppar-list (%assignment rd-kafka-consumer)
       (let (partitions)
-        (foreach-toppar toppar-list (topic partition)
-          (push (cons topic partition) partitions))
+        (if offsetsp
+            (foreach-toppar toppar-list (topic partition offset)
+              (push (cons (cons topic partition) offset) partitions))
+            (foreach-toppar toppar-list (topic partition)
+              (push (cons topic partition) partitions)))
         (nreverse partitions)))))
 
 (defmethod committed
@@ -396,11 +404,29 @@ The PARTIAL-ERROR will have the slots:
 (defmethod assign ((consumer consumer) (partitions sequence))
   "Assign PARTITIONS to CONSUMER.
 
-PARTITIONS should be a sequence of (topic . partition) cons cells."
+PARTITIONS should be a sequence of either:
+  * (topic . partition) cons cells
+  * ((topic . partition) . offset) cons cells"
   (with-slots (rd-kafka-consumer) consumer
     (with-toppar-list
         toppar-list
-        (alloc-toppar-list partitions :topic #'car :partition #'cdr)
+        (alloc-toppar-list
+         partitions
+         :topic (lambda (cons)
+                  (let ((car (car cons)))
+                    (if (consp car)
+                        (car car)
+                        car)))
+         :partition (lambda (cons)
+                      (let ((car (car cons)))
+                        (if (consp car)
+                            (cdr car)
+                            (cdr cons))))
+         :offset (lambda (cons)
+                   (let ((car (car cons)))
+                     (if (consp car)
+                         (cdr cons)
+                         cl-rdkafka/ll:rd-kafka-offset-invalid))))
       (let ((err (cl-rdkafka/ll:rd-kafka-assign rd-kafka-consumer toppar-list)))
         (unless (eq err 'cl-rdkafka/ll:rd-kafka-resp-err-no-error)
           (error (make-rdkafka-error err)))))))

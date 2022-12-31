@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2022 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -180,6 +181,37 @@
             (actual-topic . actual-partition) (first (kf:assignment consumer))
         (is (string= topic actual-topic))
         (is (= partition actual-partition))))))
+
+(test assign-offsets
+  (with-topics ((topic "consumer-assign-offsets-topic"))
+    (let ((consumer (make-instance
+                     'kf:consumer
+                     :conf (list "bootstrap.servers" *bootstrap-servers*
+                                 "group.id" "consumer-assign-offsets-group"
+                                 "enable.auto.commit" "true"
+                                 "auto.offset.reset" "earliest")))
+          (partition-1 35)
+          (partition-2 36)
+          (offset 3))
+      (kf:assign consumer (list (cons topic partition-1)
+                                (cons (cons topic partition-2) offset)))
+      (destructuring-bind
+          (((actual-topic-1 . actual-partition-1) . actual-offset-1)
+           ((actual-topic-2 . actual-partition-2) . actual-offset-2))
+          (kf:assignment consumer :offsetsp t)
+        (is (string= topic actual-topic-1))
+        (is (string= topic actual-topic-2))
+        (is (or (= partition-1 actual-partition-1)
+                (= partition-2 actual-partition-1)))
+        (if (= partition-1 actual-partition-1)
+            (progn
+              (is (= partition-2 actual-partition-2))
+              (is (= cl-rdkafka/ll:rd-kafka-offset-stored actual-offset-1))
+              (is (= offset actual-offset-2)))
+            (progn
+              (is (= partition-1 actual-partition-2))
+              (is (= offset actual-offset-1))
+              (is (= cl-rdkafka/ll:rd-kafka-offset-stored actual-offset-2))))))))
 
 (test consumer-member-id
   (with-topics ((topic "consumer-member-id"))
