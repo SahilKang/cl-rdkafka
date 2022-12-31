@@ -156,6 +156,15 @@ with any questions :incoming_envelope:
 
 To run the tests:
 
+:warning: Some of the following commands below, such as `--rmi` and `prune`,
+will remove all local docker images and volumes. If this may be a problem,
+consult the
+[docker compose](https://docs.docker.com/engine/reference/commandline/compose_down/),
+[docker system](https://docs.docker.com/engine/reference/commandline/system_prune/),
+and
+[docker volume](https://docs.docker.com/engine/reference/commandline/volume_prune/)
+docs.
+
 ```bash
 $ docker-compose -f ./test/docker-compose.test.yml \
 >   up --build --remove-orphans --abort-on-container-exit test
