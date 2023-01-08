@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.1] - 2023-01-08
+
+### Fixed
+
+ * When checking the return value's type, key and value producer
+   serializers no longer traverse the return value if it's a
+   `(vector (unsigned-byte 8))`.
+
+ * Set `client.software.name` and `client.software.version` configs.
+
 ## [1.2.0] - 2022-12-30
 
 ### Added

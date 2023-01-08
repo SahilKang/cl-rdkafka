@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2023 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -131,8 +132,6 @@ If TYPE is :TOPIC, then NAME should be the topic-name."))
   (%alter-config pointer topic config timeout-ms))
 
 
-;; TODO debian stable's version of librdkafka doesn't have the
-;; rd-kafka-conf function so figure out a unit-testing approach later
 (def-admin-methods get-conf (client)
   (let ((conf (cl-rdkafka/ll:rd-kafka-conf pointer))
         kv-pairs

@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2023 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -226,6 +227,39 @@
                         '(("message.timestamp.type" . "LogAppendTime")))
       (sleep 2)
       (is (string= "LogAppendTime" (funcall get-actual))))))
+
+
+(test get-topic-with-consumer
+  (with-topics ((topic "get-topic-with-consumer"))
+    (let* ((consumer (make-instance
+                      'kf:consumer
+                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
+           (config (kf::get-conf consumer)))
+      (is (string= "cl-rdkafka"
+                   (cdr (assoc "client.software.name" config :test #'string=))))
+      (let ((version (format nil "v~A-librdkafka-v~A"
+                             (asdf:component-version
+                              (asdf:find-system 'cl-rdkafka))
+                             (cl-rdkafka/ll:rd-kafka-version-str))))
+        (is (string= version
+                     (cdr (assoc "client.software.version" config
+                                 :test #'string=))))))))
+
+(test get-topic-with-producer
+  (with-topics ((topic "get-topic-with-producer"))
+    (let* ((producer (make-instance
+                      'kf:producer
+                      :conf (list "bootstrap.servers" *bootstrap-servers*)))
+           (config (kf::get-conf producer)))
+      (is (string= "cl-rdkafka"
+                   (cdr (assoc "client.software.name" config :test #'string=))))
+      (let ((version (format nil "v~A-librdkafka-v~A"
+                             (asdf:component-version
+                              (asdf:find-system 'cl-rdkafka))
+                             (cl-rdkafka/ll:rd-kafka-version-str))))
+        (is (string= version
+                     (cdr (assoc "client.software.version" config
+                                 :test #'string=))))))))
 
 
 (test cluster-metadata-with-consumer

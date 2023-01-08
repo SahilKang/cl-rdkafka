@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2023 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -48,4 +49,4 @@ functions.")
                 (typep elt '(unsigned-byte 8)))
               seq)))
 
-(deftype byte-seq () '(satisfies byte-seq-p))
+(deftype byte-seq () '(or (vector (unsigned-byte 8)) (satisfies byte-seq-p)))
