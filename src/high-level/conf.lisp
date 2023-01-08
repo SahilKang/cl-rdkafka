@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2023 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -102,6 +103,12 @@
                      ,@(when old-version-p
                          `(,rd-kafka-topic-conf (alloc-rd-kafka-topic-conf))))
                ,@body
+               (,set-keyval "client.software.name" "cl-rdkafka")
+               (,set-keyval "client.software.version"
+                            (format nil "v~A-librdkafka-v~A"
+                                    (asdf:component-version
+                                     (asdf:find-system 'cl-rdkafka))
+                                    (cl-rdkafka/ll:rd-kafka-version-str)))
                ,@(when old-version-p
                    `((cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf
                       ,rd-kafka-conf
