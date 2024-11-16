@@ -107,7 +107,11 @@
                (,set-keyval "client.software.version"
                             (format nil "v~A-librdkafka-v~A"
                                     (asdf:component-version
-                                     (asdf:find-system 'cl-rdkafka))
+                                     ;; Previously here was used a FIND-SYSTEM
+                                     ;; but it causes ASDF/PLAN:SYSTEM-OUT-OF-DATE error
+                                     ;; when cl-rdkafka is used:
+                                     ;; https://github.com/SahilKang/cl-rdkafka/issues/72
+                                     (asdf:registered-system 'cl-rdkafka))
                                     (cl-rdkafka/ll:rd-kafka-version-str)))
                ,@(when old-version-p
                    `((cl-rdkafka/ll:rd-kafka-conf-set-default-topic-conf
