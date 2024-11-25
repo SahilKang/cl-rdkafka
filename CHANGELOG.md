@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.2] - 2024-11-24
+
+### Fixed
+
+ * Use `asdf:registered-system` instead of `asdf:find-system` to avoid an
+   `asdf/plan:system-out-of-date` error.
+   [PR #73](https://github.com/SahilKang/cl-rdkafka/pull/73) from
+   [@svetlyak40wt](https://github.com/svetlyak40wt).
+
+ * Add a `continue` restart to `cl-rdkafka::poll-loop` to allow error recovery.
+   [PR #73](https://github.com/SahilKang/cl-rdkafka/pull/73) from
+   [@svetlyak40wt](https://github.com/svetlyak40wt).
+
+ * Improve readability of error messages from
+   `cl-rdkafka::assert-expected-event`.
+   [PR #73](https://github.com/SahilKang/cl-rdkafka/pull/73) from
+   [@svetlyak40wt](https://github.com/svetlyak40wt).
+
 ## [1.2.1] - 2023-01-08
 
 ### Fixed
