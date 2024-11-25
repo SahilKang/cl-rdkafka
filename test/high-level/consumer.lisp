@@ -1,5 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
-;;; Copyright 2022 Google LLC
+;;; Copyright 2022, 2024 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -51,11 +51,13 @@
                                     (babel:octets-to-string x :encoding :utf-8))))
           (expected '("Hello" "World" "!")))
       (uiop:run-program
-       (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
+       (format nil "echo -n '~A' | kcat -P -D '|' -b '~A' -t '~A'"
                (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
                *bootstrap-servers*
                topic)
-       :force-shell t)
+       :force-shell t
+       :output t
+       :error-output :output)
       (sleep 2)
 
       (kf:subscribe consumer (list topic))
@@ -76,11 +78,13 @@
                      :serde #'babel:octets-to-string))
           (expected '("one" "two" "three")))
       (uiop:run-program
-       (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
+       (format nil "echo -n '~A' | kcat -P -D '|' -b '~A' -t '~A'"
                (reduce (lambda (agg s) (format nil "~A|~A" agg s)) expected)
                *bootstrap-servers*
                topic)
-       :force-shell t)
+       :force-shell t
+       :output t
+       :error-output :output)
       (sleep 2)
       (kf:subscribe consumer topic)
       (sleep 5)
@@ -122,10 +126,12 @@
                                  "auto.offset.reset" "earliest")))
           (expected '(1 2 3)))
       (uiop:run-program
-       (format nil "echo -n 'Live|Laugh|Hack' | kafkacat -P -D '|' -b '~A' -t '~A'"
+       (format nil "echo -n 'Live|Laugh|Hack' | kcat -P -D '|' -b '~A' -t '~A'"
                *bootstrap-servers*
                topic)
-       :force-shell t)
+       :force-shell t
+       :output t
+       :error-output :output)
       (sleep 2)
 
       (kf:subscribe consumer (list topic))

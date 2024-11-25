@@ -1,5 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
-;;; Copyright 2023 Google LLC
+;;; Copyright 2023-2024 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -26,14 +26,14 @@
 (defun make-sed-commmand (topic)
   (format nil "sed -En 's/^\\s+topic\\s+~S\\s+with\\s+([0-9]+).*/\\1/p'" topic))
 
-(defun make-kafkacat-command (bootstrap-servers topic)
+(defun make-kcat-command (bootstrap-servers topic)
   (let ((sed (make-sed-commmand topic)))
-    (format nil "kafkacat -b '~A' -L -t '~A' | ~A" bootstrap-servers topic sed)))
+    (format nil "kcat -b '~A' -L -t '~A' | ~A" bootstrap-servers topic sed)))
 
 (defun get-partitions (bootstrap-servers topic)
   (parse-integer
    (uiop:run-program
-    (make-kafkacat-command bootstrap-servers topic)
+    (make-kcat-command bootstrap-servers topic)
     :force-shell t
     :output 'string)))
 

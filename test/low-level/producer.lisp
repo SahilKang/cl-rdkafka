@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2024 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -92,7 +93,7 @@
 
 (defun consume-messages (bootstrap-servers topic)
   (uiop:run-program
-   (format nil "timeout 5 kafkacat -Ce -b '~A' -t '~A' || exit 0" bootstrap-servers topic)
+   (format nil "timeout 5 kcat -Ce -b '~A' -t '~A' || exit 0" bootstrap-servers topic)
    :force-shell t
    :output :lines))
 

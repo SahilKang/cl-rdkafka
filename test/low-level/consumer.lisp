@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2024 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -109,11 +110,13 @@
 
 (defun produce-messages (bootstrap-servers topic messages)
   (uiop:run-program
-   (format nil "echo -n '~A' | kafkacat -P -D '|' -b '~A' -t '~A'"
+   (format nil "echo -n '~A' | kcat -P -D '|' -b '~A' -t '~A'"
            (reduce (lambda (agg s) (format nil "~A|~A" agg s)) messages)
            bootstrap-servers
            topic)
-   :force-shell t))
+   :force-shell t
+   :output t
+   :error-output :output))
 
 
 (test consumer
