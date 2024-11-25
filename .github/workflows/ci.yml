@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: docker compose
+        run: |
+          docker compose -f ./test/docker-compose.test.yml \
+          up --build --abort-on-container-exit test

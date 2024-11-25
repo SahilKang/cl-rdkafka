@@ -1,4 +1,5 @@
 ;;; Copyright (C) 2018-2020 Sahil Kang <sahil.kang@asilaycomputing.com>
+;;; Copyright 2024 Google LLC
 ;;;
 ;;; This file is part of cl-rdkafka.
 ;;;
@@ -22,7 +23,7 @@
 
 (in-package #:test/high-level/producer)
 
-(defun parse-kafkacat (output-lines)
+(defun parse-kcat (output-lines)
   (flet ((parse (partition-key-value)
            (cdr (uiop:split-string partition-key-value :separator "|"))))
     (loop
@@ -46,15 +47,15 @@
       (kf:flush producer)
       (sleep 2)
 
-      (let* ((kafkacat-output-lines
+      (let* ((kcat-output-lines
               (uiop:run-program
-               (format nil "timeout 5 kafkacat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A' || exit 0"
+               (format nil "timeout 5 kcat -CeO -K '%p|%k|%s~A' -b '~A' -t '~A' || exit 0"
                        #\newline
                        *bootstrap-servers*
                        topic)
                :force-shell t
                :output :lines))
-             (actual (parse-kafkacat kafkacat-output-lines)))
+             (actual (parse-kcat kcat-output-lines)))
         (is (equal expected actual))))))
 
 (test producer-futures

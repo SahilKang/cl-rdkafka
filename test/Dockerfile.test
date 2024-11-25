@@ -16,7 +16,7 @@ COPY test test
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates build-essential coreutils libffi-dev python3 git \
-    kafkacat sbcl cl-quicklisp \
+    kcat sbcl cl-quicklisp \
     && git clone https://github.com/edenhill/librdkafka.git \
     && cd ./librdkafka && git checkout $librdkafka_commit \
     && ./configure --prefix $install_dir && make && make install \
