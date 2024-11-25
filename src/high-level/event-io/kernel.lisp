@@ -81,21 +81,31 @@
               (cl-rdkafka/ll:rd-kafka-event-destroy event))))))
 
 (defun poll-loop ()
-  (cffi:with-foreign-object (pollfd '(:struct pollfd))
-    (setf (cffi:foreign-slot-value pollfd '(:struct pollfd) 'fd) +read-fd+
-          (cffi:foreign-slot-value pollfd '(:struct pollfd) 'events) pollin)
-    (loop
-       for rd-kafka-queue = (read-rd-kafka-queue-from-fd pollfd)
-       do (bt:with-lock-held (+address->queue-lock+)
-            (process-events rd-kafka-queue)))))
+  (log:info "Entering Kafka poll loop")
+  (unwind-protect
+       (cffi:with-foreign-object (pollfd '(:struct pollfd))
+         (setf (cffi:foreign-slot-value pollfd '(:struct pollfd) 'fd) +read-fd+
+               (cffi:foreign-slot-value pollfd '(:struct pollfd) 'events) pollin)
+         (loop
+           for rd-kafka-queue = (read-rd-kafka-queue-from-fd pollfd)
+           do (with-simple-restart (continue "Ignore error and continue polling")
+                (bt:with-lock-held (+address->queue-lock+)
+                  (process-events rd-kafka-queue)))))
+    (log:info "Exiting Kafka poll loop")))
 
 (defun assert-expected-event (rd-kafka-event expected)
   (let ((actual (cl-rdkafka/ll:rd-kafka-event-type rd-kafka-event)))
     (unless (= expected actual)
-      (error 'kafka-error
-             :description
-             (format nil  "Expected event-type `~A`, not `~A`"
-                     expected actual)))))
+      (cond
+        ((= actual cl-rdkafka/ll:rd-kafka-event-error)
+         (error 'kafka-error
+                :description
+                (cl-rdkafka/ll:rd-kafka-event-error-string rd-kafka-event)))
+        (t
+         (error 'kafka-error
+                :description
+                (format nil  "Expected event-type `~A`, not `~A`"
+                        expected actual)))))))
 
 (defun init-fds ()
   (cffi:with-foreign-object (fds :int 2)
